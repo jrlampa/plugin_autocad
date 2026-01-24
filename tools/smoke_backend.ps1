@@ -28,10 +28,26 @@ if (-not (Test-Path -LiteralPath $BackendExe)) {
   throw "Backend EXE não encontrado em: $BackendExe"
 }
 
+$tempRoot = $env:TEMP
+if (-not $tempRoot) { $tempRoot = (Join-Path $env:USERPROFILE "AppData\\Local\\Temp") }
+$runDir = Join-Path $tempRoot "sisrua_smoke_run"
+try {
+  New-Item -ItemType Directory -Path $runDir -Force | Out-Null
+  $runExe = Join-Path $runDir "sisrua_backend.exe"
+  Copy-Item -LiteralPath $BackendExe -Destination $runExe -Force
+  $BackendExe = $runExe
+} catch {
+  # Se falhar copiar, tenta executar do local original.
+}
+
 $port = Get-FreePort
 $baseUrl = "http://127.0.0.1:$port"
 
+$token = [Guid]::NewGuid().ToString("N")
+$headers = @{ 'X-SisRua-Token' = $token }
+
 Write-Host "[smoke] Iniciando backend: $BackendExe --port $port"
+$env:SISRUA_AUTH_TOKEN = $token
 $p = Start-Process -FilePath $BackendExe -ArgumentList "--host 127.0.0.1 --port $port --log-level warning" -PassThru -WindowStyle Hidden
 
 try {
@@ -39,6 +55,10 @@ try {
     throw "Backend não respondeu /api/v1/health em $baseUrl"
   }
   Write-Host "[smoke] Health OK: $baseUrl"
+
+  # Auth check (token)
+  $auth = Invoke-RestMethod -Method Get -Uri "$baseUrl/api/v1/auth/check" -Headers $headers -TimeoutSec 10
+  if ($auth.status -ne 'ok') { throw "auth/check não retornou status=ok" }
 
   # GeoJSON mínimo
   $geo = @{
@@ -59,7 +79,7 @@ try {
   }
 
   $geoReq = @{ geojson = $geo } | ConvertTo-Json -Depth 30
-  $geoResp = Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/prepare/geojson" -ContentType "application/json" -Body $geoReq -TimeoutSec 30
+  $geoResp = Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/prepare/geojson" -Headers $headers -ContentType "application/json" -Body $geoReq -TimeoutSec 30
   if (-not $geoResp.features -or $geoResp.features.Count -lt 1) {
     throw "prepare/geojson retornou 0 features"
   }
@@ -73,7 +93,7 @@ try {
     } | ConvertTo-Json
 
     try {
-      $osmResp = Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/prepare/osm" -ContentType "application/json" -Body $osmReq -TimeoutSec 120
+      $osmResp = Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/prepare/osm" -Headers $headers -ContentType "application/json" -Body $osmReq -TimeoutSec 120
       if (-not $osmResp.features) {
         throw "prepare/osm retornou resposta sem 'features'"
       }

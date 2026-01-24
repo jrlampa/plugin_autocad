@@ -1,3 +1,10 @@
+"""
+LEGACY/EXPERIMENTAL — geração de DXF.
+
+O fluxo padrão do sisRUA (produção) é JSON → polylines (ver `api.py`).
+Este módulo é mantido apenas como referência e não é chamado pelo backend principal.
+"""
+
 import osmnx as ox
 import geopandas as gpd
 from shapely.geometry import Polygon, MultiPolygon

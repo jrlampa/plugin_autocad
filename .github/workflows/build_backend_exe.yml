@@ -1,0 +1,41 @@
+name: build-backend-exe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "sisRUA.bundle/Contents/backend/**"
+      - "tools/build_backend_exe.cmd"
+      - "tools/smoke_backend.ps1"
+      - ".github/workflows/build_backend_exe.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build sisrua_backend.exe (PyInstaller)
+        shell: cmd
+        run: |
+          set SISRUA_BUILD_ROOT=C:\sisrua_build
+          set SISRUA_REBUILD_BACKEND_EXE=1
+          call tools\build_backend_exe.cmd
+
+      - name: Smoke test (no OSM)
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -ExecutionPolicy Bypass -File tools/smoke_backend.ps1 -SkipOsm
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sisrua_backend_exe
+          path: |
+            sisRUA.bundle/Contents/backend/sisrua_backend.exe

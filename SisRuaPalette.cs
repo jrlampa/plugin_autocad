@@ -19,6 +19,33 @@ namespace sisRUA
     {
         private static PaletteSet _paletteSet;
         private static WebView2 _webView;
+        private static Control _uiInvokeTarget;
+
+        public static void PostUiMessage(object message)
+        {
+            try
+            {
+                if (message == null) return;
+                string json = JsonSerializer.Serialize(message);
+
+                var target = _uiInvokeTarget;
+                if (target != null && target.IsHandleCreated)
+                {
+                    target.BeginInvoke((Action)(() =>
+                    {
+                        _webView?.CoreWebView2?.PostWebMessageAsString(json);
+                    }));
+                }
+                else
+                {
+                    _webView?.CoreWebView2?.PostWebMessageAsString(json);
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+        }
 
         [CommandMethod("SISRUA", CommandFlags.Session)]
         public void ShowSisRuaPalette()
@@ -34,6 +61,7 @@ namespace sisRUA
 
                 var panel = new UserControl { Dock = DockStyle.Fill };
                 _webView = new WebView2 { Dock = DockStyle.Fill };
+                _uiInvokeTarget = panel;
                 
                 // Habilita o Drag & Drop no painel
                 panel.AllowDrop = true;
@@ -86,24 +114,11 @@ namespace sisRUA
                     {
                         string fileContent = File.ReadAllText(firstFile);
                         string fileName = Path.GetFileName(firstFile);
-
-                        // Cria uma mensagem anônima para serializar para JSON
-                        var message = new
-                        {
-                            action = "FILE_DROPPED",
-                            data = new 
-                            {
-                                fileName,
-                                content = fileContent
-                            }
-                        };
-                        
-                        string jsonMessage = JsonSerializer.Serialize(message);
                         
                         if (_webView?.CoreWebView2 != null)
                         {
                             // Envia o conteúdo do arquivo para o frontend
-                            _webView.CoreWebView2.PostWebMessageAsString(jsonMessage);
+                            PostUiMessage(new { action = "FILE_DROPPED", data = new { fileName, content = fileContent } });
                             Debug.WriteLine($"[sisRUA] Arquivo '{fileName}' solto e enviado para a WebView.");
                         }
                     }

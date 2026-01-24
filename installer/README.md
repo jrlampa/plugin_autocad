@@ -29,3 +29,8 @@ Assim o AutoCAD carrega o plugin automaticamente, sem `NETLOAD`.
 
 O executável final sairá em `installer\out\`.
 
+## Versão do instalador
+
+- A versão vem de `VERSION.txt` na raiz do projeto.
+- Atualize esse arquivo antes de gerar um release.
+

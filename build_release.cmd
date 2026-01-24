@@ -29,9 +29,18 @@ if "%SISRUA_BUILD_NET48%"=="1" (
 )
 
 echo [1/3] Gerando backend EXE (opcional, mas recomendado)...
+REM Em Release, queremos garantir que o EXE reflita o código atual do backend.
+set SISRUA_REBUILD_BACKEND_EXE=1
 call "%ROOT%tools\\build_backend_exe.cmd"
 if errorlevel 1 (
   echo ERRO: falha ao gerar backend exe.
+  exit /b 1
+)
+
+echo [1.5/3] Smoke test do backend EXE (sem OSM)...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%tools\smoke_backend.ps1" -SkipOsm
+if errorlevel 1 (
+  echo ERRO: smoke test do backend falhou.
   exit /b 1
 )
 

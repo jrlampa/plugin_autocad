@@ -10,11 +10,7 @@ Gerar uma distribuição “de produção” com:
 
 ## Passo a passo (recomendado)
 
-1) Gerar backend EXE (sem Python no usuário final):
-
-- rode `tools\build_backend_exe.cmd`
-
-2) Gerar o bundle de release:
+1) Gerar o bundle de release (inclui backend EXE + smoke test):
 
 - rode `build_release.cmd`
 
@@ -22,9 +18,7 @@ Saída:
 
 - `release\sisRUA.bundle`
 
-3) Smoke test do backend (sem AutoCAD):
-
-- rode `powershell -ExecutionPolicy Bypass -File tools\smoke_backend.ps1 -SkipOsm`
+- Observação: o `build_release.cmd` executa o smoke test do backend automaticamente (modo `-SkipOsm`).
 
 ## Gerar instalador (EXE)
 
@@ -38,7 +32,7 @@ Depois rode:
 
 Saída:
 
-- `installer\out\sisRUA-Installer.exe`
+- `installer\out\sisRUA-Installer-<versão>.exe`
 
 ## Assinatura digital (recomendado para App Store)
 

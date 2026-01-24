@@ -1,15 +1,23 @@
+#ifndef AppVersion
+  #define AppVersion GetEnv('SISRUA_VERSION')
+#endif
+#if AppVersion == ""
+  #define AppVersion "0.0.0"
+#endif
+
 [Setup]
 AppName=sisRUA
-AppVersion=1.0.0
+AppVersion={#AppVersion}
 AppPublisher=sisRUA
 DefaultDirName={commonappdata}\Autodesk\ApplicationPlugins\sisRUA.bundle
 DisableDirPage=yes
 DisableProgramGroupPage=yes
-OutputBaseFilename=sisRUA-Installer
+OutputBaseFilename=sisRUA-Installer-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 PrivilegesRequired=admin
 UninstallDisplayName=sisRUA (AutoCAD Plugin)
+VersionInfoVersion={#AppVersion}
 
 [Languages]
 Name: "ptbr"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"

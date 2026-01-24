@@ -10,7 +10,6 @@ import L from 'leaflet';
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-import { useJobManager } from './hooks/useJobManager';
 import { useMapLogic } from './hooks/useMapLogic';
 import { api } from './api';
 
@@ -72,7 +71,6 @@ function MapController({ coords }) {
 
 // --- APP PRINCIPAL ---
 export default function App() {
-  const { job, loading, error, createJob } = useJobManager();
   const mapLogic = useMapLogic();
 
   const [coords, setCoords] = useState({ lat: -21.7634, lng: -41.3235 });
@@ -80,6 +78,10 @@ export default function App() {
   const [inputLoading, setInputLoading] = useState(false);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [previewGeoJson, setPreviewGeoJson] = useState(null); // ** NOVO ESTADO PARA PREVIEW **
+  const [hostJob, setHostJob] = useState(null);
+  const uiJob = hostJob;
+  const loading = uiJob && !['completed', 'failed'].includes(uiJob.status);
+  const error = uiJob?.status === 'failed' ? (uiJob.error || uiJob.message || 'Falhou.') : null;
 
   // State para desenho manual
   const [isDrawing, setIsDrawing] = useState(false);
@@ -117,6 +119,9 @@ export default function App() {
             } else {
               alert("Arquivo inválido recebido. O conteúdo não parece ser um GeoJSON válido.");
             }
+          }
+          if (message.action === 'JOB_PROGRESS' && message.data) {
+            setHostJob(message.data);
           }
         } catch (error) {
           alert(`Erro ao processar o arquivo recebido: ${error.message}`);
@@ -374,7 +379,35 @@ export default function App() {
                   <div className="flex justify-between items-end px-1"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Raio de Abrangência</label><span className="text-2xl font-black text-slate-700 tracking-tight">{radius}<span className="text-sm font-bold text-slate-400 ml-0.5">m</span></span></div>
                   <input type="range" min="100" max="5000" step="100" value={radiusInput} onChange={e => setRadiusInput(Number(e.target.value))} onMouseUp={() => setRadius(radiusInput)} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer hover:bg-slate-300 transition-colors" disabled={loading} />
                 </div>
-                {job && (<div className="bg-white/60 rounded-3xl border border-white/80 p-6 flex flex-col gap-4 shadow-lg animate-enter ring-1 ring-black/5"><div className="flex justify-between items-start pb-3 border-b border-slate-200/50"><div className="flex items-center gap-3"><div className={`p-2 rounded-xl ${job.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : job.status === 'failed' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>{job.status === 'completed' ? <CheckCircle2 size={20} /> : job.status === 'failed' ? <AlertTriangle size={20} /> : <Loader2 size={20} className="animate-spin" />}</div><div className="flex flex-col"><span className={`text-xs font-black uppercase tracking-wide ${job.status === 'failed' ? 'text-red-600' : 'text-slate-700'}`}>{job.status === 'queued' ? 'Aguardando' : job.status === 'processing' ? 'Processando' : 'Concluído'}</span>{job.message && job.status !== 'completed' && job.status !== 'failed' && (<span className="text-[10px] text-slate-500 font-medium animate-pulse">{job.message}</span>)}</div></div><div className="flex flex-col items-end gap-1">{job.profile_fallback && (<span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200/50">FALLBACK</span>)}<span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/50">{job.profile_used || '---'}</span></div></div>{job.status === 'completed' && job.stats && (<div className="grid grid-cols-2 gap-3"><div className="bg-slate-50/50 p-3 rounded-2xl text-center border border-slate-200/60"><div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Extensão Total</div><div className="text-base font-black text-slate-700">{job.stats._TOTAL?.extensao_km} <span className="text-[10px] font-bold text-slate-400">km</span></div></div><div className="bg-slate-50/50 p-3 rounded-2xl text-center border border-slate-200/60"><div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Área Estimada</div><div className="text-base font-black text-slate-700">{job.stats._TOTAL?.area_m2} <span className="text-[10px] font-bold text-slate-400">m²</span></div></div></div>)}{job.download_url && (<a href={api.getDownloadUrl(job.download_url)} target="_blank" className="mt-1 block w-full bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold py-4 rounded-2xl text-center transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 group"><Download size={16} className="group-hover:animate-bounce" /> BAIXAR ARQUIVO DXF</a>)}{job.warnings && job.warnings.length > 0 && (<div className="bg-amber-50/50 border border-amber-100/60 rounded-xl p-3 space-y-2">{job.warnings.map((w, i) => (<div key={i} className="text-[10px] font-medium text-amber-800 flex gap-2 items-start leading-relaxed"><AlertTriangle size={12} className="shrink-0 mt-0.5 opacity-60" /> <span>{w}</span></div>))}</div>)}</div>)}{error && <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-bold border border-red-100 flex gap-3 items-center shadow-sm"><AlertTriangle size={18} /> {error}</div>}
+                {uiJob && (
+                  <div className="bg-white/60 rounded-3xl border border-white/80 p-6 flex flex-col gap-4 shadow-lg animate-enter ring-1 ring-black/5">
+                    <div className="flex justify-between items-start pb-3 border-b border-slate-200/50">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl ${uiJob.status === 'completed' ? 'bg-emerald-100 text-emerald-600' : uiJob.status === 'failed' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                          {uiJob.status === 'completed' ? <CheckCircle2 size={20} /> : uiJob.status === 'failed' ? <AlertTriangle size={20} /> : <Loader2 size={20} className="animate-spin" />}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className={`text-xs font-black uppercase tracking-wide ${uiJob.status === 'failed' ? 'text-red-600' : 'text-slate-700'}`}>
+                            {uiJob.status === 'queued' ? 'Aguardando' : uiJob.status === 'processing' ? 'Processando' : 'Concluído'}
+                          </span>
+                          {uiJob.message && uiJob.status !== 'completed' && uiJob.status !== 'failed' && (
+                            <span className="text-[10px] text-slate-500 font-medium animate-pulse">{uiJob.message}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-500">
+                        {typeof uiJob.progress === 'number' ? `${Math.round(uiJob.progress * 100)}%` : ''}
+                      </div>
+                    </div>
+
+                    {typeof uiJob.progress === 'number' && (
+                      <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                        <div className="h-2 bg-blue-500" style={{ width: `${Math.max(0, Math.min(100, Math.round(uiJob.progress * 100)))}%` }} />
+                      </div>
+                    )}
+                  </div>
+                )}
+                {error && <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-xs font-bold border border-red-100 flex gap-3 items-center shadow-sm"><AlertTriangle size={18} /> {error}</div>}
               </div>
             ) : (
               <div className="space-y-7 animate-enter">

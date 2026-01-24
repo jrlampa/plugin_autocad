@@ -1,9 +1,12 @@
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
 from typing import Dict, Any, List, Tuple, Optional
 import uuid
 import os
 import sys
+import json
+import hashlib
+import threading
 from pathlib import Path
 
 import osmnx as ox
@@ -11,16 +14,18 @@ from pyproj import Transformer
 from shapely.geometry import LineString, MultiLineString
 from shapely.ops import transform as shapely_transform
 
-from .backend import UrbanAutoCAD  # Mantido por compatibilidade com endpoints antigos (jobs/dxf)
+AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN") or ""
+AUTH_HEADER_NAME = "X-SisRua-Token"
 
-# Assuming backend.py will contain the UrbanAutoCAD and UrbanProfiles logic
-# and will be imported here.
-# For now, we'll mock the dxf_generator function.
+# Backend principal (produção): JSON → polylines.
 
-class JobRequest(BaseModel):
-    latitude: float
-    longitude: float
-    radius: float
+def _require_token(x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
+    """
+    Protege endpoints sensíveis contra chamadas externas na máquina do usuário.
+    """
+    if AUTH_TOKEN:
+        if not x_sisrua_token or x_sisrua_token != AUTH_TOKEN:
+            raise HTTPException(status_code=401, detail="Unauthorized")
 
 
 class PrepareOsmRequest(BaseModel):
@@ -32,77 +37,134 @@ class PrepareOsmRequest(BaseModel):
 class PrepareGeoJsonRequest(BaseModel):
     geojson: Any  # pode vir como string JSON ou objeto GeoJSON
 
-class JobStatus:
-    PENDING = "pending"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    FAILED = "failed"
-
 app = FastAPI()
 
 # In-memory storage for job statuses and results. In a real application, this would be a database.
 job_store: Dict[str, Dict[str, Any]] = {}
 
-# DXF_OUTPUT_DIR is now handled by UrbanAutoCAD.desenhar_dxf, so we can remove this line
-# os.makedirs(DXF_OUTPUT_DIR, exist_ok=True)
 
-async def generate_dxf_task(job_id: str, latitude: float, longitude: float, radius: float):
-    """
-    Calls UrbanAutoCAD.desenhar_dxf from backend.py to generate the DXF.
-    """
-    try:
-        job_store[job_id]["status"] = JobStatus.IN_PROGRESS
-        print(f"Job {job_id}: Starting DXF generation for lat={latitude}, lon={longitude}, radius={radius}")
+class PrepareJobRequest(BaseModel):
+    kind: str  # "osm" | "geojson"
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    radius: Optional[float] = None
+    geojson: Any | None = None
 
-        # Call the actual DXF generation function
-        dxf_file_path = UrbanAutoCAD.desenhar_dxf(latitude, longitude, radius, "PADRAO_URBANO")
 
-        job_store[job_id]["status"] = JobStatus.COMPLETED
-        job_store[job_id]["result"] = {"dxf_path": dxf_file_path}
-        print(f"Job {job_id}: DXF generation completed. File: {dxf_file_path}")
-
-    except Exception as e:
-        job_store[job_id]["status"] = JobStatus.FAILED
-        job_store[job_id]["error"] = str(e)
-        print(f"Job {job_id}: DXF generation failed. Error: {e}")
-
-@app.post("/api/v1/jobs")
-async def create_job(request: JobRequest, background_tasks: BackgroundTasks):
+def _init_job(kind: str) -> str:
     job_id = str(uuid.uuid4())
     job_store[job_id] = {
-        "status": JobStatus.PENDING,
-        "latitude": request.latitude,
-        "longitude": request.longitude,
-        "radius": request.radius,
+        "job_id": job_id,
+        "kind": kind,
+        "status": "queued",
+        "progress": 0.0,
+        "message": "Aguardando...",
         "result": None,
         "error": None,
     }
-    background_tasks.add_task(generate_dxf_task, job_id, request.latitude, request.longitude, request.radius)
-    return {"job_id": job_id, "status": JobStatus.PENDING}
+    return job_id
 
-@app.get("/api/v1/jobs/{job_id}")
-async def get_job_status(job_id: str):
+
+def _update_job(job_id: str, *, status: str | None = None, progress: float | None = None, message: str | None = None, result: dict | None = None, error: str | None = None) -> None:
     job = job_store.get(job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"job_id": job_id, "status": job["status"], "result": job["result"], "error": job["error"]}
+        return
+    if status is not None:
+        job["status"] = status
+    if progress is not None:
+        job["progress"] = float(max(0.0, min(1.0, progress)))
+    if message is not None:
+        job["message"] = message
+    if result is not None:
+        job["result"] = result
+    if error is not None:
+        job["error"] = error
+
+
+def _cache_dir() -> Path:
+    base = Path(os.environ.get("LOCALAPPDATA") or Path.home())
+    d = base / "sisRUA" / "cache"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _cache_key(parts: list[str]) -> str:
+    h = hashlib.sha256()
+    for p in parts:
+        h.update(p.encode("utf-8", errors="ignore"))
+        h.update(b"|")
+    return h.hexdigest()
+
+
+def _read_cache(key: str) -> Optional[dict]:
+    try:
+        path = _cache_dir() / f"{key}.json"
+        if not path.exists():
+            return None
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
+def _write_cache(key: str, payload: dict) -> None:
+    try:
+        path = _cache_dir() / f"{key}.json"
+        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    except Exception:
+        return
+
+# Armazenamento simples em memória (jobs). Em produção, isso pode virar persistência.
+
+@app.get("/api/v1/auth/check")
+async def auth_check(x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
+    _require_token(x_sisrua_token)
+    return {"status": "ok"}
 
 @app.get("/api/v1/health")
 async def health():
     return {"status": "ok"}
 
-@app.get("/api/v1/dxf/{job_id}")
-async def download_dxf(job_id: str):
+
+def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest) -> None:
+    try:
+        _update_job(job_id, status="processing", progress=0.05, message="Iniciando...")
+
+        if payload.kind == "osm":
+            if payload.latitude is None or payload.longitude is None or payload.radius is None:
+                raise ValueError("latitude/longitude/radius são obrigatórios para kind=osm")
+            _update_job(job_id, progress=0.15, message="Baixando dados do OSM...")
+            result = _prepare_osm_compute(payload.latitude, payload.longitude, payload.radius)
+            _update_job(job_id, progress=0.95, message="Finalizando...")
+        elif payload.kind == "geojson":
+            if payload.geojson is None:
+                raise ValueError("geojson é obrigatório para kind=geojson")
+            _update_job(job_id, progress=0.2, message="Processando GeoJSON...")
+            result = _prepare_geojson_compute(payload.geojson)
+            _update_job(job_id, progress=0.95, message="Finalizando...")
+        else:
+            raise ValueError("kind inválido. Use 'osm' ou 'geojson'.")
+
+        _update_job(job_id, status="completed", progress=1.0, message="Concluído.", result=result)
+    except Exception as e:
+        _update_job(job_id, status="failed", progress=1.0, message="Falhou.", error=str(e))
+
+
+@app.post("/api/v1/jobs/prepare")
+async def create_prepare_job(payload: PrepareJobRequest, x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
+    _require_token(x_sisrua_token)
+    job_id = _init_job(payload.kind)
+    t = threading.Thread(target=_run_prepare_job_sync, args=(job_id, payload), daemon=True)
+    t.start()
+    return job_store[job_id]
+
+
+@app.get("/api/v1/jobs/{job_id}")
+async def get_job(job_id: str, x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
+    _require_token(x_sisrua_token)
     job = job_store.get(job_id)
-    if not job or job["status"] != JobStatus.COMPLETED or not job["result"] or "dxf_path" not in job["result"]:
-        raise HTTPException(status_code=404, detail="DXF not found or job not completed")
-
-    dxf_file_path = job["result"]["dxf_path"]
-    if not os.path.exists(dxf_file_path):
-        raise HTTPException(status_code=404, detail="DXF file not found on server")
-
-    from fastapi.responses import FileResponse
-    return FileResponse(dxf_file_path, media_type="application/dxf", filename=os.path.basename(dxf_file_path))
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
 
 
 def _utm_zone(longitude: float) -> int:
@@ -147,18 +209,27 @@ def _project_lines_to_xy(lines: List[LineString], transformer: Transformer) -> L
     return out
 
 
-@app.post("/api/v1/prepare/osm")
-async def prepare_osm(req: PrepareOsmRequest):
-    """
-    MVP (Fase 1): pega OSM em lat/lon (EPSG:4326), projeta para SIRGAS2000/UTM (zona automática)
-    e devolve linhas prontas para o C# desenhar como Polyline.
-    """
-    epsg_out = _sirgas2000_utm_epsg(req.latitude, req.longitude)
+def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> dict:
+    key = _cache_key(["prepare_osm", f"{latitude:.6f}", f"{longitude:.6f}", str(int(radius))])
+    cached = _read_cache(key)
+    if cached is not None:
+        cached["cache_hit"] = True
+        return cached
+
+    epsg_out = _sirgas2000_utm_epsg(latitude, longitude)
     transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_out}", always_xy=True)
 
-    graph = ox.graph_from_point((req.latitude, req.longitude), dist=req.radius, network_type="all")
-    _, edges = ox.graph_to_gdfs(graph)
-    edges = edges[edges.geometry.notna()]
+    try:
+        graph = ox.graph_from_point((latitude, longitude), dist=radius, network_type="all")
+        _, edges = ox.graph_to_gdfs(graph)
+        edges = edges[edges.geometry.notna()]
+    except Exception as e:
+        cached = _read_cache(key)
+        if cached is not None:
+            cached["cache_hit"] = True
+            cached["cache_fallback_reason"] = str(e)
+            return cached
+        raise HTTPException(status_code=503, detail=f"Falha ao obter dados do OSM (sem cache local disponível). Detalhes: {e}")
 
     features: List[Dict[str, Any]] = []
 
@@ -180,20 +251,24 @@ async def prepare_osm(req: PrepareOsmRequest):
                 }
             )
 
-    return {"crs_out": f"EPSG:{epsg_out}", "features": features}
+    payload = {"crs_out": f"EPSG:{epsg_out}", "features": features, "cache_hit": False}
+    _write_cache(key, payload)
+    return payload
 
 
-@app.post("/api/v1/prepare/geojson")
-async def prepare_geojson(req: PrepareGeoJsonRequest):
+@app.post("/api/v1/prepare/osm")
+async def prepare_osm(req: PrepareOsmRequest, x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
     """
-    MVP (Fase 1): recebe GeoJSON (EPSG:4326), projeta para SIRGAS2000/UTM (zona automática)
+    MVP (Fase 1): pega OSM em lat/lon (EPSG:4326), projeta para SIRGAS2000/UTM (zona automática)
     e devolve linhas prontas para o C# desenhar como Polyline.
     """
-    geo = req.geojson
-    if isinstance(geo, str):
-        import json as _json
+    _require_token(x_sisrua_token)
+    return _prepare_osm_compute(req.latitude, req.longitude, req.radius)
 
-        geo = _json.loads(geo)
+
+def _prepare_geojson_compute(geo: Any) -> dict:
+    if isinstance(geo, str):
+        geo = json.loads(geo)
 
     # Encontrar um ponto de referência para detectar zona UTM
     def _first_lonlat(obj) -> Tuple[float, float]:
@@ -221,6 +296,9 @@ async def prepare_geojson(req: PrepareGeoJsonRequest):
         return (0.0, 0.0)
 
     lon0, lat0 = _first_lonlat(geo)
+    if lon0 == 0.0 and lat0 == 0.0:
+        raise HTTPException(status_code=400, detail="GeoJSON inválido: não foi possível extrair coordenadas.")
+
     epsg_out = _sirgas2000_utm_epsg(lat0, lon0)
     transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_out}", always_xy=True)
 
@@ -274,7 +352,28 @@ async def prepare_geojson(req: PrepareGeoJsonRequest):
     else:
         raise HTTPException(status_code=400, detail="GeoJSON não suportado. Use Feature/FeatureCollection com LineString/MultiLineString.")
 
-    return {"crs_out": f"EPSG:{epsg_out}", "features": features}
+    payload = {"crs_out": f"EPSG:{epsg_out}", "features": features}
+
+    # Cache por conteúdo (ajuda em reimportações repetidas)
+    try:
+        raw = json.dumps(geo, sort_keys=True, ensure_ascii=False)
+        key = _cache_key(["prepare_geojson", raw])
+        _write_cache(key, payload)
+        payload["cache_hit"] = False
+    except Exception:
+        pass
+
+    return payload
+
+
+@app.post("/api/v1/prepare/geojson")
+async def prepare_geojson(req: PrepareGeoJsonRequest, x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
+    """
+    MVP (Fase 1): recebe GeoJSON (EPSG:4326), projeta para SIRGAS2000/UTM (zona automática)
+    e devolve linhas prontas para o C# desenhar como Polyline.
+    """
+    _require_token(x_sisrua_token)
+    return _prepare_geojson_compute(req.geojson)
 
 
 def _maybe_mount_frontend():
@@ -409,4 +508,4 @@ _maybe_mount_frontend()
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)

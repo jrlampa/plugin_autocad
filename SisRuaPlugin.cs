@@ -31,6 +31,10 @@ namespace sisRUA
         public static int BackendPort { get; private set; }
         public static string BackendBaseUrl => BackendPort > 0 ? $"http://127.0.0.1:{BackendPort}" : null;
 
+        public const string BackendAuthHeaderName = "X-SisRua-Token";
+        private const string BackendAuthEnvVarName = "SISRUA_AUTH_TOKEN";
+        public static string BackendAuthToken { get; private set; }
+
         public static bool EnsureBackendHealthy(TimeSpan timeout)
         {
             return Instance != null && Instance.WaitForBackendHealthy(timeout);
@@ -75,15 +79,37 @@ namespace sisRUA
                         BackendPort = previousPort;
                     }
 
-                    if (IsBackendHealthy())
+                    string previousToken = TryReadLastBackendToken();
+                    if (!string.IsNullOrWhiteSpace(previousToken))
                     {
-                        LogToEditor($"\n>>> Backend do sisRUA já está rodando (health OK) em {BackendBaseUrl}.");
+                        BackendAuthToken = previousToken;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(BackendAuthToken))
+                    {
+                        BackendAuthToken = Guid.NewGuid().ToString("N");
+                        PersistBackendToken(BackendAuthToken);
+                    }
+
+                    if (IsBackendHealthy() && IsBackendAuthorized())
+                    {
+                        LogToEditor($"\n>>> Backend do sisRUA já está rodando (health/auth OK) em {BackendBaseUrl}.");
                         return;
+                    }
+
+                    // Se estiver saudável, mas não autorizado (token diferente), tenta finalizar o processo anterior.
+                    if (IsBackendHealthy() && !IsBackendAuthorized())
+                    {
+                        TryKillPreviousBackendProcess();
                     }
 
                     // Porta dinâmica: escolhe uma porta livre para evitar conflito.
                     BackendPort = ChooseFreePort();
                     PersistBackendPort(BackendPort);
+
+                    // Novo token por sessão (persistido para reconexão no mesmo host).
+                    BackendAuthToken = Guid.NewGuid().ToString("N");
+                    PersistBackendToken(BackendAuthToken);
                 }
 
                 // Preferência: backend empacotado (EXE) — não depende de Python instalado no usuário.
@@ -99,22 +125,33 @@ namespace sisRUA
                         CreateNoWindow = true,
                         Arguments = $"--host 127.0.0.1 --port {BackendPort} --log-level warning"
                     };
+                    exeStart.EnvironmentVariables[BackendAuthEnvVarName] = BackendAuthToken ?? string.Empty;
 
                     _pythonProcess = Process.Start(exeStart);
                     if (_pythonProcess == null || _pythonProcess.HasExited)
                     {
                         throw new InvalidOperationException("Não foi possível iniciar o backend empacotado (sisrua_backend.exe).");
                     }
+                    PersistBackendPid(_pythonProcess.Id);
 
                     if (!WaitForBackendHealthy(TimeSpan.FromSeconds(20)))
                     {
                         LogToEditor("\n>>> Aviso: backend empacotado iniciou, mas não respondeu health dentro do tempo limite.");
                     }
+                    if (!WaitForBackendAuthorized(TimeSpan.FromSeconds(20)))
+                    {
+                        LogToEditor("\n>>> Aviso: backend empacotado iniciou, mas não respondeu auth-check dentro do tempo limite.");
+                    }
 
                     LogToEditor("\n>>> Backend do sisRUA (EXE) iniciado com sucesso.");
                     return;
                 }
-                
+
+#if !DEBUG
+                LogAndAlert("Erro Crítico: sisrua_backend.exe não encontrado.\n\nPara uso em produção, o sisRUA precisa do backend empacotado (EXE).\nReinstale o sisRUA usando o instalador e tente novamente.");
+                return;
+#else
+                // Em Debug, permitimos fallback para Python/venv para facilitar desenvolvimento.
                 string pythonExePath = FindPythonExecutable();
                 if (string.IsNullOrEmpty(pythonExePath))
                 {
@@ -138,6 +175,7 @@ namespace sisRUA
                     UseShellExecute = false,
                     CreateNoWindow = false, // Exibir janela do console para depuração
                 };
+                startInfo.EnvironmentVariables[BackendAuthEnvVarName] = BackendAuthToken ?? string.Empty;
 
                 _pythonProcess = Process.Start(startInfo);
 
@@ -151,8 +189,13 @@ namespace sisRUA
                 {
                     LogToEditor("\n>>> Aviso: backend iniciado, mas não respondeu health dentro do tempo limite.");
                 }
+                if (!WaitForBackendAuthorized(TimeSpan.FromSeconds(20)))
+                {
+                    LogToEditor("\n>>> Aviso: backend iniciou, mas não respondeu auth-check dentro do tempo limite.");
+                }
 
                 LogToEditor("\n>>> Backend do sisRUA (Python) iniciado com sucesso.");
+#endif
             }
             catch (System.Exception ex)
             {
@@ -474,6 +517,22 @@ namespace sisRUA
             }
         }
 
+        private string TryReadLastBackendToken()
+        {
+            try
+            {
+                string localSisRuaDir = GetLocalSisRuaDir();
+                if (string.IsNullOrEmpty(localSisRuaDir)) return null;
+                string statePath = Path.Combine(localSisRuaDir, "backend_token.txt");
+                if (!File.Exists(statePath)) return null;
+                return File.ReadAllText(statePath)?.Trim();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         private void PersistBackendPort(int port)
         {
             try
@@ -483,6 +542,93 @@ namespace sisRUA
                 Directory.CreateDirectory(localSisRuaDir);
                 string statePath = Path.Combine(localSisRuaDir, "backend_port.txt");
                 File.WriteAllText(statePath, port.ToString());
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        private void PersistBackendToken(string token)
+        {
+            try
+            {
+                string localSisRuaDir = GetLocalSisRuaDir();
+                if (string.IsNullOrEmpty(localSisRuaDir)) return;
+                Directory.CreateDirectory(localSisRuaDir);
+                string statePath = Path.Combine(localSisRuaDir, "backend_token.txt");
+                File.WriteAllText(statePath, token ?? string.Empty);
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        private void PersistBackendPid(int pid)
+        {
+            try
+            {
+                string localSisRuaDir = GetLocalSisRuaDir();
+                if (string.IsNullOrEmpty(localSisRuaDir)) return;
+                Directory.CreateDirectory(localSisRuaDir);
+                string statePath = Path.Combine(localSisRuaDir, "backend_pid.txt");
+                File.WriteAllText(statePath, pid.ToString());
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        private int TryReadLastBackendPid()
+        {
+            try
+            {
+                string localSisRuaDir = GetLocalSisRuaDir();
+                if (string.IsNullOrEmpty(localSisRuaDir)) return 0;
+                string statePath = Path.Combine(localSisRuaDir, "backend_pid.txt");
+                if (!File.Exists(statePath)) return 0;
+                string text = File.ReadAllText(statePath)?.Trim();
+                return int.TryParse(text, out int p) ? p : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private void TryKillPreviousBackendProcess()
+        {
+            try
+            {
+                int pid = TryReadLastBackendPid();
+                if (pid <= 0) return;
+
+                Process p = Process.GetProcessById(pid);
+                string name = p.ProcessName?.ToLowerInvariant() ?? string.Empty;
+                if (name.Contains("sisrua_backend") || name == "python" || name == "pythonw")
+                {
+                    try
+                    {
+                        var killInfo = new ProcessStartInfo("taskkill", $"/F /T /PID {pid}")
+                        {
+                            CreateNoWindow = true,
+                            UseShellExecute = false,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true
+                        };
+
+                        using (var killProcess = Process.Start(killInfo))
+                        {
+                            killProcess?.WaitForExit(5000);
+                        }
+                    }
+                    catch
+                    {
+                        // ignore
+                    }
+                }
             }
             catch
             {
@@ -504,12 +650,43 @@ namespace sisRUA
             }
         }
 
+        private bool IsBackendAuthorized()
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(BackendBaseUrl)) return false;
+                if (string.IsNullOrWhiteSpace(BackendAuthToken)) return false;
+
+                using (var req = new HttpRequestMessage(HttpMethod.Get, $"{BackendBaseUrl}/api/v1/auth/check"))
+                {
+                    req.Headers.TryAddWithoutValidation(BackendAuthHeaderName, BackendAuthToken);
+                    var resp = _healthClient.SendAsync(req).GetAwaiter().GetResult();
+                    return resp.IsSuccessStatusCode;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private bool WaitForBackendHealthy(TimeSpan timeout)
         {
             var sw = Stopwatch.StartNew();
             while (sw.Elapsed < timeout)
             {
                 if (IsBackendHealthy()) return true;
+                Thread.Sleep(250);
+            }
+            return false;
+        }
+
+        private bool WaitForBackendAuthorized(TimeSpan timeout)
+        {
+            var sw = Stopwatch.StartNew();
+            while (sw.Elapsed < timeout)
+            {
+                if (IsBackendAuthorized()) return true;
                 Thread.Sleep(250);
             }
             return false;

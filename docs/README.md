@@ -10,6 +10,7 @@ Esta pasta reúne a documentação “de produto” e “de engenharia” do sis
 - **Build de release + instalador**: veja `RELEASE.md`
 - **Problemas comuns**: veja `TROUBLESHOOTING.md`
 - **Checklist Autodesk App Store**: veja `APP_STORE.md`
+- **Checklist de testes (AutoCAD)**: veja `TESTES_MANUAIS_AUTOCAD.md`
 
 ## Legal / conformidade
 

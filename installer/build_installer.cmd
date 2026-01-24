@@ -32,8 +32,14 @@ if not exist "%ROOT%..\release\sisRUA.bundle\PackageContents.xml" (
 
 if not exist "%ROOT%out" mkdir "%ROOT%out"
 
+set APP_VERSION=0.0.0
+if exist "%ROOT%..\VERSION.txt" (
+  for /f "usebackq delims=" %%v in ("%ROOT%..\VERSION.txt") do set APP_VERSION=%%v
+)
+echo Versao: %APP_VERSION%
+
 echo Compilando instalador...
-"%ISCC%" "%ROOT%sisRUA.iss" /O"%ROOT%out"
+"%ISCC%" "%ROOT%sisRUA.iss" /DAppVersion=%APP_VERSION% /O"%ROOT%out"
 if errorlevel 1 (
   echo ERRO: falha ao compilar o instalador via ISCC.
   exit /b 1
