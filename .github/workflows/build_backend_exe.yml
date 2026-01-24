@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "sisRUA.bundle/Contents/backend/**"
+      - "src/backend/**"
+      - "bundle-template/sisRUA.bundle/Contents/backend/**"
       - "tools/build_backend_exe.cmd"
       - "tools/smoke_backend.ps1"
       - ".github/workflows/build_backend_exe.yml"
@@ -38,4 +39,4 @@ jobs:
         with:
           name: sisrua_backend_exe
           path: |
-            sisRUA.bundle/Contents/backend/sisrua_backend.exe
+            bundle-template/sisRUA.bundle/Contents/backend/sisrua_backend.exe

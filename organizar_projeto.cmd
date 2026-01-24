@@ -7,7 +7,7 @@ REM  Saida: .\dist\sisRUA.bundle
 REM ======================================================
 
 SET ROOT=%~dp0
-SET SRC_BUNDLE=%ROOT%sisRUA.bundle
+SET SRC_BUNDLE=%ROOT%bundle-template\sisRUA.bundle
 REM Permite sobrescrever a pasta de saída (ex.: para evitar lock em pastas sincronizadas).
 REM Exemplo:
 REM   set SISRUA_OUT_ROOT=%CD%\release
@@ -24,8 +24,9 @@ if defined SISRUA_CONFIGURATION (
 ) else (
   SET CONFIG=Debug
 )
-SET BIN_NET8=%ROOT%bin\x64\%CONFIG%\net8.0-windows
-SET BIN_NET48=%ROOT%bin\x64\%CONFIG%\net48
+SET BIN_NET8=%ROOT%src\plugin\bin\x64\%CONFIG%\net8.0-windows
+SET BIN_NET48=%ROOT%src\plugin\bin\x64\%CONFIG%\net48
+SET FRONTEND_DIST=%ROOT%src\frontend\dist
 SET SISRUA_STEP=
 
 echo [1/6] Preparando pasta de saida (deploy)...
@@ -70,10 +71,10 @@ if exist "%BIN_NET8%\sisRUA_NET8.pdb" (
 
 REM Copia dependências (WebView2 etc) do build net8
 SET SISRUA_STEP=copiando dependencias dll do net8
-copy /Y "%BIN_NET8%\*.dll" "%OUT_CONTENTS%" >nul
-if errorlevel 1 goto :SISRUA_FAIL
+xcopy /Y /I "%BIN_NET8%\*.dll" "%OUT_CONTENTS%\\" >nul
+if errorlevel 1 goto :SISRUA_COPY_DLL_FAIL
 SET SISRUA_STEP=copiando dependencias json do net8
-copy /Y "%BIN_NET8%\*.json" "%OUT_CONTENTS%" >nul
+xcopy /Y /I "%BIN_NET8%\*.json" "%OUT_CONTENTS%\\" >nul
 if errorlevel 1 goto :SISRUA_FAIL
 if exist "%BIN_NET8%\runtimes" (
     SET SISRUA_STEP=copiando runtimes WebView2
@@ -107,12 +108,12 @@ xcopy /E /I /Y "%SRC_BUNDLE%\Contents\backend" "%OUT_CONTENTS%\backend" >nul
 if errorlevel 1 goto :SISRUA_FAIL
 
 echo [5/6] Copiando frontend (somente dist)...
-if exist "%SRC_BUNDLE%\Contents\frontend\dist" (
+if exist "%FRONTEND_DIST%" (
     SET SISRUA_STEP=copiando frontend dist
-    xcopy /E /I /Y "%SRC_BUNDLE%\Contents\frontend\dist" "%OUT_CONTENTS%\frontend\dist" >nul
+    xcopy /E /I /Y "%FRONTEND_DIST%" "%OUT_CONTENTS%\frontend\dist" >nul
     if errorlevel 1 goto :SISRUA_FAIL
 ) else (
-    echo AVISO: Frontend build dist nao encontrado em %SRC_BUNDLE%\Contents\frontend\dist
+    echo AVISO: Frontend build dist nao encontrado em %FRONTEND_DIST%
     echo Gere o build do Vite e tente novamente.
 )
 
@@ -132,6 +133,11 @@ echo Local: %OUT_BUNDLE%
 echo ======================================================
 if not defined SISRUA_NOPAUSE pause
 exit /b 0
+
+:SISRUA_COPY_DLL_FAIL
+echo Detalhe do erro no xcopy dll:
+xcopy /Y /I "%BIN_NET8%\*.dll" "%OUT_CONTENTS%\\"
+goto :SISRUA_FAIL
 
 :SISRUA_FAIL
 echo ERRO: falha durante %SISRUA_STEP%

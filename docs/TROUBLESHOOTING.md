@@ -20,7 +20,8 @@ Em produção o plugin tenta primeiro:
 
 - `Contents/backend/sisrua_backend.exe`
 
-Se ele não existir (ou falhar), cai no modo Python (dev/fallback) — que depende de Python e de instalar pacotes.
+Se ele não existir, **em Release** o plugin mostra erro e orienta reinstalação (o backend EXE é obrigatório).
+O modo Python/venv fica restrito a **Debug** (desenvolvimento).
 
 Cheque:
 

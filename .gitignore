@@ -25,6 +25,7 @@ build/
 dist/
 release/
 release_gate_test/
+installer/out/
 
 # ===== IDE / ferramentas =====
 .cursor/
@@ -33,4 +34,3 @@ release_gate_test/
 
 # ===== Notas locais (não versionar) =====
 passo-a-passo.md
-

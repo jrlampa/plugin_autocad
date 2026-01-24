@@ -1,5 +1,5 @@
 param(
-  [string]$BackendExe = "$(Join-Path $PSScriptRoot '..\sisRUA.bundle\Contents\backend\sisrua_backend.exe')",
+  [string]$BackendExe = "$(Join-Path $PSScriptRoot '..\bundle-template\sisRUA.bundle\Contents\backend\sisrua_backend.exe')",
   [switch]$SkipOsm
 )
 
@@ -30,14 +30,18 @@ if (-not (Test-Path -LiteralPath $BackendExe)) {
 
 $tempRoot = $env:TEMP
 if (-not $tempRoot) { $tempRoot = (Join-Path $env:USERPROFILE "AppData\\Local\\Temp") }
-$runDir = Join-Path $tempRoot "sisrua_smoke_run"
+$runDir = Join-Path $tempRoot ("sisrua_smoke_run_" + [Guid]::NewGuid().ToString("N"))
+$backendOriginal = $BackendExe
+New-Item -ItemType Directory -Path $runDir -Force | Out-Null
+$runExe = Join-Path $runDir "sisrua_backend.exe"
 try {
-  New-Item -ItemType Directory -Path $runDir -Force | Out-Null
-  $runExe = Join-Path $runDir "sisrua_backend.exe"
-  Copy-Item -LiteralPath $BackendExe -Destination $runExe -Force
+  # Copia para TEMP para evitar bloqueios/locks em pastas sincronizadas.
+  [System.IO.File]::Copy($backendOriginal, $runExe, $true)
+  try { Unblock-File -LiteralPath $runExe -ErrorAction SilentlyContinue } catch { }
   $BackendExe = $runExe
 } catch {
-  # Se falhar copiar, tenta executar do local original.
+  Write-Host "[smoke] AVISO: falha ao copiar EXE para TEMP. Tentando executar do local original. Erro: $($_.Exception.Message)"
+  $BackendExe = $backendOriginal
 }
 
 $port = Get-FreePort

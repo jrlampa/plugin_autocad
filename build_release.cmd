@@ -8,10 +8,11 @@ REM  - bundle em release\
 REM ======================================================
 
 set ROOT=%~dp0
+set PLUGIN_CSPROJ=%ROOT%src\plugin\sisRUA.csproj
 
 echo [0/3] Build do plugin .NET (Release)...
 REM net8 (AutoCAD 2025–2026) é obrigatório
-dotnet build "%ROOT%sisRUA.csproj" -c Release -f net8.0-windows
+dotnet build "%PLUGIN_CSPROJ%" -c Release -f net8.0-windows
 if errorlevel 1 (
   echo ERRO: falha ao compilar o plugin net8.
   exit /b 1
@@ -21,7 +22,7 @@ REM net48 (AutoCAD 2024) é opcional e depende das DLLs do AutoCAD 2024 instalad
 REM Para forçar, use:
 REM   set SISRUA_BUILD_NET48=1
 if "%SISRUA_BUILD_NET48%"=="1" (
-  dotnet build "%ROOT%sisRUA.csproj" -c Release -f net48 -p:SISRUA_INCLUDE_NET48=true
+  dotnet build "%PLUGIN_CSPROJ%" -c Release -f net48 -p:SISRUA_INCLUDE_NET48=true
   if errorlevel 1 (
     echo ERRO: falha ao compilar o plugin net48. Verifique AutoCAD 2024 instalado e Acad2024Dir no csproj.
     exit /b 1
@@ -50,7 +51,7 @@ set SISRUA_CONFIGURATION=Release
 set SISRUA_NOPAUSE=1
 call "%ROOT%organizar_projeto.cmd" <nul
 if errorlevel 1 (
-  echo ERRO: falha ao empacotar o bundle (organizar_projeto.cmd).
+  echo ERRO: falha ao empacotar o bundle via organizar_projeto.cmd.
   exit /b 1
 )
 

@@ -7,7 +7,8 @@ REM  Objetivo: rodar backend sem Python instalado no usuário.
 REM ======================================================
 
 set ROOT=%~dp0..
-set BACKEND_DIR=%ROOT%\sisRUA.bundle\Contents\backend
+set BACKEND_SRC=%ROOT%\src\backend
+set BACKEND_OUT=%ROOT%\bundle-template\sisRUA.bundle\Contents\backend
 REM Por padrão, fazemos build fora do "Meu Drive" (path com espaços), pois venv/ensurepip/PyInstaller
 REM tendem a falhar em caminhos com espaços em alguns ambientes.
 REM Você pode sobrescrever com:
@@ -28,18 +29,19 @@ if not exist "%BUILD_TMP%" mkdir "%BUILD_TMP%"
 set TEMP=%BUILD_TMP%
 set TMP=%BUILD_TMP%
 
-if not exist "%BACKEND_DIR%\standalone.py" (
-  echo ERRO: standalone.py nao encontrado em %BACKEND_DIR%
+if not exist "%BACKEND_SRC%\standalone.py" (
+  echo ERRO: standalone.py nao encontrado em %BACKEND_SRC%
   exit /b 1
 )
 
 REM Se já existe um EXE pronto e não foi pedido rebuild, reutiliza.
 REM Para forçar rebuild:
 REM   set SISRUA_REBUILD_BACKEND_EXE=1
-if exist "%BACKEND_DIR%\sisrua_backend.exe" (
+if not exist "%BACKEND_OUT%" mkdir "%BACKEND_OUT%"
+if exist "%BACKEND_OUT%\sisrua_backend.exe" (
   if not "%SISRUA_REBUILD_BACKEND_EXE%"=="1" (
     echo AVISO: sisrua_backend.exe ja existe. Pulando rebuild. Use SISRUA_REBUILD_BACKEND_EXE=1 para forcar.
-    echo OK: %BACKEND_DIR%\sisrua_backend.exe
+    echo OK: %BACKEND_OUT%\sisrua_backend.exe
     exit /b 0
   )
 )
@@ -76,7 +78,7 @@ if errorlevel 1 (
 )
 
 "%PY%" -m pip install --upgrade pip
-"%PY%" -m pip install -r "%BACKEND_DIR%\requirements.txt"
+"%PY%" -m pip install -r "%BACKEND_SRC%\requirements.txt"
 "%PY%" -m pip install pyinstaller
 
 echo Gerando sisrua_backend.exe...
@@ -92,16 +94,16 @@ if not exist "%DIST_TMP%" mkdir "%DIST_TMP%"
   --copy-metadata pyproj ^
   --collect-data pyproj ^
   --distpath "%DIST_TMP%" ^
-  --workpath "%ROOT%\\build\\pyinstaller-work" ^
-  --specpath "%ROOT%\\build\\pyinstaller-spec" ^
-  "%BACKEND_DIR%\\standalone.py"
+  --workpath "%BUILD_ROOT%\\pyinstaller-work" ^
+  --specpath "%BUILD_ROOT%\\pyinstaller-spec" ^
+  "%BACKEND_SRC%\\standalone.py"
 
 if not exist "%DIST_TMP%\\sisrua_backend.exe" (
   echo ERRO: sisrua_backend.exe nao foi gerado.
   exit /b 1
 )
 
-copy /Y "%DIST_TMP%\\sisrua_backend.exe" "%BACKEND_DIR%\\sisrua_backend.exe" >nul
-echo OK: %BACKEND_DIR%\\sisrua_backend.exe
+copy /Y "%DIST_TMP%\\sisrua_backend.exe" "%BACKEND_OUT%\\sisrua_backend.exe" >nul
+echo OK: %BACKEND_OUT%\\sisrua_backend.exe
 endlocal
 

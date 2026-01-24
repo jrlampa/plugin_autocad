@@ -44,7 +44,7 @@ Se precisar instalar manualmente:
 
 Em produção, o plugin dá preferência para executar o backend empacotado:
 
-- `sisRUA.bundle\Contents\backend\sisrua_backend.exe`
+- `bundle-template\sisRUA.bundle\Contents\backend\sisrua_backend.exe` (código-fonte do backend fica em `src\backend`)
 
 Assim **não depende de Python** instalado na máquina do usuário.
 

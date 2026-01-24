@@ -47,5 +47,5 @@ Para produção, o backend pode ser empacotado em um executável:
 
 - `Contents/backend/sisrua_backend.exe`
 
-O C# dá preferência a esse EXE e só usa Python como fallback (dev).
+O C# dá preferência a esse EXE e só usa Python como fallback em **Debug** (dev).
 
