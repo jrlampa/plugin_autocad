@@ -1,0 +1,32 @@
+# ===== C# / .NET (AutoCAD plugin) =====
+bin/
+obj/
+**/bin/
+**/obj/
+*.user
+*.suo
+*.pdb
+*.cache
+
+# ===== Python =====
+__pycache__/
+**/__pycache__/
+*.pyc
+.venv*/
+venv/
+build/
+*.spec
+
+# ===== Node / Frontend =====
+**/node_modules/
+**/dist-ssr/
+
+# ===== Bundles gerados (artefatos) =====
+dist/
+release/
+
+# ===== IDE / ferramentas =====
+.cursor/
+.vscode/
+.idea/
+

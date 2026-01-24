@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage
+  SchemaVersion="1.0"
+  AutodeskProduct="AutoCAD"
+  ProductType="Application"
+  Name="sisRUA"
+  AppVersion="1.0.0"
+  Description="sisRUA - plugin AutoCAD (OSM/GeoJSON → CAD)"
+  Author="sisRUA">
+  <CompanyDetails Name="sisRUA" />
+  <Components>
+    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" />
+    <ComponentEntry
+      AppName="sisRUA"
+      ModuleName="./Contents/sisRUA.dll"
+      AppDescription="sisRUA"
+      LoadOnAutoCADStartup="True"
+      LoadOnCommandInvocation="True">
+      <Commands GroupName="sisRUA">
+        <Command Local="SISRUA" Global="SISRUA" />
+      </Commands>
+    </ComponentEntry>
+  </Components>
+</ApplicationPackage>
