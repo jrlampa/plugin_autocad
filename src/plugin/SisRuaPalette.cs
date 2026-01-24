@@ -9,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Windows.Forms;
+using System.Threading;
 
 namespace sisRUA
 {
@@ -136,6 +137,15 @@ namespace sisRUA
         {
             try
             {
+                // Em alguns ambientes (ex.: Civil 3D), a WebView2 pode falhar com E_ACCESSDENIED ao tentar
+                // criar/usar o UserDataFolder padrão. Para evitar isso, forçamos um diretório gravável.
+                string userDataFolder = GetWebViewUserDataFolder();
+                if (_webView.CreationProperties == null)
+                {
+                    _webView.CreationProperties = new CoreWebView2CreationProperties();
+                }
+                _webView.CreationProperties.UserDataFolder = userDataFolder;
+
                 // Garante que o ambiente da WebView2 (Core) está pronto.
                 await _webView.EnsureCoreWebView2Async(null);
                 
@@ -159,7 +169,45 @@ namespace sisRUA
             catch (System.Exception ex)
             {
                 Debug.WriteLine($"[sisRUA] Falha ao inicializar a WebView2: {ex.Message}");
-                MessageBox.Show($"Falha ao inicializar a interface web do sisRUA: {ex.Message}", "Erro sisRUA", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(
+                    $"Falha ao inicializar a interface web do sisRUA: {ex.Message}\n\n" +
+                    $"Dica: verifique se o Microsoft Edge WebView2 Runtime está instalado e tente executar o Civil 3D sem modo Administrador.",
+                    "Erro sisRUA",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+            }
+        }
+
+        private static string GetWebViewUserDataFolder()
+        {
+            // Cria um perfil por sessão/processo para evitar conflitos/locks em máquinas com hardening/EDR.
+            // LocalAppData é o caminho preferido; se falhar, usa TEMP.
+            string baseDir = null;
+            try
+            {
+                baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            }
+            catch { /* ignore */ }
+
+            if (string.IsNullOrWhiteSpace(baseDir))
+            {
+                baseDir = Path.GetTempPath();
+            }
+
+            string root = Path.Combine(baseDir, "sisRUA", "webview2");
+            string run = Path.Combine(root, "run_" + Process.GetCurrentProcess().Id + "_" + Thread.CurrentThread.ManagedThreadId);
+            try
+            {
+                Directory.CreateDirectory(run);
+                return run;
+            }
+            catch
+            {
+                // Último fallback: TEMP com GUID
+                string fallback = Path.Combine(Path.GetTempPath(), "sisRUA_webview2_" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(fallback);
+                return fallback;
             }
         }
 
