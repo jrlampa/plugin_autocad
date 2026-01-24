@@ -9,13 +9,29 @@
   Author="sisRUA">
   <CompanyDetails Name="sisRUA" />
   <Components>
-    <RuntimeRequirements OS="Win64" Platform="AutoCAD*" />
+    <!-- AutoCAD 2024 (R24.3) - .NET Framework -->
     <ComponentEntry
       AppName="sisRUA"
-      ModuleName="./Contents/sisRUA.dll"
+      ModuleName="./Contents/sisRUA_NET48.dll"
       AppDescription="sisRUA"
-      LoadOnAutoCADStartup="True"
+      AppType=".Net"
+      LoadOnAutoCADStartup="False"
       LoadOnCommandInvocation="True">
+      <RuntimeRequirements OS="Win64" SeriesMin="R24.3" SeriesMax="R24.3" />
+      <Commands GroupName="sisRUA">
+        <Command Local="SISRUA" Global="SISRUA" />
+      </Commands>
+    </ComponentEntry>
+
+    <!-- AutoCAD 2025–2026 (R25.0–R25.1) - .NET 8 -->
+    <ComponentEntry
+      AppName="sisRUA"
+      ModuleName="./Contents/sisRUA_NET8.dll"
+      AppDescription="sisRUA"
+      AppType=".Net"
+      LoadOnAutoCADStartup="False"
+      LoadOnCommandInvocation="True">
+      <RuntimeRequirements OS="Win64" SeriesMin="R25.0" SeriesMax="R25.1" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
       </Commands>

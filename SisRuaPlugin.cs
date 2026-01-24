@@ -5,7 +5,9 @@ using Autodesk.AutoCAD.Runtime;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -19,10 +21,20 @@ namespace sisRUA
     /// </summary>
     public class SisRuaPlugin : IExtensionApplication
     {
+        public static SisRuaPlugin Instance { get; private set; }
+
         private Process _pythonProcess;
         private static Editor _editor => Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument?.Editor;
         private static readonly HttpClient _healthClient = new HttpClient { Timeout = TimeSpan.FromSeconds(1.5) };
-        private const string BackendBaseUrl = "http://127.0.0.1:8000";
+        private static readonly object _backendLock = new object();
+
+        public static int BackendPort { get; private set; }
+        public static string BackendBaseUrl => BackendPort > 0 ? $"http://127.0.0.1:{BackendPort}" : null;
+
+        public static bool EnsureBackendHealthy(TimeSpan timeout)
+        {
+            return Instance != null && Instance.WaitForBackendHealthy(timeout);
+        }
 
         /// <summary>
         /// Chamado quando o AutoCAD carrega a extensão.
@@ -30,6 +42,8 @@ namespace sisRUA
         /// </summary>
         public void Initialize()
         {
+            Instance = this;
+
             // Registra um evento para ajudar o AutoCAD a encontrar as DLLs vizinhas
             AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
 
@@ -51,11 +65,25 @@ namespace sisRUA
                     return;
                 }
 
-                // Se o backend já estiver rodando, não iniciamos um novo processo.
-                if (IsBackendHealthy())
+                lock (_backendLock)
                 {
-                    LogToEditor("\n>>> Backend do sisRUA já está rodando (health OK).");
-                    return;
+                    // Se o backend já estiver rodando, não iniciamos um novo processo.
+                    // - Primeiro tenta reaproveitar a última porta salva (se existir).
+                    int previousPort = TryReadLastBackendPort();
+                    if (previousPort > 0)
+                    {
+                        BackendPort = previousPort;
+                    }
+
+                    if (IsBackendHealthy())
+                    {
+                        LogToEditor($"\n>>> Backend do sisRUA já está rodando (health OK) em {BackendBaseUrl}.");
+                        return;
+                    }
+
+                    // Porta dinâmica: escolhe uma porta livre para evitar conflito.
+                    BackendPort = ChooseFreePort();
+                    PersistBackendPort(BackendPort);
                 }
 
                 // Preferência: backend empacotado (EXE) — não depende de Python instalado no usuário.
@@ -63,13 +91,13 @@ namespace sisRUA
                 string backendExePath = Path.Combine(projectRoot, "backend", "sisrua_backend.exe");
                 if (File.Exists(backendExePath))
                 {
-                    LogToEditor("\n>>> Iniciando backend empacotado (sisrua_backend.exe)...");
+                    LogToEditor($"\n>>> Iniciando backend empacotado (sisrua_backend.exe) na porta {BackendPort}...");
                     var exeStart = new ProcessStartInfo(backendExePath)
                     {
                         WorkingDirectory = projectRoot,
                         UseShellExecute = false,
                         CreateNoWindow = true,
-                        Arguments = "--host 127.0.0.1 --port 8000 --log-level warning"
+                        Arguments = $"--host 127.0.0.1 --port {BackendPort} --log-level warning"
                     };
 
                     _pythonProcess = Process.Start(exeStart);
@@ -105,7 +133,7 @@ namespace sisRUA
 
                 var startInfo = new ProcessStartInfo(pythonExePath)
                 {
-                    Arguments = $"-m uvicorn backend.api:app --host 127.0.0.1 --port 8000",
+                    Arguments = $"-m uvicorn backend.api:app --host 127.0.0.1 --port {BackendPort}",
                     WorkingDirectory = projectRoot,
                     UseShellExecute = false,
                     CreateNoWindow = false, // Exibir janela do console para depuração
@@ -420,10 +448,53 @@ namespace sisRUA
             }
         }
 
+        private static int ChooseFreePort()
+        {
+            var listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+            listener.Stop();
+            return port;
+        }
+
+        private int TryReadLastBackendPort()
+        {
+            try
+            {
+                string localSisRuaDir = GetLocalSisRuaDir();
+                if (string.IsNullOrEmpty(localSisRuaDir)) return 0;
+                string statePath = Path.Combine(localSisRuaDir, "backend_port.txt");
+                if (!File.Exists(statePath)) return 0;
+                string text = File.ReadAllText(statePath)?.Trim();
+                return int.TryParse(text, out int p) ? p : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private void PersistBackendPort(int port)
+        {
+            try
+            {
+                string localSisRuaDir = GetLocalSisRuaDir();
+                if (string.IsNullOrEmpty(localSisRuaDir)) return;
+                Directory.CreateDirectory(localSisRuaDir);
+                string statePath = Path.Combine(localSisRuaDir, "backend_port.txt");
+                File.WriteAllText(statePath, port.ToString());
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
         private bool IsBackendHealthy()
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(BackendBaseUrl)) return false;
                 var resp = _healthClient.GetAsync($"{BackendBaseUrl}/api/v1/health").GetAwaiter().GetResult();
                 return resp.IsSuccessStatusCode;
             }
@@ -463,13 +534,7 @@ namespace sisRUA
                 RedirectStandardError = true
             };
 
-            if (argumentList != null)
-            {
-                foreach (var arg in argumentList)
-                {
-                    psi.ArgumentList.Add(arg);
-                }
-            }
+            psi.Arguments = BuildCommandLine(argumentList);
 
             using (var p = new Process { StartInfo = psi })
             {
@@ -492,6 +557,26 @@ namespace sisRUA
 
                 return (p.ExitCode, stdout.ToString(), stderr.ToString());
             }
+        }
+
+        private static string BuildCommandLine(params string[] args)
+        {
+            if (args == null || args.Length == 0) return string.Empty;
+            var sb = new StringBuilder();
+            foreach (var raw in args)
+            {
+                if (sb.Length > 0) sb.Append(' ');
+                sb.Append(QuoteArg(raw ?? string.Empty));
+            }
+            return sb.ToString();
+        }
+
+        private static string QuoteArg(string arg)
+        {
+            if (arg == null) return "\"\"";
+            bool needsQuotes = arg.Length == 0 || arg.IndexOfAny(new[] { ' ', '\t', '\n', '\v', '"' }) >= 0;
+            if (!needsQuotes) return arg;
+            return "\"" + arg.Replace("\"", "\\\"") + "\"";
         }
     }
 }

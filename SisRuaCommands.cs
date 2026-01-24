@@ -25,6 +25,21 @@ namespace sisRUA
             PropertyNameCaseInsensitive = true
         };
 
+        private static string GetBackendBaseUrlOrAlert(Editor ed)
+        {
+            string baseUrl = SisRuaPlugin.BackendBaseUrl;
+            if (string.IsNullOrWhiteSpace(baseUrl))
+            {
+                ed?.WriteMessage("\n[sisRUA] ERRO: BackendBaseUrl não definido. O plugin inicializou corretamente?");
+                Application.ShowAlertDialog("Backend do sisRUA não foi inicializado corretamente.\nFeche e reabra o AutoCAD e execute o comando SISRUA novamente.");
+                return null;
+            }
+
+            // Segurança extra: aguarda health por alguns segundos antes de chamar endpoints.
+            SisRuaPlugin.EnsureBackendHealthy(TimeSpan.FromSeconds(10));
+            return baseUrl;
+        }
+
         private sealed class PrepareOsmRequest
         {
             [JsonPropertyName("latitude")]
@@ -74,12 +89,15 @@ namespace sisRUA
 
             try
             {
+                string baseUrl = GetBackendBaseUrlOrAlert(ed);
+                if (string.IsNullOrWhiteSpace(baseUrl)) return;
+
                 var payload = new PrepareGeoJsonRequest { GeoJson = geojsonData };
                 string jsonPayload = JsonSerializer.Serialize(payload, _jsonOptions);
                 var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
                 ed.WriteMessage("\n[sisRUA] Enviando GeoJSON para o backend Python (projeção CRS/UTM + extração de linhas)...");
-                var response = await _httpClient.PostAsync("http://localhost:8000/api/v1/prepare/geojson", content);
+                var response = await _httpClient.PostAsync($"{baseUrl}/api/v1/prepare/geojson", content);
                 response.EnsureSuccessStatusCode();
 
                 string jsonResponse = await response.Content.ReadAsStringAsync();
@@ -114,6 +132,9 @@ namespace sisRUA
 
             try
             {
+                string baseUrl = GetBackendBaseUrlOrAlert(ed);
+                if (string.IsNullOrWhiteSpace(baseUrl)) return;
+
                 ed.WriteMessage($"\n[sisRUA] Parâmetros: Lat={latitude}, Lon={longitude}, Raio={radius}m");
 
                 var requestData = new PrepareOsmRequest
@@ -128,7 +149,7 @@ namespace sisRUA
 
                 ed.WriteMessage("\n[sisRUA] Enviando solicitação para o backend Python...");
                 
-                var response = await _httpClient.PostAsync("http://localhost:8000/api/v1/prepare/osm", content);
+                var response = await _httpClient.PostAsync($"{baseUrl}/api/v1/prepare/osm", content);
                 response.EnsureSuccessStatusCode();
 
                 string jsonResponse = await response.Content.ReadAsStringAsync();

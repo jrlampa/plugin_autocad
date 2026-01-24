@@ -24,9 +24,13 @@ build/
 # ===== Bundles gerados (artefatos) =====
 dist/
 release/
+release_gate_test/
 
 # ===== IDE / ferramentas =====
 .cursor/
 .vscode/
 .idea/
+
+# ===== Notas locais (não versionar) =====
+passo-a-passo.md
 

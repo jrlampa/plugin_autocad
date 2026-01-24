@@ -19,11 +19,26 @@ if defined SISRUA_OUT_ROOT (
 )
 SET OUT_BUNDLE=%OUT_ROOT%\sisRUA.bundle
 SET OUT_CONTENTS=%OUT_BUNDLE%\Contents
-SET BIN_DEBUG=%ROOT%bin\x64\Debug\net8.0-windows
+if defined SISRUA_CONFIGURATION (
+  SET CONFIG=%SISRUA_CONFIGURATION%
+) else (
+  SET CONFIG=Debug
+)
+SET BIN_NET8=%ROOT%bin\x64\%CONFIG%\net8.0-windows
+SET BIN_NET48=%ROOT%bin\x64\%CONFIG%\net48
+SET SISRUA_STEP=
 
 echo [1/6] Preparando pasta de saida (deploy)...
-if exist "%OUT_BUNDLE%" rd /s /q "%OUT_BUNDLE%"
-if not exist "%OUT_CONTENTS%" mkdir "%OUT_CONTENTS%"
+if exist "%OUT_BUNDLE%" (
+  SET SISRUA_STEP=apagando bundle de saida
+  rd /s /q "%OUT_BUNDLE%"
+  if exist "%OUT_BUNDLE%" goto :SISRUA_FAIL
+)
+if not exist "%OUT_CONTENTS%" (
+  SET SISRUA_STEP=criando pasta Contents
+  mkdir "%OUT_CONTENTS%"
+  if not exist "%OUT_CONTENTS%" goto :SISRUA_FAIL
+)
 
 echo [2/6] Copiando PackageContents.xml...
 if not exist "%SRC_BUNDLE%\PackageContents.xml" (
@@ -31,20 +46,54 @@ if not exist "%SRC_BUNDLE%\PackageContents.xml" (
     pause
     exit /b 1
 )
+SET SISRUA_STEP=copiando PackageContents.xml
 copy /Y "%SRC_BUNDLE%\PackageContents.xml" "%OUT_BUNDLE%\" >nul
+if errorlevel 1 goto :SISRUA_FAIL
 
 echo [3/6] Copiando binarios .NET (plugin + dependencias)...
-if not exist "%BIN_DEBUG%" (
-    echo ERRO: Pasta de build nao encontrada: %BIN_DEBUG%
-    echo Compile o projeto antes: Debug/x64.
+if not exist "%BIN_NET8%" (
+    echo ERRO: Pasta de build nao encontrada: %BIN_NET8%
+    echo Compile o projeto antes: Debug/x64 net8.0-windows.
     pause
     exit /b 1
 )
-copy /Y "%BIN_DEBUG%\*.dll" "%OUT_CONTENTS%" >nul
-copy /Y "%BIN_DEBUG%\*.pdb" "%OUT_CONTENTS%" >nul
-copy /Y "%BIN_DEBUG%\*.json" "%OUT_CONTENTS%" >nul
-if exist "%BIN_DEBUG%\runtimes" (
-    xcopy /E /I /Y "%BIN_DEBUG%\runtimes" "%OUT_CONTENTS%\runtimes" >nul
+
+REM Copia o DLL net8 com nome esperado pelo PackageContents.xml
+SET SISRUA_STEP=copiando sisRUA_NET8.dll
+copy /Y "%BIN_NET8%\sisRUA_NET8.dll" "%OUT_CONTENTS%\sisRUA_NET8.dll" >nul
+if errorlevel 1 goto :SISRUA_FAIL
+if exist "%BIN_NET8%\sisRUA_NET8.pdb" (
+    SET SISRUA_STEP=copiando sisRUA_NET8.pdb
+    copy /Y "%BIN_NET8%\sisRUA_NET8.pdb" "%OUT_CONTENTS%\sisRUA_NET8.pdb" >nul
+    if errorlevel 1 goto :SISRUA_FAIL
+)
+
+REM Copia dependências (WebView2 etc) do build net8
+SET SISRUA_STEP=copiando dependencias dll do net8
+copy /Y "%BIN_NET8%\*.dll" "%OUT_CONTENTS%" >nul
+if errorlevel 1 goto :SISRUA_FAIL
+SET SISRUA_STEP=copiando dependencias json do net8
+copy /Y "%BIN_NET8%\*.json" "%OUT_CONTENTS%" >nul
+if errorlevel 1 goto :SISRUA_FAIL
+if exist "%BIN_NET8%\runtimes" (
+    SET SISRUA_STEP=copiando runtimes WebView2
+    xcopy /E /I /Y "%BIN_NET8%\runtimes" "%OUT_CONTENTS%\runtimes" >nul
+    if errorlevel 1 goto :SISRUA_FAIL
+)
+
+REM Copia o DLL net48 (AutoCAD 2024), se existir
+if exist "%BIN_NET48%\sisRUA_NET48.dll" (
+    SET SISRUA_STEP=copiando sisRUA_NET48.dll
+    copy /Y "%BIN_NET48%\sisRUA_NET48.dll" "%OUT_CONTENTS%\sisRUA_NET48.dll" >nul
+    if errorlevel 1 goto :SISRUA_FAIL
+    if exist "%BIN_NET48%\sisRUA_NET48.pdb" (
+        SET SISRUA_STEP=copiando sisRUA_NET48.pdb
+        copy /Y "%BIN_NET48%\sisRUA_NET48.pdb" "%OUT_CONTENTS%\sisRUA_NET48.pdb" >nul
+        if errorlevel 1 goto :SISRUA_FAIL
+    )
+) else (
+    echo AVISO: sisRUA_NET48.dll nao encontrado em %BIN_NET48%
+    echo AutoCAD 2024 nao sera suportado neste bundle - build net48 ausente.
 )
 
 echo [4/6] Copiando backend Python...
@@ -53,11 +102,15 @@ if not exist "%SRC_BUNDLE%\Contents\backend" (
     pause
     exit /b 1
 )
+SET SISRUA_STEP=copiando backend
 xcopy /E /I /Y "%SRC_BUNDLE%\Contents\backend" "%OUT_CONTENTS%\backend" >nul
+if errorlevel 1 goto :SISRUA_FAIL
 
 echo [5/6] Copiando frontend (somente dist)...
 if exist "%SRC_BUNDLE%\Contents\frontend\dist" (
+    SET SISRUA_STEP=copiando frontend dist
     xcopy /E /I /Y "%SRC_BUNDLE%\Contents\frontend\dist" "%OUT_CONTENTS%\frontend\dist" >nul
+    if errorlevel 1 goto :SISRUA_FAIL
 ) else (
     echo AVISO: Frontend build dist nao encontrado em %SRC_BUNDLE%\Contents\frontend\dist
     echo Gere o build do Vite e tente novamente.
@@ -65,7 +118,9 @@ if exist "%SRC_BUNDLE%\Contents\frontend\dist" (
 
 echo [6/6] Copiando Resources (mapeamento, prancha, etc)...
 if exist "%SRC_BUNDLE%\Contents\Resources" (
+    SET SISRUA_STEP=copiando Resources
     xcopy /E /I /Y "%SRC_BUNDLE%\Contents\Resources" "%OUT_CONTENTS%\Resources" >nul
+    if errorlevel 1 goto :SISRUA_FAIL
 ) else (
     echo AVISO: Resources nao encontrado em %SRC_BUNDLE%\Contents\Resources
 )
@@ -76,3 +131,9 @@ echo ESTRUTURA ORGANIZADA COM SUCESSO!
 echo Local: %OUT_BUNDLE%
 echo ======================================================
 if not defined SISRUA_NOPAUSE pause
+exit /b 0
+
+:SISRUA_FAIL
+echo ERRO: falha durante %SISRUA_STEP%
+echo Verifique espaco em disco e permissoes de escrita.
+exit /b 1

@@ -1,6 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!--
+      - AutoCAD 2024 roda em .NET Framework (net48)
+      - AutoCAD 2025+ roda em .NET 8 (net8.0-windows)
+
+      Por padrão, compila net8 sempre e só inclui net48 se as DLLs do AutoCAD 2024 existirem
+      (ou se SISRUA_INCLUDE_NET48=true for passado no build).
+    -->
+    <Acad2026Dir Condition="'$(Acad2026Dir)'==''">C:\Program Files\Autodesk\AutoCAD 2026</Acad2026Dir>
+    <Acad2024Dir Condition="'$(Acad2024Dir)'==''">C:\Program Files\Autodesk\AutoCAD 2024</Acad2024Dir>
+
+    <TargetFrameworks>net8.0-windows</TargetFrameworks>
+    <TargetFrameworks Condition="'$(SISRUA_INCLUDE_NET48)'=='true' Or Exists('$(Acad2024Dir)\\AcCoreMgd.dll')">net48;net8.0-windows</TargetFrameworks>
     <OutputType>Library</OutputType>
     <RootNamespace>sisRUA</RootNamespace>
     <AssemblyName>sisRUA</AssemblyName>
@@ -11,24 +22,50 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
-  <ItemGroup>
+  <PropertyGroup Condition="'$(TargetFramework)'=='net48'">
+    <AssemblyName>sisRUA_NET48</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
+    <AssemblyName>sisRUA_NET8</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
     <Reference Include="AcCoreMgd">
-      <HintPath>C:\Program Files\Autodesk\AutoCAD 2026\AcCoreMgd.dll</HintPath>
+      <HintPath>$(Acad2026Dir)\AcCoreMgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="AcDbMgd">
-      <HintPath>C:\Program Files\Autodesk\AutoCAD 2026\AcDbMgd.dll</HintPath>
+      <HintPath>$(Acad2026Dir)\AcDbMgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="AcMgd">
-      <HintPath>C:\Program Files\Autodesk\AutoCAD 2026\AcMgd.dll</HintPath>
+      <HintPath>$(Acad2026Dir)\AcMgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
 
+  <ItemGroup Condition="'$(TargetFramework)'=='net48'">
+    <Reference Include="AcCoreMgd">
+      <HintPath>$(Acad2024Dir)\AcCoreMgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="AcDbMgd">
+      <HintPath>$(Acad2024Dir)\AcDbMgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="AcMgd">
+      <HintPath>$(Acad2024Dir)\AcMgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <!-- net48 precisa de referência explícita em alguns ambientes de build -->
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2277.86" />
-    <PackageReference Include="System.Text.Json" Version="10.0.1" />
+    <!-- Versão que suporta net48 e net8 -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 
   <ItemGroup>

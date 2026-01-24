@@ -128,7 +128,18 @@ namespace sisRUA
                 _webView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
                 
                 // Navega para a URL do frontend React.
-                _webView.Source = new Uri("http://localhost:8000");
+                string baseUrl = SisRuaPlugin.BackendBaseUrl;
+                if (string.IsNullOrWhiteSpace(baseUrl))
+                {
+                    Debug.WriteLine("[sisRUA] BackendBaseUrl vazio. Navegando para about:blank.");
+                    baseUrl = "about:blank";
+                }
+                else
+                {
+                    // Em geral o plugin já aguardou o /health no Initialize(), mas aqui damos um "seguro" extra.
+                    SisRuaPlugin.EnsureBackendHealthy(TimeSpan.FromSeconds(5));
+                }
+                _webView.Source = new Uri(baseUrl);
             }
             catch (System.Exception ex)
             {
