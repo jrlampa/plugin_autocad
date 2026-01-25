@@ -113,6 +113,15 @@ def main(argv: list[str] | None = None) -> int:
     _configure_proj_data_dir()
 
     # Import direto: ajuda o PyInstaller a detectar dependências (osmnx/geopandas/pyproj/shapely).
+    # Em `backend.api`, os imports de OSMnx/GeoPandas são lazy (para reduzir custo de startup/CI),
+    # então importamos explicitamente aqui para garantir empacotamento.
+    try:  # pragma: no cover
+        import osmnx  # noqa: F401
+        import geopandas  # noqa: F401
+    except Exception:
+        # Se falhar no dev (sem deps), não impede rodar endpoints que não dependem de OSM.
+        pass
+
     from backend.api import app  # noqa: WPS433 (import local intencional para empacotamento)
 
     uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level, log_config=log_config, access_log=False)

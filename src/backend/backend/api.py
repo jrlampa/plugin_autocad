@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
 from typing import Dict, Any, List, Tuple, Optional
@@ -9,11 +11,6 @@ import hashlib
 import threading
 import math
 from pathlib import Path
-
-import osmnx as ox
-from pyproj import Transformer
-from shapely.geometry import LineString, MultiLineString
-from shapely.ops import transform as shapely_transform
 
 AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN") or ""
 AUTH_HEADER_NAME = "X-SisRua-Token"
@@ -190,7 +187,10 @@ def _sirgas2000_utm_epsg(latitude: float, longitude: float) -> int:
     return 31960 + zone
 
 
-def _to_linestrings(geom) -> List[LineString]:
+def _to_linestrings(geom) -> List[Any]:
+    # Import local para evitar puxar stack GIS pesada na importação do módulo (melhor para CI e startup).
+    from shapely.geometry import LineString, MultiLineString  # type: ignore
+
     if geom is None:
         return []
     if isinstance(geom, LineString):
@@ -200,10 +200,13 @@ def _to_linestrings(geom) -> List[LineString]:
     return []
 
 
-def _project_lines_to_xy(lines: List[LineString], transformer: Transformer) -> List[List[List[float]]]:
+def _project_lines_to_xy(lines: List[Any], transformer: Any) -> List[List[List[float]]]:
     """
     Retorna lista de coordenadas [[x,y],...] por linha.
     """
+    # Import local: evita custo de import no startup/testes que não precisam de OSM.
+    from shapely.ops import transform as shapely_transform  # type: ignore
+
     out = []
     for line in lines:
         projected = shapely_transform(transformer.transform, line)
@@ -270,6 +273,10 @@ def _sanitize_jsonable(obj: Any) -> Any:
 
 
 def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> dict:
+    # Import local: OSMnx/GeoPandas podem ser pesados; só precisamos disso ao executar OSM.
+    import osmnx as ox  # type: ignore
+    from pyproj import Transformer  # type: ignore
+
     key = _cache_key(["prepare_osm", f"{latitude:.6f}", f"{longitude:.6f}", str(int(radius))])
     cached = _read_cache(key)
     if cached is not None:
@@ -426,6 +433,9 @@ async def prepare_osm(req: PrepareOsmRequest, x_sisrua_token: str | None = Heade
 
 
 def _prepare_geojson_compute(geo: Any) -> dict:
+    from pyproj import Transformer  # type: ignore
+    from shapely.geometry import LineString  # type: ignore
+
     if isinstance(geo, str):
         geo = json.loads(geo)
 

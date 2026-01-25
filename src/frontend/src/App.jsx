@@ -279,6 +279,7 @@ export default function App() {
 
   return (
     <div
+      data-testid="app-root"
       className={`relative w-full h-full overflow-hidden bg-slate-900 font-sans flex ${isDrawing ? 'cursor-crosshair' : ''}`}
       onDragOver={(e) => { e.preventDefault(); if (e.dataTransfer.types.includes("Files")) setIsDraggingFile(true); }}
       onDragLeave={() => setIsDraggingFile(false)}
@@ -317,7 +318,7 @@ export default function App() {
         )}
 
         <div className="flex-1"></div>
-        <button onClick={handleGenerate} disabled={loading} className={`p-4 rounded-2xl shadow-xl transition-all active:scale-95 group relative ${loading ? 'bg-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 hover:shadow-blue-500/40'}`}>
+        <button aria-label="Gerar Projeto (OSM)" data-testid="btn-generate-osm" onClick={handleGenerate} disabled={loading} className={`p-4 rounded-2xl shadow-xl transition-all active:scale-95 group relative ${loading ? 'bg-slate-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 hover:shadow-blue-500/40'}`}>
           {loading ? <Loader2 className="animate-spin text-white" /> : <Zap className="text-white fill-white" />}
           <span className="absolute left-full ml-4 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Gerar Projeto (OSM)</span>
         </button>
@@ -368,7 +369,7 @@ export default function App() {
                                 <span className="text-[10px] text-amber-700/80 font-medium">GeoJSON carregado no mapa.</span>
                             </div>
                          </div>
-                         <button onClick={handleImportGeoJson} className="mt-1 w-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-4 rounded-2xl text-center transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 group">
+                         <button data-testid="btn-import-geojson" onClick={handleImportGeoJson} className="mt-1 w-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-4 rounded-2xl text-center transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 group">
                              <Download size={16} className="group-hover:animate-bounce" /> IMPORTAR PARA O AUTOCAD
                          </button>
                          <button onClick={() => setPreviewGeoJson(null)} className="text-center text-[10px] text-slate-500 hover:text-red-500 font-bold transition-colors">Cancelar</button>

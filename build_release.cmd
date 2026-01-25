@@ -67,4 +67,3 @@ exit /b 0
 :SISRUA_FRONTEND_FAIL
 echo ERRO: falha ao gerar frontend (Vite). Sem isso o plugin cai em "modo minimo".
 exit /b 1
-

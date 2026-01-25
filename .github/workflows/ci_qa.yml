@@ -1,0 +1,80 @@
+name: QA (tests + artifacts)
+
+on:
+  push:
+    branches: ["main"]
+  pull_request: {}
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install backend deps (CI + dev)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r src/backend/requirements-ci.txt -r src/backend/requirements-dev.txt
+      - name: Run pytest (JUnit)
+        env:
+          LOCALAPPDATA: /tmp/localappdata
+        run: |
+          mkdir -p qa/out/test-reports
+          mkdir -p "$LOCALAPPDATA"
+          python -m pytest -q src/backend --junitxml qa/out/test-reports/pytest-junit.xml
+      - name: Upload backend artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-backend
+          path: |
+            qa/out/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: src/frontend/package-lock.json
+      - name: Install deps
+        working-directory: src/frontend
+        run: npm ci --no-audit --no-fund
+      - name: Run vitest (JUnit)
+        working-directory: src/frontend
+        run: |
+          mkdir -p ../../qa/out/test-reports
+          npm test -- --run --reporter=default --reporter=junit --outputFile=../../qa/out/test-reports/vitest-junit.xml
+      - name: Install Playwright browsers
+        if: ${{ hashFiles('src/frontend/playwright.config.*') != '' }}
+        working-directory: src/frontend
+        run: npx playwright install --with-deps
+      - name: Run Playwright E2E (HTML report + screenshots)
+        if: ${{ hashFiles('src/frontend/playwright.config.*') != '' }}
+        working-directory: src/frontend
+        env:
+          CI: "true"
+        run: |
+          npx playwright test --reporter=html
+      - name: Upload frontend artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-frontend
+          path: |
+            qa/out/**
+            src/frontend/playwright-report/**
+            src/frontend/test-results/**
+          if-no-files-found: warn
+          retention-days: 14
+

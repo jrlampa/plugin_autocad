@@ -1,0 +1,18 @@
+RequirementID,RequirementTitle,TestCaseID,TestType,EvidenceID,EvidenceType,HowToCollect
+FR-001,Autoload (bundle),TC-MAN-001,manual,EVI-001,print/screenshot,"Screenshot do AutoCAD carregando o bundle (sem NETLOAD) + Apps & Features mostrando instalação"
+FR-002,Abrir UI (SISRUA),TC-MAN-002,manual,EVI-002,print/screenshot,"Screenshot da paleta aberta e UI renderizada"
+FR-002,Abrir UI (SISRUA),TC-AUT-UI-001,automated,EVI-013,report,"Relatório Playwright (HTML) validando smoke de UI (render inicial) + screenshot(s) em qa/out/playwright/"
+FR-003,OSM → CAD,TC-MAN-003,manual,EVI-003,print/screenshot,"Screenshot do ModelSpace com vias desenhadas + layer list + atribuição OSM no DWG"
+FR-003,OSM → CAD,TC-AUT-UI-002,automated,EVI-014,report,"Relatório Playwright (HTML): clique em “Gerar Projeto (OSM)” dispara postMessage `GENERATE_OSM` com payload esperado + screenshot(s) em qa/out/playwright/"
+FR-004,GeoJSON → CAD,TC-AUT-API-003,automated,EVI-004,report,"Relatório pytest (junit) validando prepare_geojson"
+FR-004,GeoJSON → CAD,TC-MAN-004,manual,EVI-005,print/screenshot,"Screenshot do drop na UI + ModelSpace desenhado"
+FR-004,GeoJSON → CAD,TC-AUT-UI-003,automated,EVI-015,report,"Relatório Playwright (HTML): drag&drop de GeoJSON mostra preview e ação “IMPORTAR PARA O AUTOCAD” dispara postMessage `IMPORT_GEOJSON` + screenshot(s) em qa/out/playwright/"
+FR-005,CRS automático SIRGAS/UTM,TC-AUT-API-004,automated,EVI-006,report,"Teste unitário do cálculo EPSG + projeção consistente (sem NaN/Inf)"
+FR-006,Atribuição OSM,TC-MAN-005,manual,EVI-007,print/screenshot,"Screenshot do texto de atribuição no DWG (camada SISRUA_ATTRIB) + link OSM"
+FR-007,Feedback de progresso (jobs),TC-AUT-UI-004,automated,EVI-016,report,"Relatório Playwright (HTML): mensagem `JOB_PROGRESS` simulada atualiza UI (barra/estado) e trata erro + screenshot(s) em qa/out/playwright/"
+NFR-001,Auth token no backend,TC-AUT-API-001,automated,EVI-008,report,"pytest: 401 sem token e 200 com token (auth/check + jobs/prepare)"
+NFR-002,Robustez de payload,TC-AUT-API-005,automated,EVI-009,report,"pytest: geojson inválido retorna 400 sem crash"
+NFR-003,Logs do backend,TC-MAN-006,manual,EVI-010,log,"Arquivo %LOCALAPPDATA%\\sisRUA\\logs\\backend.log gerado e rotacionando"
+NFR-004,Privacidade / rede,TC-MAN-007,manual,EVI-011,print/log,"Checklist: sem telemetria; tráfego externo apenas ao gerar OSM (captura opcional do proxy/Windows Firewall)"
+NFR-005,Trusted Locations,TC-MAN-008,manual,EVI-012,print/screenshot,"Registro HKCU TRUSTEDPATHS atualizado ou instrução manual exibida"
+

@@ -21,12 +21,17 @@ cache/
 # ===== Node / Frontend =====
 **/node_modules/
 **/dist-ssr/
+**/coverage/
 
 # ===== Bundles gerados (artefatos) =====
 dist/
 release/
 release_gate_test/
 installer/out/
+
+# ===== QA / evidências (gerado) =====
+qa/out/
+.pytest_cache/
 
 # ===== IDE / ferramentas =====
 .cursor/

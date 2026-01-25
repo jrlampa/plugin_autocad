@@ -1,0 +1,7 @@
+# Dependências mínimas para testes/CI (sem OSMnx/GeoPandas).
+# Objetivo: rodar testes rápidos e determinísticos, sem rede e sem stack GIS pesada.
+fastapi
+uvicorn
+pyproj
+shapely
+
