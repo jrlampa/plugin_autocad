@@ -138,6 +138,10 @@ namespace sisRUA
             [JsonPropertyName("highway")]
             public string Highway { get; set; }
 
+            // Largura estimada da via (metros). Se presente, podemos desenhar como polyline com largura constante.
+            [JsonPropertyName("width_m")]
+            public double? WidthMeters { get; set; }
+
             [JsonPropertyName("coords_xy")]
             public List<List<double>> CoordsXy { get; set; }
         }
@@ -408,6 +412,7 @@ namespace sisRUA
 
             Database db = doc.Database;
             Editor ed = doc.Editor;
+            double metersToDrawingUnits = GetMetersToDrawingUnitsScale(db);
 
             using (doc.LockDocument())
             using (Transaction tr = db.TransactionManager.StartTransaction())
@@ -426,17 +431,33 @@ namespace sisRUA
                     EnsureLayer(tr, db, lt, layerName, aci);
 
                     var pl = new Polyline();
+                    double? widthUnits = null;
+                    if (f.WidthMeters.HasValue && f.WidthMeters.Value > 0.01 && double.IsFinite(f.WidthMeters.Value))
+                    {
+                        widthUnits = f.WidthMeters.Value * metersToDrawingUnits;
+                    }
                     for (int i = 0; i < f.CoordsXy.Count; i++)
                     {
                         var pt = f.CoordsXy[i];
                         if (pt == null || pt.Count < 2) continue;
-                        pl.AddVertexAt(pl.NumberOfVertices, new Autodesk.AutoCAD.Geometry.Point2d(pt[0], pt[1]), 0, 0, 0);
+                        pl.AddVertexAt(
+                            pl.NumberOfVertices,
+                            new Autodesk.AutoCAD.Geometry.Point2d(pt[0] * metersToDrawingUnits, pt[1] * metersToDrawingUnits),
+                            0,
+                            0,
+                            0
+                        );
                     }
 
                     if (pl.NumberOfVertices < 2)
                     {
                         pl.Dispose();
                         continue;
+                    }
+
+                    if (widthUnits.HasValue)
+                    {
+                        pl.ConstantWidth = widthUnits.Value;
                     }
 
                     pl.Layer = layerName;
@@ -450,6 +471,31 @@ namespace sisRUA
                 ed.WriteMessage($"\n[sisRUA] Sucesso! {created} polylines criadas no Model Space.");
                 ed.Regen();
             }
+        }
+
+        private static double GetMetersToDrawingUnitsScale(Database db)
+        {
+            // Backend retorna coordenadas em metros (UTM). Aqui convertemos para a unidade do desenho.
+            // Caso o desenho esteja em milímetros, escala = 1000.
+            // Se estiver em metros (ou unitless), escala = 1.
+            try
+            {
+                object v = Application.GetSystemVariable("INSUNITS");
+                int insunits = 0;
+                if (v is short s) insunits = s;
+                else if (v is int i) insunits = i;
+                else if (v != null) int.TryParse(v.ToString(), out insunits);
+
+                // https://help.autodesk.com/ (INSUNITS): valores comuns
+                // 4 = millimeters, 6 = meters
+                if (insunits == 4) return 1000.0;
+                if (insunits == 6) return 1.0;
+            }
+            catch
+            {
+                // ignore
+            }
+            return 1.0;
         }
 
         private static void EnsureLayer(Transaction tr, Database db, LayerTable lt, string layerName, short? aci = null)

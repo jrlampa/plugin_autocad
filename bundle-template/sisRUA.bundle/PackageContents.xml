@@ -16,7 +16,7 @@
       AppDescription="sisRUA"
       AppType=".Net"
       LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="True">
+      LoadOnCommandInvocation="False">
       <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.3" SeriesMax="R24.3" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
@@ -30,7 +30,7 @@
       AppDescription="sisRUA"
       AppType=".Net"
       LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="True">
+      LoadOnCommandInvocation="False">
       <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R24.3" SeriesMax="R24.3" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
@@ -44,7 +44,7 @@
       AppDescription="sisRUA"
       AppType=".Net"
       LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="True">
+      LoadOnCommandInvocation="False">
       <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R25.0" SeriesMax="R25.1" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
@@ -58,7 +58,7 @@
       AppDescription="sisRUA"
       AppType=".Net"
       LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="True">
+      LoadOnCommandInvocation="False">
       <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R25.0" SeriesMax="R25.1" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />

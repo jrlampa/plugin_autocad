@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading;
 
 [assembly: ExtensionApplication(typeof(sisRUA.SisRuaPlugin))]
+[assembly: CommandClass(typeof(sisRUA.SisRuaPalette))]
 
 namespace sisRUA
 {

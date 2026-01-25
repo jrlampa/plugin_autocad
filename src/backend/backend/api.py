@@ -293,6 +293,100 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
 
     features: List[Dict[str, Any]] = []
 
+    def _parse_float_maybe(x: Any) -> Optional[float]:
+        if x is None:
+            return None
+        if isinstance(x, (int, float)):
+            xf = float(x)
+            return xf if math.isfinite(xf) else None
+        try:
+            s = str(x).strip().lower()
+            if not s or s == "nan":
+                return None
+            # remove unidade comum
+            s = s.replace("meters", "").replace("meter", "").replace("metres", "").replace("metre", "").replace("m", "")
+            # separadores comuns: "7;8" -> pega o primeiro número
+            for sep in [";", ","]:
+                if sep in s:
+                    s = s.split(sep)[0]
+                    break
+            s = s.strip()
+            xf = float(s)
+            return xf if math.isfinite(xf) else None
+        except Exception:
+            return None
+
+    def _parse_int_maybe(x: Any) -> Optional[int]:
+        if x is None:
+            return None
+        if isinstance(x, int):
+            return x
+        if isinstance(x, float) and math.isfinite(x):
+            return int(x)
+        try:
+            s = str(x).strip().lower()
+            if not s or s == "nan":
+                return None
+            # "2;1" -> pega o primeiro
+            for sep in [";", ","]:
+                if sep in s:
+                    s = s.split(sep)[0]
+                    break
+            # "2 lanes"
+            digits = ""
+            for ch in s:
+                if ch.isdigit():
+                    digits += ch
+                elif digits:
+                    break
+            if not digits:
+                return None
+            return int(digits)
+        except Exception:
+            return None
+
+    def _estimate_width_m(row, highway_tag: Optional[str]) -> Optional[float]:
+        # 1) width explícito no OSM
+        w = row.get("width") if row is not None else None
+        if isinstance(w, list) and w:
+            w = w[0]
+        wv = _parse_float_maybe(w)
+        if wv and wv > 0.5:
+            return min(max(wv, 2.0), 40.0)
+
+        # 2) lanes -> largura aproximada (calçada a calçada / curb-to-curb)
+        lanes = row.get("lanes") if row is not None else None
+        if isinstance(lanes, list) and lanes:
+            lanes = lanes[0]
+        ln = _parse_int_maybe(lanes)
+        if ln is None:
+            # fallback por tipo de via
+            defaults = {
+                "motorway": 3,
+                "trunk": 2,
+                "primary": 2,
+                "secondary": 2,
+                "tertiary": 2,
+                "residential": 2,
+                "service": 1,
+                "unclassified": 2,
+                "track": 1,
+                "path": 1,
+                "footway": 1,
+                "cycleway": 1,
+            }
+            ln = defaults.get((highway_tag or "").lower())
+
+        if ln is None:
+            return None
+
+        lane_w = 3.2  # m
+        width = float(ln) * lane_w
+        # pisos estreitos para vias não-carro
+        if (highway_tag or "").lower() in ("footway", "path", "cycleway"):
+            width = max(1.8, min(width, 4.0))
+        return min(max(width, 2.0), 30.0)
+
     for _, row in edges.iterrows():
         geom = row.geometry
         highway = row.get("highway")
@@ -301,6 +395,7 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
         name = row.get("name") if row.get("name") is not None else None
         highway = _norm_optional_str(highway)
         name = _norm_optional_str(name)
+        width_m = _estimate_width_m(row, highway)
 
         lines = _to_linestrings(geom)
         for coords_xy in _project_lines_to_xy(lines, transformer):
@@ -309,6 +404,7 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
                     "layer": "SISRUA_OSM_VIAS",
                     "name": name,
                     "highway": highway,
+                    "width_m": width_m,
                     "coords_xy": coords_xy,
                 }
             )
