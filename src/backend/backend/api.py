@@ -7,6 +7,7 @@ import sys
 import json
 import hashlib
 import threading
+import math
 from pathlib import Path
 
 import osmnx as ox
@@ -209,6 +210,29 @@ def _project_lines_to_xy(lines: List[LineString], transformer: Transformer) -> L
     return out
 
 
+def _norm_optional_str(v: Any) -> Optional[str]:
+    """
+    Normaliza valores vindos do pandas/osmnx para algo serializável em JSON.
+    - Converte NaN/NA em None
+    - Converte qualquer outro valor em string (mantém None)
+    """
+    if v is None:
+        return None
+    try:
+        if isinstance(v, float) and math.isnan(v):
+            return None
+    except Exception:
+        pass
+    # Muitos "missing values" acabam virando strings como "nan" dependendo do pipeline.
+    try:
+        s = str(v)
+        if s.lower() == "nan":
+            return None
+        return s
+    except Exception:
+        return None
+
+
 def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> dict:
     key = _cache_key(["prepare_osm", f"{latitude:.6f}", f"{longitude:.6f}", str(int(radius))])
     cached = _read_cache(key)
@@ -239,6 +263,8 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
         if isinstance(highway, list) and highway:
             highway = highway[0]
         name = row.get("name") if row.get("name") is not None else None
+        highway = _norm_optional_str(highway)
+        name = _norm_optional_str(name)
 
         lines = _to_linestrings(geom)
         for coords_xy in _project_lines_to_xy(lines, transformer):

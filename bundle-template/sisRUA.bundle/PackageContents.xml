@@ -15,7 +15,7 @@
       ModuleName="./Contents/sisRUA_NET48.dll"
       AppDescription="sisRUA"
       AppType=".Net"
-      LoadOnAutoCADStartup="False"
+      LoadOnAutoCADStartup="True"
       LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.3" SeriesMax="R24.3" />
       <Commands GroupName="sisRUA">
@@ -29,7 +29,7 @@
       ModuleName="./Contents/sisRUA_NET48.dll"
       AppDescription="sisRUA"
       AppType=".Net"
-      LoadOnAutoCADStartup="False"
+      LoadOnAutoCADStartup="True"
       LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R24.3" SeriesMax="R24.3" />
       <Commands GroupName="sisRUA">
@@ -43,7 +43,7 @@
       ModuleName="./Contents/sisRUA_NET8.dll"
       AppDescription="sisRUA"
       AppType=".Net"
-      LoadOnAutoCADStartup="False"
+      LoadOnAutoCADStartup="True"
       LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R25.0" SeriesMax="R25.1" />
       <Commands GroupName="sisRUA">
@@ -57,7 +57,7 @@
       ModuleName="./Contents/sisRUA_NET8.dll"
       AppDescription="sisRUA"
       AppType=".Net"
-      LoadOnAutoCADStartup="False"
+      LoadOnAutoCADStartup="True"
       LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R25.0" SeriesMax="R25.1" />
       <Commands GroupName="sisRUA">

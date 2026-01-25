@@ -86,6 +86,20 @@ namespace sisRUA
 
                     if (IsBackendHealthy() && IsBackendAuthorized())
                     {
+                        // Se possível, anexa ao PID persistido para poder encerrar no Terminate().
+                        int previousPid = TryReadLastBackendPid();
+                        if (previousPid > 0)
+                        {
+                            try
+                            {
+                                _pythonProcess = Process.GetProcessById(previousPid);
+                            }
+                            catch
+                            {
+                                _pythonProcess = null;
+                            }
+                        }
+
                         LogToEditor($"\n>>> Backend do sisRUA já está rodando (health/auth OK) em {BackendBaseUrl}.");
                         return;
                     }
@@ -209,35 +223,43 @@ namespace sisRUA
         /// </summary>
         public void Terminate()
         {
-            if (_pythonProcess != null && !_pythonProcess.HasExited)
+            try
             {
-                try
+                if (_pythonProcess != null && !_pythonProcess.HasExited)
                 {
-                    // Usar taskkill com /T é a forma mais segura de garantir que todos os sub-processos
-                    // (como o uvicorn worker) sejam encerrados junto com o processo principal.
-                    var killInfo = new ProcessStartInfo("taskkill", $"/F /T /PID {_pythonProcess.Id}")
+                    try
                     {
-                        CreateNoWindow = true,
-                        UseShellExecute = false,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true
-                    };
-                    
-                    using (var killProcess = Process.Start(killInfo))
-                    {
-                        killProcess?.WaitForExit(5000); // Aguarda no máximo 5 segundos
+                        // Usar taskkill com /T é a forma mais segura de garantir que todos os sub-processos
+                        // (como o uvicorn worker) sejam encerrados junto com o processo principal.
+                        var killInfo = new ProcessStartInfo("taskkill", $"/F /T /PID {_pythonProcess.Id}")
+                        {
+                            CreateNoWindow = true,
+                            UseShellExecute = false,
+                            RedirectStandardOutput = true,
+                            RedirectStandardError = true
+                        };
+
+                        using (var killProcess = Process.Start(killInfo))
+                        {
+                            killProcess?.WaitForExit(5000); // Aguarda no máximo 5 segundos
+                        }
                     }
+                    finally
+                    {
+                        _pythonProcess.Dispose();
+                        _pythonProcess = null;
+                        LogToEditor("\n>>> Backend do sisRUA finalizado.");
+                    }
+
+                    return;
                 }
-                catch (System.Exception ex)
-                {
-                     Debug.WriteLine($"[sisRUA] Exceção ao tentar finalizar a árvore de processos do backend: {ex.Message}");
-                }
-                finally
-                {
-                    _pythonProcess.Dispose();
-                    _pythonProcess = null;
-                    LogToEditor("\n>>> Backend do sisRUA finalizado.");
-                }
+
+                // Fallback: se o handle não existe (backend reaproveitado), tenta matar o PID persistido.
+                TryKillPreviousBackendProcess();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.WriteLine($"[sisRUA] Exceção ao tentar finalizar o backend: {ex}");
             }
         }
 
