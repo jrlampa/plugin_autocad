@@ -6,6 +6,7 @@ using Autodesk.AutoCAD.Runtime;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
@@ -432,7 +433,7 @@ namespace sisRUA
 
                     var pl = new Polyline();
                     double? widthUnits = null;
-                    if (f.WidthMeters.HasValue && f.WidthMeters.Value > 0.01 && double.IsFinite(f.WidthMeters.Value))
+                    if (f.WidthMeters.HasValue && f.WidthMeters.Value > 0.01 && IsFinite(f.WidthMeters.Value))
                     {
                         widthUnits = f.WidthMeters.Value * metersToDrawingUnits;
                     }
@@ -477,9 +478,29 @@ namespace sisRUA
         {
             // Backend retorna coordenadas em metros (UTM). Aqui convertemos para a unidade do desenho.
             // Caso o desenho esteja em milímetros, escala = 1000.
-            // Se estiver em metros (ou unitless), escala = 1.
+            // Em alguns desenhos (INSUNITS=0 / unitless), inferimos pelo MEASUREMENT:
+            // - métrico (1): assume mm
+            // - imperial (0): assume inches
             try
             {
+                // Override manual (se necessário): define um fator direto "metros -> unidades do desenho"
+                // Ex.: "1000" para mm, "1" para m
+                string overrideScale = Environment.GetEnvironmentVariable("SISRUA_M_TO_UNITS");
+                if (!string.IsNullOrWhiteSpace(overrideScale))
+                {
+                    overrideScale = overrideScale.Trim();
+                    if (double.TryParse(overrideScale, NumberStyles.Float, CultureInfo.InvariantCulture, out double forced) && forced > 0.0 && IsFinite(forced))
+                    {
+                        return forced;
+                    }
+                    // tolera vírgula decimal (pt-BR)
+                    string commaFixed = overrideScale.Replace(',', '.');
+                    if (double.TryParse(commaFixed, NumberStyles.Float, CultureInfo.InvariantCulture, out forced) && forced > 0.0 && IsFinite(forced))
+                    {
+                        return forced;
+                    }
+                }
+
                 object v = Application.GetSystemVariable("INSUNITS");
                 int insunits = 0;
                 if (v is short s) insunits = s;
@@ -487,15 +508,54 @@ namespace sisRUA
                 else if (v != null) int.TryParse(v.ToString(), out insunits);
 
                 // https://help.autodesk.com/ (INSUNITS): valores comuns
-                // 4 = millimeters, 6 = meters
-                if (insunits == 4) return 1000.0;
-                if (insunits == 6) return 1.0;
+                // Conversão desejada: metros -> unidade do desenho.
+                switch (insunits)
+                {
+                    case 0: // unitless
+                        try
+                        {
+                            object m = Application.GetSystemVariable("MEASUREMENT");
+                            int measurement = 0;
+                            if (m is short ms) measurement = ms;
+                            else if (m is int mi) measurement = mi;
+                            else if (m != null) int.TryParse(m.ToString(), out measurement);
+                            // 1 = métrico (default comum: mm), 0 = imperial (default comum: inches)
+                            return measurement == 1 ? 1000.0 : 39.37007874015748;
+                        }
+                        catch
+                        {
+                            // fallback: assume metros
+                            return 1.0;
+                        }
+                    case 1: // inches
+                        return 39.37007874015748;
+                    case 2: // feet
+                        return 3.280839895013123;
+                    case 3: // miles
+                        return 0.0006213711922373339;
+                    case 4: // millimeters
+                        return 1000.0;
+                    case 5: // centimeters
+                        return 100.0;
+                    case 6: // meters
+                        return 1.0;
+                    case 7: // kilometers
+                        return 0.001;
+                    default:
+                        // desconhecido: não arrisca
+                        return 1.0;
+                }
             }
             catch
             {
                 // ignore
             }
             return 1.0;
+        }
+
+        private static bool IsFinite(double x)
+        {
+            return !(double.IsNaN(x) || double.IsInfinity(x));
         }
 
         private static void EnsureLayer(Transaction tr, Database db, LayerTable lt, string layerName, short? aci = null)

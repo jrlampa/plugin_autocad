@@ -16,7 +16,7 @@
       AppDescription="sisRUA"
       AppType=".Net"
       LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="False">
+      LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.3" SeriesMax="R24.3" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
@@ -30,36 +30,36 @@
       AppDescription="sisRUA"
       AppType=".Net"
       LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="False">
+      LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R24.3" SeriesMax="R24.3" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
       </Commands>
     </ComponentEntry>
 
-    <!-- AutoCAD 2025–2026 (R25.0–R25.1) - .NET 8 -->
+    <!-- AutoCAD 2025–2026+ (R25.0–R25.x) - .NET 8 -->
     <ComponentEntry
       AppName="sisRUA"
       ModuleName="./Contents/sisRUA_NET8.dll"
       AppDescription="sisRUA"
       AppType=".Net"
       LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="False">
-      <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R25.0" SeriesMax="R25.1" />
+      LoadOnCommandInvocation="True">
+      <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R25.0" SeriesMax="R25.9" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
       </Commands>
     </ComponentEntry>
 
-    <!-- Civil 3D 2025–2026 (R25.0–R25.1) - .NET 8 -->
+    <!-- Civil 3D 2025–2026+ (R25.0–R25.x) - .NET 8 -->
     <ComponentEntry
       AppName="sisRUA"
       ModuleName="./Contents/sisRUA_NET8.dll"
       AppDescription="sisRUA"
       AppType=".Net"
       LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="False">
-      <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R25.0" SeriesMax="R25.1" />
+      LoadOnCommandInvocation="True">
+      <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R25.0" SeriesMax="R25.9" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
       </Commands>
