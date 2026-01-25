@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="sisRUA: leve ruas reais (OSM) e GeoJSON para o AutoCAD em minutos. Grátis para baixar. Leve, simples e com CRS automático." />
+    <meta name="theme-color" content="#0b1020" />
+
+    <title>sisRUA — Ruas reais no AutoCAD, em minutos</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="container header__inner">
+        <a class="brand" href="#top" aria-label="sisRUA">
+          <span class="brand__mark" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 20.5c4.5-1.8 5.2-10.2 9-12 3.8-1.8 6.6 2.6 10 1.2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              <path d="M6.2 9.4c2.8 1.1 4.9 3.5 6.6 6.7" stroke="currentColor" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="20.7" cy="9.6" r="2.2" fill="currentColor" fill-opacity=".9"/>
+            </svg>
+          </span>
+          <span class="brand__text">sisRUA</span>
+          <span class="badge badge--free">Grátis</span>
+        </a>
+
+        <nav class="nav">
+          <a href="#como-funciona">Como funciona</a>
+          <a href="#comparativo">Comparativo</a>
+          <a href="#instalacao">Instalação</a>
+          <a href="#faq">FAQ</a>
+        </nav>
+
+        <div class="header__cta">
+          <a id="downloadTop" class="btn btn--primary" href="https://github.com/jrlampa/plugin_autocad/releases/latest" rel="noreferrer">
+            Baixar plugin
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="container hero__grid">
+          <div class="hero__copy">
+            <p class="kicker">Campo → CAD, sem sofrimento</p>
+            <h1>Ruas reais no AutoCAD em <span class="grad">minutos</span>.</h1>
+            <p class="lead">
+              Baixe dados do OpenStreetMap (OSM) ou importe GeoJSON do campo, projete automaticamente para UTM/SIRGAS e desenhe no ModelSpace com layers organizadas.
+              Sem Map 3D, sem ArcGIS, sem “plugins pesados”.
+            </p>
+
+            <div class="hero__buttons">
+              <a id="downloadHero" class="btn btn--primary btn--lg" href="https://github.com/jrlampa/plugin_autocad/releases/latest" rel="noreferrer">
+                Baixar agora (grátis)
+              </a>
+              <a class="btn btn--ghost btn--lg" href="#como-funciona">Ver como funciona</a>
+            </div>
+
+            <div class="hero__meta">
+              <div class="meta">
+                <div class="meta__label">Último release</div>
+                <div class="meta__value"><span id="latestVersion">carregando…</span></div>
+              </div>
+              <div class="meta">
+                <div class="meta__label">Compatível</div>
+                <div class="meta__value">AutoCAD 2024/2025/2026 (Win64)</div>
+              </div>
+              <div class="meta">
+                <div class="meta__label">Privacidade</div>
+                <div class="meta__value">sem conta • sem telemetria</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero__visual" aria-label="Prévia do fluxo">
+            <div class="mock">
+              <div class="mock__top">
+                <div class="dots" aria-hidden="true">
+                  <span></span><span></span><span></span>
+                </div>
+                <div class="mock__title">sisRUA • Paleta</div>
+                <div class="mock__right badge">OSM + GeoJSON</div>
+              </div>
+              <div class="mock__body">
+                <div class="mock__panel">
+                  <div class="chip">CRS de saída: <b>UTM/SIRGAS</b></div>
+                  <div class="chip">Layers: <b>SISRUA_OSM_*</b></div>
+                  <div class="chip">Desenho: <b>polylines + bordas</b></div>
+                </div>
+                <div class="mock__map">
+                  <div class="map__grid" aria-hidden="true"></div>
+                  <div class="road road--a" aria-hidden="true"></div>
+                  <div class="road road--b" aria-hidden="true"></div>
+                  <div class="pin" aria-hidden="true"></div>
+                  <div class="map__caption">
+                    Baixa OSM → projeta → desenha no AutoCAD
+                  </div>
+                </div>
+              </div>
+              <div class="mock__footer">
+                <span class="muted">Offline‑first (backend local)</span>
+                <span class="muted">Rápido para começar</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="como-funciona" class="section">
+        <div class="container">
+          <h2>Por que o sisRUA é diferente</h2>
+          <p class="section__lead">
+            Ele faz o “trabalho chato” por você: coleta, projeção, padronização de layers e desenho direto no ModelSpace.
+          </p>
+
+          <div class="cards">
+            <article class="card">
+              <h3>OSM → CAD com CRS automático</h3>
+              <p>Escolha um ponto e raio. O sisRUA baixa OSM, projeta para UTM/SIRGAS e devolve coordenadas em metros prontas para desenho.</p>
+            </article>
+            <article class="card">
+              <h3>GeoJSON do campo, sem conversões</h3>
+              <p>Arraste seu <code>.geojson</code> na paleta. Ele normaliza, projeta e desenha em layers com base nas propriedades.</p>
+            </article>
+            <article class="card">
+              <h3>Leve e “offline‑first”</h3>
+              <p>Sem depender de serviços rodando fora. O backend é local e o frontend vai junto no bundle.</p>
+            </article>
+            <article class="card">
+              <h3>Layers padronizadas + bordas de via</h3>
+              <p>Organização por tipo de via e visual melhor: bordas por <i>offset</i> quando aplicável.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="comparativo" class="section section--alt">
+        <div class="container">
+          <h2>Comparativo (benchmark) — por que baixar agora</h2>
+          <p class="section__lead">
+            Se você só precisa colocar <b>vias vetoriais organizadas</b> no AutoCAD, o sisRUA ganha em velocidade e simplicidade.
+          </p>
+
+          <div class="tableWrap" role="region" aria-label="Tabela comparativa" tabindex="0">
+            <table class="compare">
+              <thead>
+                <tr>
+                  <th>Critério</th>
+                  <th class="compare__best">sisRUA</th>
+                  <th>ArcGIS / Map 3D</th>
+                  <th>Plex.Earth</th>
+                  <th>Importadores genéricos</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><b>Preço</b></td>
+                  <td class="compare__best">Grátis para baixar</td>
+                  <td>Pago / suíte pesada</td>
+                  <td>Pago</td>
+                  <td>Variável</td>
+                </tr>
+                <tr>
+                  <td><b>Foco</b></td>
+                  <td class="compare__best">Vias vetoriais (Campo→CAD)</td>
+                  <td>GIS completo</td>
+                  <td>Imagens/serviços</td>
+                  <td>Importação “bruta”</td>
+                </tr>
+                <tr>
+                  <td><b>CRS automático (UTM/SIRGAS)</b></td>
+                  <td class="compare__best">✔</td>
+                  <td>✔ (mais complexo)</td>
+                  <td>◐</td>
+                  <td>✖/◐</td>
+                </tr>
+                <tr>
+                  <td><b>Layers padronizadas</b></td>
+                  <td class="compare__best">✔</td>
+                  <td>✔</td>
+                  <td>◐</td>
+                  <td>✖</td>
+                </tr>
+                <tr>
+                  <td><b>Começar em 5 minutos</b></td>
+                  <td class="compare__best">✔</td>
+                  <td>✖</td>
+                  <td>◐</td>
+                  <td>◐</td>
+                </tr>
+                <tr>
+                  <td><b>Offline‑first</b></td>
+                  <td class="compare__best">✔</td>
+                  <td>◐</td>
+                  <td>✖</td>
+                  <td>✔/◐</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout">
+            <div class="callout__text">
+              <b>Resumo:</b> se seu objetivo é desenhar vias com organização e CRS correto, o sisRUA é o caminho mais direto.
+            </div>
+            <a id="downloadCompare" class="btn btn--primary" href="https://github.com/jrlampa/plugin_autocad/releases/latest" rel="noreferrer">Baixar (grátis)</a>
+          </div>
+        </div>
+      </section>
+
+      <section id="instalacao" class="section">
+        <div class="container">
+          <h2>Instalação em 3 passos</h2>
+          <ol class="steps">
+            <li>
+              <div class="step__n">1</div>
+              <div class="step__body">
+                <b>Baixe o instalador</b>
+                <div class="muted">Clique em “Baixar plugin”. Ele abre o último release (ou baixa direto, quando disponível).</div>
+              </div>
+            </li>
+            <li>
+              <div class="step__n">2</div>
+              <div class="step__body">
+                <b>Instale (WebView2 se necessário)</b>
+                <div class="muted">O instalador detecta o WebView2 e orienta a instalação se faltar.</div>
+              </div>
+            </li>
+            <li>
+              <div class="step__n">3</div>
+              <div class="step__body">
+                <b>Abra o AutoCAD e rode <code>SISRUA</code></b>
+                <div class="muted">A paleta abre e você já pode gerar OSM ou importar GeoJSON.</div>
+              </div>
+            </li>
+          </ol>
+
+          <div class="cta">
+            <h3>Pronto para trazer vias reais pro seu DWG?</h3>
+            <p class="muted">Download gratuito. Sem cadastro. Sem telemetria.</p>
+            <div class="cta__buttons">
+              <a id="downloadBottom" class="btn btn--primary btn--lg" href="https://github.com/jrlampa/plugin_autocad/releases/latest" rel="noreferrer">Baixar sisRUA</a>
+              <a class="btn btn--ghost btn--lg" href="https://github.com/jrlampa/plugin_autocad#readme" rel="noreferrer">Ver repositório</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" class="section section--alt">
+        <div class="container">
+          <h2>FAQ</h2>
+          <div class="faq">
+            <details>
+              <summary>É realmente grátis?</summary>
+              <p>Sim: a landing e o download podem ficar hospedados de graça via GitHub Pages + GitHub Releases.</p>
+            </details>
+            <details>
+              <summary>Vai aparecer aviso de segurança “Trusted Folder” no AutoCAD?</summary>
+              <p>O instalador tenta adicionar automaticamente o caminho do <code>sisRUA.bundle</code> nos <code>TRUSTEDPATHS</code>. Se o AutoCAD ainda não criou perfil no registro, pode ser necessário adicionar manualmente em <b>Options &gt; Files &gt; Trusted Locations</b>.</p>
+            </details>
+            <details>
+              <summary>O sisRUA envia meus dados?</summary>
+              <p>Por padrão, não há telemetria. Quando você usa “Gerar OSM”, o backend pode consultar serviços do OpenStreetMap/Overpass (seu IP faz parte do tráfego normal de Internet). Veja a política de privacidade.</p>
+            </details>
+            <details>
+              <summary>Preciso de Python instalado?</summary>
+              <p>Não em produção: o plugin usa o backend empacotado (<code>sisrua_backend.exe</code>) dentro do bundle.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer__grid">
+        <div>
+          <div class="footer__brand">sisRUA</div>
+          <div class="muted">Ruas reais no AutoCAD, sem peso e sem burocracia.</div>
+        </div>
+        <div class="footer__links">
+          <a href="https://github.com/jrlampa/plugin_autocad/releases/latest" rel="noreferrer">Downloads</a>
+          <a href="https://github.com/jrlampa/plugin_autocad/blob/main/docs/INSTALACAO.md" rel="noreferrer">Instalação</a>
+          <a href="https://github.com/jrlampa/plugin_autocad/blob/main/PRIVACY.md" rel="noreferrer">Privacidade</a>
+          <a href="https://github.com/jrlampa/plugin_autocad/blob/main/EULA.md" rel="noreferrer">EULA</a>
+          <a href="https://github.com/jrlampa/plugin_autocad/blob/main/THIRD_PARTY_NOTICES.md" rel="noreferrer">Third‑party</a>
+        </div>
+      </div>
+      <div class="container footer__bottom muted">
+        <span>© <span id="year"></span> sisRUA.</span>
+        <span>Dados do mapa: © OpenStreetMap contributors (ODbL).</span>
+      </div>
+    </footer>
+
+    <script src="./app.js" defer></script>
+  </body>
+</html>
+
