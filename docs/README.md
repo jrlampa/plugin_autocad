@@ -8,6 +8,7 @@ Esta pasta reúne a documentação “de produto” e “de engenharia” do sis
 - **Uso no AutoCAD**: veja `USO.md`
 - **Arquitetura / fluxo de dados**: veja `ARQUITETURA.md`
 - **Build de release + instalador**: veja `RELEASE.md`
+- **Prontidão para produção + roadmap**: veja `PRODUCAO.md`
 - **Problemas comuns**: veja `TROUBLESHOOTING.md`
 - **Checklist Autodesk App Store**: veja `APP_STORE.md`
 - **Checklist de testes (AutoCAD)**: veja `TESTES_MANUAIS_AUTOCAD.md`
