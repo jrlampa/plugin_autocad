@@ -392,6 +392,7 @@ namespace sisRUA
 
                 ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
                 DrawPolylines(prepareResponse.Features);
+                EnsureOsmAttributionMText(prepareResponse.Features);
             }
             catch (HttpRequestException httpEx)
             {
@@ -431,18 +432,15 @@ namespace sisRUA
                     var (layerName, aci) = GetLayerStyleForFeature(f);
                     EnsureLayer(tr, db, lt, layerName, aci);
 
-                    var pl = new Polyline();
-                    double? widthUnits = null;
-                    if (f.WidthMeters.HasValue && f.WidthMeters.Value > 0.01 && IsFinite(f.WidthMeters.Value))
-                    {
-                        widthUnits = f.WidthMeters.Value * metersToDrawingUnits;
-                    }
+                    // Sempre construímos a linha-guia (eixo) em memória. Se possível, desenhamos a via como
+                    // "duas bordas" (offset ± largura/2) para um visual melhor (sem precisar preencher).
+                    var center = new Polyline();
                     for (int i = 0; i < f.CoordsXy.Count; i++)
                     {
                         var pt = f.CoordsXy[i];
                         if (pt == null || pt.Count < 2) continue;
-                        pl.AddVertexAt(
-                            pl.NumberOfVertices,
+                        center.AddVertexAt(
+                            center.NumberOfVertices,
                             new Autodesk.AutoCAD.Geometry.Point2d(pt[0] * metersToDrawingUnits, pt[1] * metersToDrawingUnits),
                             0,
                             0,
@@ -450,21 +448,35 @@ namespace sisRUA
                         );
                     }
 
-                    if (pl.NumberOfVertices < 2)
+                    if (center.NumberOfVertices < 2)
                     {
-                        pl.Dispose();
+                        center.Dispose();
                         continue;
                     }
 
-                    if (widthUnits.HasValue)
+                    double? widthUnits = TryGetRoadWidthUnits(f, metersToDrawingUnits);
+
+                    bool drewAsOffsets = false;
+                    if (widthUnits.HasValue && widthUnits.Value > 0.05 && IsFinite(widthUnits.Value))
                     {
-                        pl.ConstantWidth = widthUnits.Value;
+                        drewAsOffsets = TryAppendOffsetRoadEdges(tr, ms, center, widthUnits.Value / 2.0, layerName);
+                        if (drewAsOffsets)
+                        {
+                            created += 2; // bordas esquerda/direita (mínimo)
+                            center.Dispose(); // não desenhamos o eixo quando o offset funciona
+                            continue;
+                        }
                     }
 
-                    pl.Layer = layerName;
-                    pl.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
-                    ms.AppendEntity(pl);
-                    tr.AddNewlyCreatedDBObject(pl, true);
+                    // Fallback: desenha o eixo (e, se houver largura, tenta como polyline com largura constante).
+                    if (widthUnits.HasValue && widthUnits.Value > 0.05 && IsFinite(widthUnits.Value))
+                    {
+                        center.ConstantWidth = widthUnits.Value;
+                    }
+                    center.Layer = layerName;
+                    center.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
+                    ms.AppendEntity(center);
+                    tr.AddNewlyCreatedDBObject(center, true);
                     created++;
                 }
 
@@ -472,6 +484,194 @@ namespace sisRUA
                 ed.WriteMessage($"\n[sisRUA] Sucesso! {created} polylines criadas no Model Space.");
                 ed.Regen();
             }
+        }
+
+        private static void EnsureOsmAttributionMText(IEnumerable<CadFeature> features)
+        {
+            // ODbL exige atribuição. Além da atribuição no mapa (frontend),
+            // colocamos uma anotação no DWG para quando o arquivo for compartilhado.
+            try
+            {
+                Document doc = Application.DocumentManager.MdiActiveDocument;
+                if (doc == null) return;
+
+                Database db = doc.Database;
+                double metersToDrawingUnits = GetMetersToDrawingUnitsScale(db);
+
+                double minX = double.PositiveInfinity, minY = double.PositiveInfinity;
+                double maxX = double.NegativeInfinity, maxY = double.NegativeInfinity;
+
+                if (features != null)
+                {
+                    foreach (var f in features)
+                    {
+                        if (f?.CoordsXy == null) continue;
+                        foreach (var pt in f.CoordsXy)
+                        {
+                            if (pt == null || pt.Count < 2) continue;
+                            double x = pt[0] * metersToDrawingUnits;
+                            double y = pt[1] * metersToDrawingUnits;
+                            if (!IsFinite(x) || !IsFinite(y)) continue;
+                            if (x < minX) minX = x;
+                            if (y < minY) minY = y;
+                            if (x > maxX) maxX = x;
+                            if (y > maxY) maxY = y;
+                        }
+                    }
+                }
+
+                if (!IsFinite(minX) || !IsFinite(minY) || !IsFinite(maxX) || !IsFinite(maxY)) return;
+
+                double span = Math.Max(maxX - minX, maxY - minY);
+                // Altura proporcional ao tamanho do resultado (clamp).
+                double textHeight = span > 0 ? (span / 500.0) : (10.0 * metersToDrawingUnits);
+                double minHeight = 2.0 * metersToDrawingUnits;
+                double maxHeight = 50.0 * metersToDrawingUnits;
+                if (textHeight < minHeight) textHeight = minHeight;
+                if (textHeight > maxHeight) textHeight = maxHeight;
+
+                // Canto superior esquerdo (um pouco para dentro)
+                var insPt = new Autodesk.AutoCAD.Geometry.Point3d(minX + textHeight, maxY - textHeight, 0);
+
+                using (doc.LockDocument())
+                using (Transaction tr = db.TransactionManager.StartTransaction())
+                {
+                    LayerTable lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
+                    const string layerName = "SISRUA_ATTRIB";
+                    EnsureLayer(tr, db, lt, layerName, aci: 7);
+
+                    ObjectId msId = SymbolUtilityServices.GetBlockModelSpaceId(db);
+                    BlockTableRecord ms = (BlockTableRecord)tr.GetObject(msId, OpenMode.ForRead);
+
+                    // Evita duplicar se já existe uma atribuição no DWG.
+                    foreach (ObjectId id in ms)
+                    {
+                        var ent = tr.GetObject(id, OpenMode.ForRead) as Entity;
+                        if (ent is MText mt)
+                        {
+                            string t = mt.Contents ?? string.Empty;
+                            if (t.IndexOf("OpenStreetMap contributors", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                return;
+                            }
+                        }
+                    }
+
+                    ms.UpgradeOpen();
+                    var mtext = new MText
+                    {
+                        Layer = layerName,
+                        Color = Color.FromColorIndex(ColorMethod.ByLayer, 256),
+                        Location = insPt,
+                        TextHeight = textHeight,
+                        // MText quebra de linha com \P
+                        Contents = "© OpenStreetMap contributors\\Phttps://www.openstreetmap.org/copyright"
+                    };
+
+                    ms.AppendEntity(mtext);
+                    tr.AddNewlyCreatedDBObject(mtext, true);
+                    tr.Commit();
+                }
+            }
+            catch
+            {
+                // ignore (não pode falhar o fluxo principal)
+            }
+        }
+
+        private static double? TryGetRoadWidthUnits(CadFeature f, double metersToDrawingUnits)
+        {
+            try
+            {
+                // Preferência: backend já estimou width_m.
+                if (f != null && f.WidthMeters.HasValue && f.WidthMeters.Value > 0.01 && IsFinite(f.WidthMeters.Value))
+                {
+                    return f.WidthMeters.Value * metersToDrawingUnits;
+                }
+
+                // Fallback local: se width_m não veio, estimamos por tipo de via.
+                // Valores são "curb-to-curb" aproximados, em metros.
+                string h = f?.Highway?.Trim()?.ToLowerInvariant();
+                double? wMeters = null;
+                switch (h)
+                {
+                    case "motorway": wMeters = 20.0; break;
+                    case "trunk": wMeters = 16.0; break;
+                    case "primary": wMeters = 12.0; break;
+                    case "secondary": wMeters = 10.0; break;
+                    case "tertiary": wMeters = 9.0; break;
+                    case "residential": wMeters = 7.0; break;
+                    case "unclassified": wMeters = 7.0; break;
+                    case "living_street": wMeters = 6.0; break;
+                    case "service": wMeters = 5.0; break;
+                    case "footway":
+                    case "path":
+                    case "cycleway":
+                        wMeters = 2.5;
+                        break;
+                }
+                if (!wMeters.HasValue) return null;
+                return wMeters.Value * metersToDrawingUnits;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static bool TryAppendOffsetRoadEdges(Transaction tr, BlockTableRecord ms, Polyline center, double halfWidthUnits, string layerName)
+        {
+            try
+            {
+                if (center == null) return false;
+                if (!IsFinite(halfWidthUnits) || halfWidthUnits <= 0.0) return false;
+
+                // Offset positivo e negativo. Cada chamada pode retornar múltiplas curvas (geometrias complexas).
+                var left = center.GetOffsetCurves(+halfWidthUnits);
+                var right = center.GetOffsetCurves(-halfWidthUnits);
+
+                int appended = 0;
+                appended += AppendOffsetCurves(tr, ms, left, layerName);
+                appended += AppendOffsetCurves(tr, ms, right, layerName);
+
+                // Se não deu nada, falhou.
+                return appended >= 2;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static int AppendOffsetCurves(Transaction tr, BlockTableRecord ms, DBObjectCollection curves, string layerName)
+        {
+            int appended = 0;
+            if (curves == null || curves.Count == 0) return 0;
+
+            foreach (DBObject dbo in curves)
+            {
+                try
+                {
+                    if (dbo is Entity ent)
+                    {
+                        ent.Layer = layerName;
+                        ent.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
+                        ms.AppendEntity(ent);
+                        tr.AddNewlyCreatedDBObject(ent, true);
+                        appended++;
+                    }
+                    else
+                    {
+                        dbo?.Dispose();
+                    }
+                }
+                catch
+                {
+                    try { dbo?.Dispose(); } catch { /* ignore */ }
+                }
+            }
+
+            return appended;
         }
 
         private static double GetMetersToDrawingUnitsScale(Database db)
@@ -501,6 +701,14 @@ namespace sisRUA
                     }
                 }
 
+                // Override persistente (recomendado): %LOCALAPPDATA%\sisRUA\settings.json
+                // { "meters_to_units": 1000 }
+                double? persisted = SisRuaSettings.TryReadMetersToUnits();
+                if (persisted.HasValue)
+                {
+                    return persisted.Value;
+                }
+
                 object v = Application.GetSystemVariable("INSUNITS");
                 int insunits = 0;
                 if (v is short s) insunits = s;
@@ -519,8 +727,9 @@ namespace sisRUA
                             if (m is short ms) measurement = ms;
                             else if (m is int mi) measurement = mi;
                             else if (m != null) int.TryParse(m.ToString(), out measurement);
-                            // 1 = métrico (default comum: mm), 0 = imperial (default comum: inches)
-                            return measurement == 1 ? 1000.0 : 39.37007874015748;
+                            // 1 = métrico: por padrão, assume METROS (mais comum em Civil/Topografia).
+                            // 0 = imperial: assume inches.
+                            return measurement == 1 ? 1.0 : 39.37007874015748;
                         }
                         catch
                         {

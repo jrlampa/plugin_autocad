@@ -270,7 +270,11 @@ export default function App() {
   const tileProviders = {
     satellite: { url: "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", attribution: "&copy; Google", subdomains: ['mt0', 'mt1', 'mt2', 'mt3'] },
     clean: { url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", attribution: "&copy; CartoDB" },
-    osm: { url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", attribution: "&copy; OSM" }
+    osm: {
+      url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      // ODbL exige atribuição visível quando dados OSM são exibidos/gerados.
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>'
+    }
   };
 
   return (

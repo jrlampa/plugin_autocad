@@ -29,6 +29,10 @@ if "%SISRUA_BUILD_NET48%"=="1" (
   )
 )
 
+echo [0.5/3] Build do frontend (Release)...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%tools\build_frontend.ps1"
+if errorlevel 1 goto :SISRUA_FRONTEND_FAIL
+
 echo [1/3] Gerando backend EXE (opcional, mas recomendado)...
 REM Em Release, queremos garantir que o EXE reflita o código atual do backend.
 set SISRUA_REBUILD_BACKEND_EXE=1
@@ -57,4 +61,10 @@ if errorlevel 1 (
 
 echo OK: release\\sisRUA.bundle pronto.
 endlocal
+
+exit /b 0
+
+:SISRUA_FRONTEND_FAIL
+echo ERRO: falha ao gerar frontend (Vite). Sem isso o plugin cai em "modo minimo".
+exit /b 1
 

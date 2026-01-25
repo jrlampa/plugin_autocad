@@ -1,4 +1,5 @@
 using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Windows;
 using Microsoft.Web.WebView2.Core;
@@ -51,6 +52,38 @@ namespace sisRUA
         [CommandMethod("SISRUA", CommandFlags.Session)]
         public void ShowSisRuaPalette()
         {
+            // Aviso de privacidade (LGPD) no primeiro uso.
+            // A intenção é ser claro e dar ao usuário controle: se não aceitar, não abrimos a UI.
+            if (!SisRuaSettings.IsPrivacyNoticeAccepted())
+            {
+                string settingsPath = SisRuaSettings.TryGetSettingsPathForDisplay();
+                string msg =
+                    "Aviso de proteção de dados (LGPD)\n\n" +
+                    "O sisRUA processa dados de geolocalização (lat/lon) e pode importar arquivos (ex.: GeoJSON) localmente.\n" +
+                    "Quando você usa \"Gerar OSM\", o sisRUA pode acessar serviços do OpenStreetMap (ex.: Overpass) para baixar dados.\n\n" +
+                    "Dados locais:\n" +
+                    "- Cache do OSM/GeoJSON pode ser salvo em %LOCALAPPDATA%\\sisRUA\\cache\n" +
+                    "- A WebView2 pode gravar dados locais (ex.: cache/cookies do componente) em %LOCALAPPDATA%\\sisRUA\\webview2\n\n" +
+                    "Ao clicar em \"Sim\", você confirma que está ciente e deseja continuar.\n" +
+                    "Você pode revisar a Política de Privacidade em PRIVACY.md (no repositório) e apagar os dados locais quando quiser.\n\n" +
+                    (string.IsNullOrWhiteSpace(settingsPath) ? "" : $"Configurações: {settingsPath}\n\n") +
+                    "Deseja continuar?";
+
+                var answer = MessageBox.Show(
+                    msg,
+                    "sisRUA — Proteção de dados",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Information
+                );
+
+                if (answer != DialogResult.Yes)
+                {
+                    return;
+                }
+
+                SisRuaSettings.TryMarkPrivacyNoticeAccepted();
+            }
+
             if (_paletteSet == null)
             {
                 _paletteSet = new PaletteSet("sisRUA", new Guid("FEA4C5F7-6834-4522-B968-440525C266E3"))
@@ -77,6 +110,47 @@ namespace sisRUA
             }
 
             _paletteSet.Visible = true;
+        }
+
+        [CommandMethod("SISRUAESCALA", CommandFlags.Session)]
+        public void SetSisRuaScale()
+        {
+            var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+            if (doc == null) return;
+            Editor ed = doc.Editor;
+            if (ed == null) return;
+
+            double? current = SisRuaSettings.TryReadMetersToUnits();
+
+            var opts = new PromptDoubleOptions("\n[sisRUA] Informe o fator de escala (1 metro -> quantas unidades do desenho?)")
+            {
+                AllowNegative = false,
+                AllowZero = false,
+                AllowNone = true,
+                DefaultValue = current ?? 1.0,
+                UseDefaultValue = true
+            };
+
+            var res = ed.GetDouble(opts);
+            if (res.Status != PromptStatus.OK && res.Status != PromptStatus.None)
+            {
+                return;
+            }
+
+            double v = (res.Status == PromptStatus.None) ? opts.DefaultValue : res.Value;
+            if (double.IsNaN(v) || double.IsInfinity(v) || v <= 0.0)
+            {
+                ed.WriteMessage("\n[sisRUA] Valor inválido. Use um número > 0.");
+                return;
+            }
+
+            if (!SisRuaSettings.TryWriteMetersToUnits(v))
+            {
+                ed.WriteMessage("\n[sisRUA] ERRO: não foi possível salvar settings.json em %LOCALAPPDATA%\\sisRUA.");
+                return;
+            }
+
+            ed.WriteMessage($"\n[sisRUA] OK: escala salva. Agora 1m -> {v} unidades. Rode o SISRUA novamente para redesenhar.");
         }
 
         private void Panel_DragEnter(object sender, DragEventArgs e)

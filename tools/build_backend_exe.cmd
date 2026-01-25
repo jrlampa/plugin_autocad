@@ -81,6 +81,13 @@ if errorlevel 1 (
 "%PY%" -m pip install -r "%BACKEND_SRC%\requirements.txt"
 "%PY%" -m pip install pyinstaller
 
+echo [licenses] Auditando licencas do backend (pip-licenses)...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\audit_licenses_backend.ps1" -PythonExe "%PY%" -RepoRoot "%ROOT%" -RequirementsPath "%BACKEND_SRC%\requirements.txt"
+if errorlevel 1 (
+  echo ERRO: auditoria de licencas falhou. Possivel GPL/LGPL/AGPL ou problema de coleta.
+  exit /b 1
+)
+
 echo Gerando sisrua_backend.exe...
 REM Gera em uma pasta temporária e só substitui no final (mais seguro).
 if exist "%DIST_TMP%" rmdir /s /q "%DIST_TMP%" 2>nul
