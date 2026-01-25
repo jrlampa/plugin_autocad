@@ -14,7 +14,6 @@ This file is **auto-generated** during release build for compliance (Autodesk Ap
 
 |Name|Version|License|URL|
 |---|---:|---|---|
-|altgraph|0.17.5|MIT License|https://altgraph.readthedocs.io|
 |annotated-doc|0.0.4|MIT|https://github.com/fastapi/annotated-doc|
 |annotated-types|0.7.0|MIT License|https://github.com/annotated-types/annotated-types|
 |anyio|4.12.1|MIT|https://anyio.readthedocs.io/en/stable/versionhistory.html|
@@ -31,15 +30,11 @@ This file is **auto-generated** during release build for compliance (Autodesk Ap
 |osmnx|2.0.7|MIT|UNKNOWN|
 |packaging|26.0|Apache-2.0 OR BSD-2-Clause|https://github.com/pypa/packaging|
 |pandas|3.0.0|BSD License|https://pandas.pydata.org|
-|pefile|2024.8.26|MIT|https://github.com/erocarrera/pefile|
 |pydantic|2.12.5|MIT|https://github.com/pydantic/pydantic|
 |pydantic_core|2.41.5|MIT|https://github.com/pydantic/pydantic-core|
-|pyinstaller|6.18.0|GNU General Public License v2 (GPLv2)|https://pyinstaller.org|
-|pyinstaller-hooks-contrib|2026.0|Apache Software License; GNU General Public License v2 (GPLv2)|https://github.com/pyinstaller/pyinstaller-hooks-contrib|
 |pyogrio|0.12.1|MIT License|https://github.com/geopandas/pyogrio|
 |pyproj|3.7.2|MIT|https://github.com/pyproj4/pyproj|
 |python-dateutil|2.9.0.post0|Apache Software License; BSD License|https://github.com/dateutil/dateutil|
-|pywin32-ctypes|0.2.3|BSD-3-Clause|https://github.com/enthought/pywin32-ctypes|
 |requests|2.32.5|Apache Software License|https://requests.readthedocs.io|
 |shapely|2.1.2|BSD License|https://github.com/shapely/shapely|
 |six|1.17.0|MIT License|https://github.com/benjaminp/six|
@@ -53,20 +48,6 @@ This file is **auto-generated** during release build for compliance (Autodesk Ap
 ## Python backend (pip) - license texts
 
 > Note: some packages may not expose a single license file via metadata. In such cases, the text may be empty.
-
-### altgraph (0.17.5)
-
-- Declared license: MIT License
-
-```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\altgraph-0.17.5.dist-info\LICENSE
-```
-
-#### NOTICE
-
-```
-UNKNOWN
-```
 
 ### annotated-doc (0.0.4)
 
@@ -292,20 +273,6 @@ C:\sisrua_build\.venv-backend-build\Lib\site-packages\pandas-3.0.0.dist-info\LIC
 UNKNOWN
 ```
 
-### pefile (2024.8.26)
-
-- Declared license: MIT
-
-```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\pefile-2024.8.26.dist-info\LICENSE
-```
-
-#### NOTICE
-
-```
-UNKNOWN
-```
-
 ### pydantic (2.12.5)
 
 - Declared license: MIT
@@ -326,34 +293,6 @@ UNKNOWN
 
 ```
 C:\sisrua_build\.venv-backend-build\Lib\site-packages\pydantic_core-2.41.5.dist-info\licenses\LICENSE
-```
-
-#### NOTICE
-
-```
-UNKNOWN
-```
-
-### pyinstaller (6.18.0)
-
-- Declared license: GNU General Public License v2 (GPLv2)
-
-```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\pyinstaller-6.18.0.dist-info\licenses\COPYING.txt
-```
-
-#### NOTICE
-
-```
-UNKNOWN
-```
-
-### pyinstaller-hooks-contrib (2026.0)
-
-- Declared license: Apache Software License; GNU General Public License v2 (GPLv2)
-
-```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\pyinstaller_hooks_contrib-2026.0.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -396,20 +335,6 @@ UNKNOWN
 
 ```
 C:\sisrua_build\.venv-backend-build\Lib\site-packages\python_dateutil-2.9.0.post0.dist-info\LICENSE
-```
-
-#### NOTICE
-
-```
-UNKNOWN
-```
-
-### pywin32-ctypes (0.2.3)
-
-- Declared license: BSD-3-Clause
-
-```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\pywin32_ctypes-0.2.3.dist-info\LICENSE.txt
 ```
 
 #### NOTICE

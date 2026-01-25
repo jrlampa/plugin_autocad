@@ -43,8 +43,13 @@ try {
     "--with-urls",
     "--with-license-file",
     "--with-notice-file",
+    # IMPORTANT: --ignore-packages takes a space-separated list (not semicolon-separated).
+    # We ignore build tooling (PyInstaller) and basic pip/system tooling to keep the report
+    # focused on runtime deps that are bundled into the backend EXE.
     "--ignore-packages",
-    "pip;setuptools;wheel;pyinstaller;pip-licenses;prettytable;wcwidth"
+    "pip", "setuptools", "wheel",
+    "pip-licenses", "prettytable", "wcwidth",
+    "pyinstaller", "pyinstaller-hooks-contrib", "altgraph", "pefile", "pywin32-ctypes"
   )
 
   Write-Host "[licenses] Gerando relatorio JSON (com textos de licencas)..."
@@ -58,11 +63,12 @@ try {
   $items = Get-Content -Raw -Encoding UTF8 $jsonPath | ConvertFrom-Json
   if (-not $items) { throw "pip-licenses returned empty output." }
 
-  # Gate simples: falha se aparecer GPL/AGPL/LGPL em qualquer licença.
+  # Simple gate: fail if any runtime dependency looks like GPL/AGPL/LGPL.
+  # (PyInstaller is ignored above; it is build tooling and its licensing has nuances.)
   $bad = @()
   foreach ($it in $items) {
     $lic = [string]$it.License
-    if ($lic -match '(?i)\bA?GPL\b' -or $lic -match '(?i)\bLGPL\b') {
+    if ($lic -match '(?i)AGPL|LGPL|GPL') {
       $bad += "$($it.Name) $($it.Version): $lic"
     }
   }
