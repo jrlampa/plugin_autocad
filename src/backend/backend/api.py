@@ -102,7 +102,8 @@ def _read_cache(key: str) -> Optional[dict]:
         path = _cache_dir() / f"{key}.json"
         if not path.exists():
             return None
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return _sanitize_jsonable(data)
     except Exception:
         return None
 
@@ -110,7 +111,8 @@ def _read_cache(key: str) -> Optional[dict]:
 def _write_cache(key: str, payload: dict) -> None:
     try:
         path = _cache_dir() / f"{key}.json"
-        path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        safe = _sanitize_jsonable(payload)
+        path.write_text(json.dumps(safe, ensure_ascii=False), encoding="utf-8")
     except Exception:
         return
 
@@ -145,7 +147,8 @@ def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest) -> None:
         else:
             raise ValueError("kind inválido. Use 'osm' ou 'geojson'.")
 
-        _update_job(job_id, status="completed", progress=1.0, message="Concluído.", result=result)
+        safe_result = _sanitize_jsonable(result)
+        _update_job(job_id, status="completed", progress=1.0, message="Concluído.", result=safe_result)
     except Exception as e:
         _update_job(job_id, status="failed", progress=1.0, message="Falhou.", error=str(e))
 
@@ -204,7 +207,14 @@ def _project_lines_to_xy(lines: List[LineString], transformer: Transformer) -> L
     out = []
     for line in lines:
         projected = shapely_transform(transformer.transform, line)
-        coords = [[float(x), float(y)] for (x, y) in projected.coords]
+        coords = []
+        for (x, y) in projected.coords:
+            fx = float(x)
+            fy = float(y)
+            # Starlette/JSONResponse rejeita NaN/Inf (gera 500). Sanitizamos aqui.
+            if not math.isfinite(fx) or not math.isfinite(fy):
+                continue
+            coords.append([fx, fy])
         if len(coords) >= 2:
             out.append(coords)
     return out
@@ -229,6 +239,32 @@ def _norm_optional_str(v: Any) -> Optional[str]:
         if s.lower() == "nan":
             return None
         return s
+    except Exception:
+        return None
+
+
+def _sanitize_jsonable(obj: Any) -> Any:
+    """
+    Garante que o payload é serializável como JSON estrito (sem NaN/Inf), evitando 500 em JSONResponse.
+    """
+    if obj is None:
+        return None
+    if isinstance(obj, (str, int, bool)):
+        return obj
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        out: Dict[str, Any] = {}
+        for k, v in obj.items():
+            # chaves precisam ser string em JSON
+            ks = str(k)
+            out[ks] = _sanitize_jsonable(v)
+        return out
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_jsonable(v) for v in obj]
+    # fallback: tenta string
+    try:
+        return str(obj)
     except Exception:
         return None
 
@@ -278,6 +314,7 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
             )
 
     payload = {"crs_out": f"EPSG:{epsg_out}", "features": features, "cache_hit": False}
+    payload = _sanitize_jsonable(payload)
     _write_cache(key, payload)
     return payload
 
