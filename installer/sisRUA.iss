@@ -105,29 +105,35 @@ begin
   Result := s;
 end;
 
-procedure TryAddTrustedPathToKey(const Key: string; const PathToTrust: string);
+function TryAddTrustedPathToKey(const Key: string; const PathToTrust: string): Boolean;
 var
   existing: string;
 begin
   existing := '';
   RegQueryStringValue(HKCU, Key, 'TRUSTEDPATHS', existing);
-  if not TrustedPathsContains(existing, PathToTrust) then
+  Result := not TrustedPathsContains(existing, PathToTrust);
+  if Result then
   begin
     existing := AppendTrustedPath(existing, PathToTrust);
     RegWriteStringValue(HKCU, Key, 'TRUSTEDPATHS', existing);
   end;
 end;
 
-procedure AddTrustedPathToAllAutoCADProfiles(const PathToTrust: string);
+function AddTrustedPathToAllAutoCADProfiles(const PathToTrust: string): Integer;
 var
   versions: TArrayOfString;
   products: TArrayOfString;
   profiles: TArrayOfString;
   v, p, pr: Integer;
   verKey, prodKey, profKey, generalKey: string;
+  touched: Integer;
 begin
+  touched := 0;
   if not RegGetSubkeyNames(HKCU, AUTOCAD_ROOT, versions) then
+  begin
+    Result := 0;
     exit;
+  end;
 
   for v := 0 to GetArrayLength(versions) - 1 do
   begin
@@ -145,22 +151,47 @@ begin
       begin
         profKey := prodKey + '\' + profiles[pr];
         generalKey := profKey + '\General';
-        TryAddTrustedPathToKey(generalKey, PathToTrust);
+        if TryAddTrustedPathToKey(generalKey, PathToTrust) then
+          touched := touched + 1;
       end;
     end;
   end;
+
+  Result := touched;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  trusted: string;
+  trustedUser: string;
+  trustedMachine: string;
+  countTouched: Integer;
 begin
   if CurStep = ssPostInstall then
   begin
     // Evita o aviso de segurança do AutoCAD quando a DLL é carregada a partir do Roaming (HKCU).
     // Usa a sintaxe "\..." para confiar também em subpastas.
-    trusted := ExpandConstant('{userappdata}\Autodesk\ApplicationPlugins\sisRUA.bundle\...');
-    AddTrustedPathToAllAutoCADProfiles(trusted);
+    trustedUser := ExpandConstant('{userappdata}\Autodesk\ApplicationPlugins\sisRUA.bundle\...');
+    trustedMachine := ExpandConstant('{commonappdata}\Autodesk\ApplicationPlugins\sisRUA.bundle\...');
+
+    countTouched := 0;
+    countTouched := countTouched + AddTrustedPathToAllAutoCADProfiles(trustedUser);
+    countTouched := countTouched + AddTrustedPathToAllAutoCADProfiles(trustedMachine);
+
+    // Se o AutoCAD/Civil 3D nunca foi aberto, as chaves/perfis podem não existir ainda.
+    // Nesse caso, apenas orienta o usuário a configurar manualmente.
+    if countTouched = 0 then
+    begin
+      MsgBox(
+        'Aviso: nao foi possivel configurar automaticamente as pastas confiaveis do AutoCAD.'#13#10#13#10 +
+        'Isso normalmente acontece quando o AutoCAD/Civil 3D ainda nao foi aberto neste usuario (perfil nao criado no registro).'#13#10#13#10 +
+        'Para evitar o aviso de seguranca ("Trusted Folder"), abra o AutoCAD e adicione manualmente:'#13#10 +
+        'Options > Files > Trusted Locations:'#13#10 +
+        '  "' + trustedUser + '"'#13#10 +
+        '  "' + trustedMachine + '"',
+        mbInformation,
+        MB_OK
+      );
+    end;
   end;
 end;
 
