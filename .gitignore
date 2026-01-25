@@ -16,6 +16,7 @@ __pycache__/
 venv/
 build/
 *.spec
+cache/
 
 # ===== Node / Frontend =====
 **/node_modules/
