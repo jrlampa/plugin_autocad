@@ -29,6 +29,22 @@ namespace sisRUA
             PropertyNameCaseInsensitive = true
         };
 
+        private static void Log(string message)
+        {
+            // Use the logger from SisRuaPlugin
+            if (SisRuaPlugin.Instance != null)
+            {
+                // Accessing internal LogToEditor method via reflection for now
+                // Ideally, SisRuaPlugin should expose a public static log method
+                MethodInfo logMethod = typeof(SisRuaPlugin).GetMethod("LogToEditor", BindingFlags.NonPublic | BindingFlags.Instance);
+                if (logMethod != null)
+                {
+                    logMethod.Invoke(SisRuaPlugin.Instance, new object[] { $"[SisRuaCommands] {message}" });
+                }
+            }
+            Debug.WriteLine($"[SisRuaCommands] {message}");
+        }
+
         private static string GetBackendBaseUrlOrAlert(Editor ed)
         {
             string baseUrl = SisRuaPlugin.BackendBaseUrl;
@@ -36,6 +52,7 @@ namespace sisRUA
             {
                 ed?.WriteMessage("\n[sisRUA] ERRO: BackendBaseUrl não definido. O plugin inicializou corretamente?");
                 Application.ShowAlertDialog("Backend do sisRUA não foi inicializado corretamente.\nFeche e reabra o AutoCAD e execute o comando SISRUA novamente.");
+                Log("ERROR: BackendBaseUrl not defined.");
                 return null;
             }
 
@@ -206,9 +223,9 @@ namespace sisRUA
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // ignore
+                Log($"WARN: Error loading layers.json: {ex.Message}");
             }
 
             return map;
@@ -250,14 +267,15 @@ namespace sisRUA
                     data = job
                 });
             }
-            catch
+            catch (Exception ex)
             {
-                // ignore
+                Log($"WARN: Error notifying UI job progress: {ex.Message}");
             }
         }
 
         private static async Task<PrepareResponse> RunPrepareJobAsync(Editor ed, string baseUrl, PrepareJobRequest payload, CancellationToken ct)
         {
+            Log($"INFO: Running prepare job for kind: {payload.Kind}");
             string createJson = JsonSerializer.Serialize(payload, _jsonOptions);
             using (var createReq = CreateAuthedJsonRequest(HttpMethod.Post, $"{baseUrl}/api/v1/jobs/prepare", createJson))
             {
@@ -311,11 +329,13 @@ namespace sisRUA
                                 throw new InvalidOperationException("Job concluído sem result.");
                             }
                             var result = job.Result.Deserialize<PrepareResponse>(_jsonOptions);
+                            Log($"INFO: Job {job.JobId} completed successfully.");
                             return result;
                         }
 
                         if (string.Equals(job.Status, "failed", StringComparison.OrdinalIgnoreCase))
                         {
+                            Log($"ERROR: Job {job.JobId} failed. Error: {job.Error ?? job.Message}");
                             throw new InvalidOperationException(job.Error ?? job.Message ?? "Job falhou no backend.");
                         }
                     }
@@ -323,6 +343,7 @@ namespace sisRUA
                     await Task.Delay(500, ct);
                 }
 
+                Log($"ERROR: Job {job.JobId} timed out after {sw.Elapsed.TotalMinutes} minutes.");
                 throw new TimeoutException("Tempo limite excedido aguardando job do backend.");
             }
         }
@@ -330,6 +351,7 @@ namespace sisRUA
         public static async Task ImportarDadosCampo(string geojsonData)
         {
             Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
+            Log("INFO: ImportarDadosCampo called with GeoJSON data.");
             ed.WriteMessage("\n[sisRUA] GeoJSON recebido. Preparando importação (sem DXF)...");
 
             try
@@ -344,6 +366,7 @@ namespace sisRUA
                 if (prepareResponse?.Features == null || prepareResponse.Features.Count == 0)
                 {
                     ed.WriteMessage("\n[sisRUA] Aviso: backend retornou 0 features para desenhar.");
+                    Log("WARN: Backend returned 0 features to draw.");
                     return;
                 }
 
@@ -354,11 +377,13 @@ namespace sisRUA
             {
                 ed.WriteMessage($"\n[sisRUA] ERRO: Falha de comunicação com o backend Python. O servidor está rodando? Detalhes: {httpEx.Message}");
                 Application.ShowAlertDialog($"Erro de comunicação com o backend do sisRUA.\nVerifique se o plugin foi iniciado corretamente.\n\nDetalhes: {httpEx.Message}");
+                Log($"ERROR: HttpRequestException in ImportarDadosCampo: {httpEx.Message}");
             }
             catch (System.Exception ex)
             {
                 ed.WriteMessage($"\n[sisRUA] ERRO: Ocorreu um erro inesperado durante a importação. Detalhes: {ex.Message}");
                 Application.ShowAlertDialog($"Ocorreu um erro inesperado no sisRUA:\n{ex.Message}");
+                Log($"FATAL: Unexpected error in ImportarDadosCampo: {ex}");
                 Debug.WriteLine($"[sisRUA] StackTrace: {ex}");
             }
         }
@@ -366,6 +391,7 @@ namespace sisRUA
         public static async Task GerarProjetoOsm(double latitude, double longitude, double radius)
         {
             Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
+            Log($"INFO: GerarProjetoOsm called with Lat={latitude}, Lon={longitude}, Radius={radius}.");
             ed.WriteMessage("\n[sisRUA] Recebida solicitação para gerar ruas do OSM (sem DXF)...");
 
             try
@@ -387,6 +413,7 @@ namespace sisRUA
                 if (prepareResponse?.Features == null || prepareResponse.Features.Count == 0)
                 {
                     ed.WriteMessage("\n[sisRUA] Aviso: backend retornou 0 features para desenhar.");
+                    Log("WARN: Backend returned 0 features to draw.");
                     return;
                 }
 
@@ -398,19 +425,26 @@ namespace sisRUA
             {
                 ed.WriteMessage($"\n[sisRUA] ERRO: Falha de comunicação com o backend Python. O servidor está rodando? Detalhes: {httpEx.Message}");
                 Application.ShowAlertDialog($"Erro de comunicação com o backend do sisRUA.\nVerifique se o plugin foi iniciado corretamente.\n\nDetalhes: {httpEx.Message}");
+                Log($"ERROR: HttpRequestException in GerarProjetoOsm: {httpEx.Message}");
             }
             catch (System.Exception ex)
             {
                 ed.WriteMessage($"\n[sisRUA] ERRO: Ocorreu um erro inesperado durante a geração do OSM. Detalhes: {ex.Message}");
                 Application.ShowAlertDialog($"Ocorreu um erro inesperado no sisRUA:\n{ex.Message}");
+                Log($"FATAL: Unexpected error in GerarProjetoOsm: {ex}");
                 Debug.WriteLine($"[sisRUA] StackTrace: {ex}");
             }
         }
 
         private static void DrawPolylines(IEnumerable<CadFeature> features)
         {
+            Log("INFO: DrawPolylines started.");
             Document doc = Application.DocumentManager.MdiActiveDocument;
-            if (doc == null) return;
+            if (doc == null)
+            {
+                Log("WARN: DocumentManager.MdiActiveDocument is null in DrawPolylines.");
+                return;
+            }
 
             Database db = doc.Database;
             Editor ed = doc.Editor;
@@ -482,6 +516,7 @@ namespace sisRUA
 
                 tr.Commit();
                 ed.WriteMessage($"\n[sisRUA] Sucesso! {created} polylines criadas no Model Space.");
+                Log($"INFO: DrawPolylines completed. {created} polylines created.");
                 ed.Regen();
             }
         }
@@ -493,7 +528,11 @@ namespace sisRUA
             try
             {
                 Document doc = Application.DocumentManager.MdiActiveDocument;
-                if (doc == null) return;
+                if (doc == null)
+                {
+                    Log("WARN: DocumentManager.MdiActiveDocument is null in EnsureOsmAttributionMText.");
+                    return;
+                }
 
                 Database db = doc.Database;
                 double metersToDrawingUnits = GetMetersToDrawingUnitsScale(db);
@@ -573,8 +612,9 @@ namespace sisRUA
                     tr.Commit();
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Log($"WARN: Error in EnsureOsmAttributionMText: {ex.Message}");
                 // ignore (não pode falhar o fluxo principal)
             }
         }
@@ -613,8 +653,9 @@ namespace sisRUA
                 if (!wMeters.HasValue) return null;
                 return wMeters.Value * metersToDrawingUnits;
             }
-            catch
+            catch (Exception ex)
             {
+                Log($"WARN: Error in TryGetRoadWidthUnits: {ex.Message}");
                 return null;
             }
         }
@@ -623,8 +664,16 @@ namespace sisRUA
         {
             try
             {
-                if (center == null) return false;
-                if (!IsFinite(halfWidthUnits) || halfWidthUnits <= 0.0) return false;
+                if (center == null)
+                {
+                    Log("WARN: TryAppendOffsetRoadEdges received null center polyline.");
+                    return false;
+                }
+                if (!IsFinite(halfWidthUnits) || halfWidthUnits <= 0.0)
+                {
+                    Log($"WARN: TryAppendOffsetRoadEdges received invalid halfWidthUnits: {halfWidthUnits}");
+                    return false;
+                }
 
                 // Offset positivo e negativo. Cada chamada pode retornar múltiplas curvas (geometrias complexas).
                 var left = center.GetOffsetCurves(+halfWidthUnits);
@@ -637,8 +686,9 @@ namespace sisRUA
                 // Se não deu nada, falhou.
                 return appended >= 2;
             }
-            catch
+            catch (Exception ex)
             {
+                Log($"WARN: Error in TryAppendOffsetRoadEdges: {ex.Message}");
                 return false;
             }
         }
@@ -665,8 +715,9 @@ namespace sisRUA
                         dbo?.Dispose();
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Log($"WARN: Error appending offset curve: {ex.Message}");
                     try { dbo?.Dispose(); } catch { /* ignore */ }
                 }
             }
@@ -676,11 +727,6 @@ namespace sisRUA
 
         private static double GetMetersToDrawingUnitsScale(Database db)
         {
-            // Backend retorna coordenadas em metros (UTM). Aqui convertemos para a unidade do desenho.
-            // Caso o desenho esteja em milímetros, escala = 1000.
-            // Em alguns desenhos (INSUNITS=0 / unitless), inferimos pelo MEASUREMENT:
-            // - métrico (1): assume mm
-            // - imperial (0): assume inches
             try
             {
                 // Override manual (se necessário): define um fator direto "metros -> unidades do desenho"
@@ -731,8 +777,9 @@ namespace sisRUA
                             // 0 = imperial: assume inches.
                             return measurement == 1 ? 1.0 : 39.37007874015748;
                         }
-                        catch
+                        catch (Exception ex)
                         {
+                            Log($"WARN: Error determining MEASUREMENT system variable: {ex.Message}");
                             // fallback: assume metros
                             return 1.0;
                         }
@@ -755,9 +802,9 @@ namespace sisRUA
                         return 1.0;
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // ignore
+                Log($"WARN: Error in GetMetersToDrawingUnitsScale: {ex.Message}");
             }
             return 1.0;
         }
@@ -771,14 +818,22 @@ namespace sisRUA
         {
             if (lt.Has(layerName)) return;
 
-            lt.UpgradeOpen();
-            var ltr = new LayerTableRecord { Name = layerName };
-            if (aci.HasValue)
+            try
             {
-                ltr.Color = Color.FromColorIndex(ColorMethod.ByAci, aci.Value);
+                lt.UpgradeOpen();
+                var ltr = new LayerTableRecord { Name = layerName };
+                if (aci.HasValue)
+                {
+                    ltr.Color = Color.FromColorIndex(ColorMethod.ByAci, aci.Value);
+                }
+                lt.Add(ltr);
+                tr.AddNewlyCreatedDBObject(ltr, true);
+                Log($"INFO: Created new layer: {layerName}");
             }
-            lt.Add(ltr);
-            tr.AddNewlyCreatedDBObject(ltr, true);
+            catch (Exception ex)
+            {
+                Log($"ERROR: Failed to create layer {layerName}: {ex.Message}");
+            }
         }
 
         // DXF foi descontinuado no fluxo padrão (JSON → polylines).

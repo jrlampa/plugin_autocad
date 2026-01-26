@@ -11,7 +11,37 @@
     <!-- AutoCAD 2024 (R24.3) - .NET Framework -->
     <ComponentEntry
       AppName="sisRUA"
-      ModuleName="Contents\\sisRUA_NET48.dll"
+      ModuleName="Contents\\sisRUA_NET48_ACAD2021.dll"
+      AppDescription="sisRUA"
+      AppType=".Net"
+      LoadOnAutoCADStartup="True"
+      LoadOnCommandInvocation="True">
+      <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.0" SeriesMax="R24.2" />
+      <Commands GroupName="sisRUA">
+        <Command Local="SISRUA" Global="SISRUA" />
+        <Command Local="SISRUAESCALA" Global="SISRUAESCALA" />
+      </Commands>
+    </ComponentEntry>
+
+    <!-- Civil 3D 2021-2023 (R24.0-R24.2) - .NET Framework -->
+    <ComponentEntry
+      AppName="sisRUA"
+      ModuleName="Contents\\sisRUA_NET48_ACAD2021.dll"
+      AppDescription="sisRUA"
+      AppType=".Net"
+      LoadOnAutoCADStartup="True"
+      LoadOnCommandInvocation="True">
+      <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R24.0" SeriesMax="R24.2" />
+      <Commands GroupName="sisRUA">
+        <Command Local="SISRUA" Global="SISRUA" />
+        <Command Local="SISRUAESCALA" Global="SISRUAESCALA" />
+      </Commands>
+    </ComponentEntry>
+
+    <!-- AutoCAD 2024 (R24.3) - .NET Framework -->
+    <ComponentEntry
+      AppName="sisRUA"
+      ModuleName="Contents\\sisRUA_NET48_ACAD2024.dll"
       AppDescription="sisRUA"
       AppType=".Net"
       LoadOnAutoCADStartup="True"
@@ -26,7 +56,7 @@
     <!-- Civil 3D 2024 (R24.3) - .NET Framework -->
     <ComponentEntry
       AppName="sisRUA"
-      ModuleName="Contents\\sisRUA_NET48.dll"
+      ModuleName="Contents\\sisRUA_NET48_ACAD2024.dll"
       AppDescription="sisRUA"
       AppType=".Net"
       LoadOnAutoCADStartup="True"

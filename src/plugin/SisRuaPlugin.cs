@@ -28,6 +28,7 @@ namespace sisRUA
         private static Editor _editor => Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument?.Editor;
         private static readonly HttpClient _healthClient = new HttpClient { Timeout = TimeSpan.FromSeconds(1.5) };
         private static readonly object _backendLock = new object();
+        private static TextWriter _logger;
 
         public static int BackendPort { get; private set; }
         public static string BackendBaseUrl => BackendPort > 0 ? $"http://127.0.0.1:{BackendPort}" : null;
@@ -48,6 +49,9 @@ namespace sisRUA
         public void Initialize()
         {
             Instance = this;
+
+            SetupLogger();
+            LogToEditor("\n>>> sisRUA Plugin: Initialize() called.");
 
             // Registra um evento para ajudar o AutoCAD a encontrar as DLLs vizinhas
             AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
@@ -95,8 +99,9 @@ namespace sisRUA
                             {
                                 _pythonProcess = Process.GetProcessById(previousPid);
                             }
-                            catch
+                            catch (Exception ex)
                             {
+                                LogToEditor($"\n>>> Aviso: Não foi possível anexar ao processo PID {previousPid}: {ex.Message}");
                                 _pythonProcess = null;
                             }
                         }
@@ -108,6 +113,7 @@ namespace sisRUA
                     // Se estiver saudável, mas não autorizado (token diferente), tenta finalizar o processo anterior.
                     if (IsBackendHealthy() && !IsBackendAuthorized())
                     {
+                        LogToEditor("\n>>> Aviso: Backend saudável, mas com token não autorizado. Tentando finalizar processo anterior.");
                         TryKillPreviousBackendProcess();
                     }
 
@@ -201,20 +207,17 @@ namespace sisRUA
 
                 // Aguarda o backend ficar pronto (poll em /api/v1/health).
                 if (!WaitForBackendHealthy(TimeSpan.FromSeconds(20)))
-                {
                     LogToEditor("\n>>> Aviso: backend iniciado, mas não respondeu health dentro do tempo limite.");
-                }
                 if (!WaitForBackendAuthorized(TimeSpan.FromSeconds(20)))
-                {
                     LogToEditor("\n>>> Aviso: backend iniciou, mas não respondeu auth-check dentro do tempo limite.");
-                }
 
                 LogToEditor("\n>>> Backend do sisRUA (Python) iniciado com sucesso.");
 #endif
             }
             catch (System.Exception ex)
             {
-                LogAndAlert("Erro ao ligar Python: " + ex.Message);
+                LogAndAlert("Erro durante Initialize(): " + ex.Message);
+                _logger?.WriteLine($"[ERROR] Exception during Initialize(): {ex}");
                 _pythonProcess = null;
             }
         }
@@ -224,6 +227,7 @@ namespace sisRUA
         /// </summary>
         public void Terminate()
         {
+            LogToEditor("\n>>> sisRUA Plugin: Terminate() called.");
             try
             {
                 if (_pythonProcess != null && !_pythonProcess.HasExited)
@@ -260,12 +264,44 @@ namespace sisRUA
             }
             catch (System.Exception ex)
             {
-                Debug.WriteLine($"[sisRUA] Exceção ao tentar finalizar o backend: {ex}");
+                LogToEditor($"\n[ERROR] Exceção ao tentar finalizar o backend: {ex.Message}");
+                _logger?.WriteLine($"[ERROR] Exception during Terminate(): {ex}");
+            }
+            finally
+            {
+                _logger?.Close();
+                _logger = null;
+            }
+        }
+
+        private void SetupLogger()
+        {
+            try
+            {
+                string localSisRuaDir = GetLocalSisRuaDir();
+                if (string.IsNullOrEmpty(localSisRuaDir)) return;
+
+                string logDir = Path.Combine(localSisRuaDir, "logs");
+                Directory.CreateDirectory(logDir);
+
+                string logFileName = $"sisRUA_plugin_{DateTime.Now:yyyyMMdd_HHmmss}.log";
+                string logFilePath = Path.Combine(logDir, logFileName);
+
+                _logger = TextWriter.Synchronized(new StreamWriter(logFilePath, append: true, Encoding.UTF8) { AutoFlush = true });
+                _logger.WriteLine($"--- sisRUA Plugin Log Started: {DateTime.Now} ---");
+                _logger.WriteLine($"Plugin Assembly: {Assembly.GetExecutingAssembly().Location}");
+                _logger.WriteLine($"AutoCAD Process Id: {Process.GetCurrentProcess().Id}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[sisRUA] ERROR: Failed to setup logger: {ex.Message}");
+                // Fallback to only editor/debug output if logger setup fails
             }
         }
 
         private Assembly CurrentDomain_AssemblyResolve(object sender, ResolveEventArgs args)
         {
+            _logger?.WriteLine($"[DEBUG] Attempting to resolve assembly: {args.Name}");
             // Pega o nome da DLL que está faltando
             string assemblyName = new AssemblyName(args.Name).Name + ".dll";
             
@@ -276,8 +312,10 @@ namespace sisRUA
             // Se a DLL existir na pasta do plugin, carrega ela manualmente
             if (File.Exists(fullPath))
             {
+                _logger?.WriteLine($"[DEBUG] Resolved '{args.Name}' from '{fullPath}'");
                 return Assembly.LoadFrom(fullPath);
             }
+            _logger?.WriteLine($"[DEBUG] Failed to resolve '{args.Name}' from '{fullPath}'");
             return null;
         }
 
@@ -287,6 +325,7 @@ namespace sisRUA
         /// </summary>
         private string FindProjectRoot(string startPath)
         {
+            _logger?.WriteLine($"[DEBUG] FindProjectRoot started from: {startPath}");
             var currentDir = new DirectoryInfo(startPath);
             int sanityCheck = 0; // Evita loop infinito
             while (currentDir != null && sanityCheck < 10)
@@ -294,6 +333,7 @@ namespace sisRUA
                 // Modo instalado: a DLL roda dentro de Contents\
                 if (Directory.Exists(Path.Combine(currentDir.FullName, "backend")))
                 {
+                    _logger?.WriteLine($"[DEBUG] Found project root (installed mode): {currentDir.FullName}");
                     return currentDir.FullName;
                 }
 
@@ -302,6 +342,7 @@ namespace sisRUA
                 string bundleTemplateContents = Path.Combine(currentDir.FullName, "bundle-template", "sisRUA.bundle", "Contents");
                 if (Directory.Exists(Path.Combine(bundleTemplateContents, "backend")))
                 {
+                    _logger?.WriteLine($"[DEBUG] Found project root (bundle-template mode): {bundleTemplateContents}");
                     return bundleTemplateContents;
                 }
 
@@ -309,6 +350,7 @@ namespace sisRUA
                 string releaseContents = Path.Combine(currentDir.FullName, "release", "sisRUA.bundle", "Contents");
                 if (Directory.Exists(Path.Combine(releaseContents, "backend")))
                 {
+                    _logger?.WriteLine($"[DEBUG] Found project root (release mode): {releaseContents}");
                     return releaseContents;
                 }
 
@@ -316,16 +358,19 @@ namespace sisRUA
                 string legacyContents = Path.Combine(currentDir.FullName, "sisRUA.bundle", "Contents");
                 if (Directory.Exists(Path.Combine(legacyContents, "backend")))
                 {
+                    _logger?.WriteLine($"[DEBUG] Found project root (legacy mode): {legacyContents}");
                     return legacyContents;
                 }
                 currentDir = currentDir.Parent;
                 sanityCheck++;
             }
+            _logger?.WriteLine("[DEBUG] FindProjectRoot: No project root found.");
             return null;
         }
 
         private string FindBackendSourceRoot(string startPath)
         {
+            _logger?.WriteLine($"[DEBUG] FindBackendSourceRoot started from: {startPath}");
             var currentDir = new DirectoryInfo(startPath);
             int sanityCheck = 0;
             while (currentDir != null && sanityCheck < 10)
@@ -335,11 +380,13 @@ namespace sisRUA
                     File.Exists(Path.Combine(candidate, "standalone.py")) &&
                     File.Exists(Path.Combine(candidate, "backend", "api.py")))
                 {
+                    _logger?.WriteLine($"[DEBUG] Found backend source root: {candidate}");
                     return candidate;
                 }
                 currentDir = currentDir.Parent;
                 sanityCheck++;
             }
+            _logger?.WriteLine("[DEBUG] FindBackendSourceRoot: No backend source root found.");
             return null;
         }
         
@@ -350,16 +397,19 @@ namespace sisRUA
                 _editor.WriteMessage(message);
             }
             Debug.WriteLine($"[sisRUA] {message.Trim()}");
+            _logger?.WriteLine($"[INFO] {message.Trim()}");
         }
 
         private void LogAndAlert(string message)
         {
             LogToEditor($"\n{message}");
             Autodesk.AutoCAD.ApplicationServices.Application.ShowAlertDialog(message);
+            _logger?.WriteLine($"[ALERT] {message.Trim()}");
         }
 
         private string FindPythonExecutable()
         {
+            _logger?.WriteLine("[DEBUG] FindPythonExecutable started.");
             // 0. Preferir venv local (AppData) para evitar problemas de permissão/sync (ex.: Google Drive)
             string localSisRuaDir = GetLocalSisRuaDir();
             if (!string.IsNullOrEmpty(localSisRuaDir))
@@ -368,6 +418,7 @@ namespace sisRUA
                 if (File.Exists(localVenvPython))
                 {
                     LogToEditor($"\n>>> Python encontrado no venv local: {localVenvPython}");
+                    _logger?.WriteLine($"[DEBUG] Found Python in local venv: {localVenvPython}");
                     return localVenvPython;
                 }
             }
@@ -381,6 +432,7 @@ namespace sisRUA
                 if (File.Exists(venvPath))
                 {
                     LogToEditor($"\n>>> Python encontrado no ambiente virtual do projeto: {venvPath}");
+                    _logger?.WriteLine($"[DEBUG] Found Python in project venv: {venvPath}");
                     return venvPath;
                 }
             }
@@ -397,10 +449,11 @@ namespace sisRUA
                         if (File.Exists(potentialPath))
                         {
                             LogToEditor($"\n>>> Python encontrado no PATH do sistema: {potentialPath}");
+                            _logger?.WriteLine($"[DEBUG] Found Python in system PATH: {potentialPath}");
                             return potentialPath;
                         }
                     }
-                    catch (ArgumentException) { /* Ignora caminhos inválidos no PATH */ }
+                    catch (ArgumentException) { _logger?.WriteLine($"[DEBUG] Ignored invalid PATH entry: {path}"); /* Ignora caminhos inválidos no PATH */ }
                 }
             }
 
@@ -424,25 +477,29 @@ namespace sisRUA
                             if (File.Exists(exePath))
                             {
                                 LogToEditor($"\n>>> Python encontrado em diretório de instalação comum: {exePath}");
+                                _logger?.WriteLine($"[DEBUG] Found Python in common install dir: {exePath}");
                                 return exePath;
                             }
                         }
                     }
-                    catch (System.Security.SecurityException) { /* Ignora pastas sem permissão de acesso */ }
+                    catch (System.Security.SecurityException ex) { _logger?.WriteLine($"[DEBUG] Ignored inaccessible directory {basePath}: {ex.Message}"); /* Ignora pastas sem permissão de acesso */ }
                 }
             }
 
+            _logger?.WriteLine("[DEBUG] FindPythonExecutable: Python executable not found.");
             return null; // Not found
         }
 
         private string EnsureVenvAndDependencies(string backendSourceRoot, string pythonExePath)
         {
+            _logger?.WriteLine($"[DEBUG] EnsureVenvAndDependencies started. Source: {backendSourceRoot}, Python: {pythonExePath}");
             try
             {
                 string requirementsPath = Path.Combine(backendSourceRoot, "requirements.txt");
                 if (!File.Exists(requirementsPath))
                 {
                     LogToEditor($"\n>>> Aviso: requirements.txt não encontrado em '{requirementsPath}'. Usando Python do sistema.");
+                    _logger?.WriteLine($"[WARN] requirements.txt not found at {requirementsPath}. Using system Python.");
                     return pythonExePath;
                 }
 
@@ -451,6 +508,7 @@ namespace sisRUA
                 if (string.IsNullOrEmpty(localSisRuaDir))
                 {
                     LogToEditor("\n>>> Aviso: não foi possível resolver LocalAppData. Usando venv do projeto (se existir).");
+                    _logger?.WriteLine("[WARN] Could not resolve LocalAppData. Using project venv.");
                     localSisRuaDir = backendSourceRoot;
                 }
 
@@ -463,6 +521,7 @@ namespace sisRUA
                 if (!venvExists)
                 {
                     LogToEditor($"\n>>> Preparando ambiente Python (criando venv local em '{venvDir}')...");
+                    _logger?.WriteLine($"[INFO] Creating local venv at {venvDir}...");
 
                     var (exitCode, stdout, stderr) = RunProcess(pythonExePath, localSisRuaDir, timeoutMs: 10 * 60 * 1000, "-m", "venv", venvDir);
                     if (exitCode != 0 || !File.Exists(venvPython))
@@ -470,6 +529,7 @@ namespace sisRUA
                         // Fallback: em alguns ambientes o ensurepip pode falhar durante a criação do venv.
                         // Nesse caso, criamos sem pip e rodamos ensurepip explicitamente.
                         LogToEditor($"\n>>> Aviso: criação padrão do venv falhou. Tentando fallback (--without-pip).\nExitCode={exitCode}\n{stdout}\n{stderr}");
+                        _logger?.WriteLine($"[WARN] Venv creation failed (exitCode={exitCode}). Trying fallback (--without-pip). Stdout: {stdout}, Stderr: {stderr}");
 
                         try
                         {
@@ -478,12 +538,13 @@ namespace sisRUA
                                 Directory.Delete(venvDir, recursive: true);
                             }
                         }
-                        catch { /* ignore cleanup errors */ }
+                        catch (Exception ex) { _logger?.WriteLine($"[DEBUG] Error cleaning up venv dir: {ex.Message}"); /* ignore cleanup errors */ }
 
                         var (exitCode2, stdout2, stderr2) = RunProcess(pythonExePath, localSisRuaDir, timeoutMs: 10 * 60 * 1000, "-m", "venv", "--without-pip", venvDir);
                         if (exitCode2 != 0 || !File.Exists(venvPython))
                         {
                             LogToEditor($"\n>>> ERRO: falha ao criar venv (fallback). ExitCode={exitCode2}\n{stdout2}\n{stderr2}");
+                            _logger?.WriteLine($"[ERROR] Venv creation (fallback) failed (exitCode={exitCode2}). Stdout: {stdout2}, Stderr: {stderr2}");
                             return null;
                         }
 
@@ -491,6 +552,7 @@ namespace sisRUA
                         if (exitCode3 != 0)
                         {
                             LogToEditor($"\n>>> ERRO: falha ao habilitar pip no venv (ensurepip). ExitCode={exitCode3}\n{stdout3}\n{stderr3}");
+                            _logger?.WriteLine($"[ERROR] Ensurepip failed (exitCode={exitCode3}). Stdout: {stdout3}, Stderr: {stderr3}");
                             return null;
                         }
                     }
@@ -500,6 +562,7 @@ namespace sisRUA
                 if (!TryPythonImport(venvPython, "fastapi,uvicorn,osmnx,pyproj,shapely", backendSourceRoot))
                 {
                     LogToEditor("\n>>> Instalando dependências do backend no venv (primeira execução pode demorar)...");
+                    _logger?.WriteLine("[INFO] Installing backend dependencies...");
 
                     // Upgrade pip ajuda a evitar problemas comuns com wheels.
                     RunProcess(venvPython, backendSourceRoot, timeoutMs: 10 * 60 * 1000, "-m", "pip", "install", "--upgrade", "pip");
@@ -514,22 +577,25 @@ namespace sisRUA
                     if (exitCode != 0)
                     {
                         LogToEditor($"\n>>> ERRO: falha ao instalar requirements. ExitCode={exitCode}\n{stdout}\n{stderr}");
+                        _logger?.WriteLine($"[ERROR] Requirements installation failed (exitCode={exitCode}). Stdout: {stdout}, Stderr: {stderr}");
                         return null;
                     }
 
                     if (!TryPythonImport(venvPython, "fastapi,uvicorn,osmnx", backendSourceRoot))
                     {
                         LogToEditor("\n>>> ERRO: dependências ainda não importam após instalação.");
+                        _logger?.WriteLine("[ERROR] Dependencies still not importable after installation.");
                         return null;
                     }
                 }
 
                 LogToEditor($"\n>>> Ambiente Python pronto: {venvPython}");
+                _logger?.WriteLine($"[INFO] Python environment ready: {venvPython}");
                 return venvPython;
             }
             catch (System.Exception ex)
             {
-                Debug.WriteLine($"[sisRUA] Exceção em EnsureVenvAndDependencies: {ex}");
+                _logger?.WriteLine($"[ERROR] Exception in EnsureVenvAndDependencies: {ex}");
                 return null;
             }
         }
@@ -542,8 +608,9 @@ namespace sisRUA
                 if (string.IsNullOrWhiteSpace(localAppData)) return null;
                 return Path.Combine(localAppData, "sisRUA");
             }
-            catch
+            catch (Exception ex)
             {
+                _logger?.WriteLine($"[ERROR] Exception in GetLocalSisRuaDir: {ex}");
                 return null;
             }
         }
@@ -566,10 +633,13 @@ namespace sisRUA
                 string statePath = Path.Combine(localSisRuaDir, "backend_port.txt");
                 if (!File.Exists(statePath)) return 0;
                 string text = File.ReadAllText(statePath)?.Trim();
-                return int.TryParse(text, out int p) ? p : 0;
+                int.TryParse(text, out int p); // Use the return value of TryParse
+                _logger?.WriteLine($"[DEBUG] Read last backend port: {p}");
+                return p;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger?.WriteLine($"[ERROR] Exception in TryReadLastBackendPort: {ex}");
                 return 0;
             }
         }
@@ -582,10 +652,13 @@ namespace sisRUA
                 if (string.IsNullOrEmpty(localSisRuaDir)) return null;
                 string statePath = Path.Combine(localSisRuaDir, "backend_token.txt");
                 if (!File.Exists(statePath)) return null;
-                return File.ReadAllText(statePath)?.Trim();
+                string token = File.ReadAllText(statePath)?.Trim();
+                _logger?.WriteLine($"[DEBUG] Read last backend token (hash): {token?.GetHashCode()}");
+                return token;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger?.WriteLine($"[ERROR] Exception in TryReadLastBackendToken: {ex}");
                 return null;
             }
         }
@@ -599,10 +672,11 @@ namespace sisRUA
                 Directory.CreateDirectory(localSisRuaDir);
                 string statePath = Path.Combine(localSisRuaDir, "backend_port.txt");
                 File.WriteAllText(statePath, port.ToString());
+                _logger?.WriteLine($"[DEBUG] Persisted backend port: {port}");
             }
-            catch
+            catch (Exception ex)
             {
-                // ignore
+                _logger?.WriteLine($"[ERROR] Exception in PersistBackendPort: {ex}");
             }
         }
 
@@ -615,10 +689,11 @@ namespace sisRUA
                 Directory.CreateDirectory(localSisRuaDir);
                 string statePath = Path.Combine(localSisRuaDir, "backend_token.txt");
                 File.WriteAllText(statePath, token ?? string.Empty);
+                _logger?.WriteLine($"[DEBUG] Persisted backend token (hash): {token?.GetHashCode()}");
             }
-            catch
+            catch (Exception ex)
             {
-                // ignore
+                _logger?.WriteLine($"[ERROR] Exception in PersistBackendToken: {ex}");
             }
         }
 
@@ -631,10 +706,11 @@ namespace sisRUA
                 Directory.CreateDirectory(localSisRuaDir);
                 string statePath = Path.Combine(localSisRuaDir, "backend_pid.txt");
                 File.WriteAllText(statePath, pid.ToString());
+                _logger?.WriteLine($"[DEBUG] Persisted backend PID: {pid}");
             }
-            catch
+            catch (Exception ex)
             {
-                // ignore
+                _logger?.WriteLine($"[ERROR] Exception in PersistBackendPid: {ex}");
             }
         }
 
@@ -647,16 +723,20 @@ namespace sisRUA
                 string statePath = Path.Combine(localSisRuaDir, "backend_pid.txt");
                 if (!File.Exists(statePath)) return 0;
                 string text = File.ReadAllText(statePath)?.Trim();
-                return int.TryParse(text, out int p) ? p : 0;
+                int.TryParse(text, out int p); // Use the return value of TryParse
+                _logger?.WriteLine($"[DEBUG] Read last backend PID: {p}");
+                return p;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger?.WriteLine($"[ERROR] Exception in TryReadLastBackendPid: {ex}");
                 return 0;
             }
         }
 
         private void TryKillPreviousBackendProcess()
         {
+            _logger?.WriteLine("[DEBUG] TryKillPreviousBackendProcess started.");
             try
             {
                 int pid = TryReadLastBackendPid();
@@ -666,6 +746,7 @@ namespace sisRUA
                 string name = p.ProcessName?.ToLowerInvariant() ?? string.Empty;
                 if (name.Contains("sisrua_backend") || name == "python" || name == "pythonw")
                 {
+                    _logger?.WriteLine($"[INFO] Attempting to kill previous backend process with PID: {pid} (Name: {name})");
                     try
                     {
                         var killInfo = new ProcessStartInfo("taskkill", $"/F /T /PID {pid}")
@@ -680,16 +761,17 @@ namespace sisRUA
                         {
                             killProcess?.WaitForExit(5000);
                         }
+                        _logger?.WriteLine($"[INFO] Successfully killed process PID {pid}.");
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // ignore
+                        _logger?.WriteLine($"[ERROR] Error killing process PID {pid}: {ex.Message}");
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // ignore
+                _logger?.WriteLine($"[ERROR] Exception in TryKillPreviousBackendProcess: {ex}");
             }
         }
 
@@ -699,10 +781,12 @@ namespace sisRUA
             {
                 if (string.IsNullOrWhiteSpace(BackendBaseUrl)) return false;
                 var resp = _healthClient.GetAsync($"{BackendBaseUrl}/api/v1/health").GetAwaiter().GetResult();
+                _logger?.WriteLine($"[DEBUG] Backend health check to {BackendBaseUrl}/api/v1/health: {resp.IsSuccessStatusCode}");
                 return resp.IsSuccessStatusCode;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger?.WriteLine($"[WARN] Backend health check failed: {ex.Message}");
                 return false;
             }
         }
@@ -718,11 +802,13 @@ namespace sisRUA
                 {
                     req.Headers.TryAddWithoutValidation(BackendAuthHeaderName, BackendAuthToken);
                     var resp = _healthClient.SendAsync(req).GetAwaiter().GetResult();
+                    _logger?.WriteLine($"[DEBUG] Backend auth check to {BackendBaseUrl}/api/v1/auth/check: {resp.IsSuccessStatusCode}");
                     return resp.IsSuccessStatusCode;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                _logger?.WriteLine($"[WARN] Backend auth check failed: {ex.Message}");
                 return false;
             }
         }
@@ -735,6 +821,7 @@ namespace sisRUA
                 if (IsBackendHealthy()) return true;
                 Thread.Sleep(250);
             }
+            _logger?.WriteLine($"[WARN] WaitForBackendHealthy timed out after {timeout.TotalSeconds}s.");
             return false;
         }
 
@@ -746,19 +833,23 @@ namespace sisRUA
                 if (IsBackendAuthorized()) return true;
                 Thread.Sleep(250);
             }
+            _logger?.WriteLine($"[WARN] WaitForBackendAuthorized timed out after {timeout.TotalSeconds}s.");
             return false;
         }
 
         private bool TryPythonImport(string pythonExe, string importList, string workingDirectory)
         {
+            _logger?.WriteLine($"[DEBUG] TryPythonImport: {importList} using {pythonExe} in {workingDirectory}");
             // Importa uma lista (ex.: "fastapi,uvicorn,osmnx") dentro do interpretador indicado.
             string code = $"import {importList}; print('OK')";
-            var (exitCode, _, _) = RunProcess(pythonExe, workingDirectory: workingDirectory, timeoutMs: 60 * 1000, "-c", code);
+            var (exitCode, stdout, stderr) = RunProcess(pythonExe, workingDirectory: workingDirectory, timeoutMs: 60 * 1000, "-c", code);
+            _logger?.WriteLine($"[DEBUG] TryPythonImport exitCode: {exitCode}. Stdout: {stdout}. Stderr: {stderr}.");
             return exitCode == 0;
         }
 
         private (int exitCode, string stdout, string stderr) RunProcess(string fileName, string workingDirectory, int timeoutMs, params string[] argumentList)
         {
+            _logger?.WriteLine($"[DEBUG] Running process: {fileName} {BuildCommandLine(argumentList)} in {workingDirectory}");
             var psi = new ProcessStartInfo(fileName)
             {
                 WorkingDirectory = workingDirectory,
@@ -785,10 +876,12 @@ namespace sisRUA
                 bool exited = p.WaitForExit(timeoutMs);
                 if (!exited)
                 {
-                    try { p.Kill(); } catch { /* ignore */ }
+                    try { p.Kill(); } catch (Exception ex) { _logger?.WriteLine($"[ERROR] Error killing timed-out process: {ex.Message}"); }
+                    _logger?.WriteLine($"[ERROR] Process timed out. Filename: {fileName}");
                     return (-1, stdout.ToString(), "Timeout ao executar processo.");
                 }
 
+                _logger?.WriteLine($"[DEBUG] Process exited with code {p.ExitCode}. Filename: {fileName}.");
                 return (p.ExitCode, stdout.ToString(), stderr.ToString());
             }
         }

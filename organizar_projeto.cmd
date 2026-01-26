@@ -82,19 +82,20 @@ if exist "%BIN_NET8%\runtimes" (
     if errorlevel 1 goto :SISRUA_FAIL
 )
 
-REM Copia o DLL net48 (AutoCAD 2024), se existir
-if exist "%BIN_NET48%\sisRUA_NET48.dll" (
-    SET SISRUA_STEP=copiando sisRUA_NET48.dll
-    copy /Y "%BIN_NET48%\sisRUA_NET48.dll" "%OUT_CONTENTS%\sisRUA_NET48.dll" >nul
-    if errorlevel 1 goto :SISRUA_FAIL
-    if exist "%BIN_NET48%\sisRUA_NET48.pdb" (
-        SET SISRUA_STEP=copiando sisRUA_NET48.pdb
-        copy /Y "%BIN_NET48%\sisRUA_NET48.pdb" "%OUT_CONTENTS%\sisRUA_NET48.pdb" >nul
+
+REM Copia os DLLs net48 versionados (AutoCAD 2021, 2024, etc.), se existirem
+for %%f in ("%BIN_NET48%\sisRUA_NET48_ACAD*.dll") do (
+    if exist "%%f" (
+        SET SISRUA_STEP=copiando %%~nxf
+        copy /Y "%%f" "%OUT_CONTENTS%\" >nul
         if errorlevel 1 goto :SISRUA_FAIL
+        if exist "%BIN_NET48%\%%~nf.pdb" (
+            SET SISRUA_STEP=copiando %%~nf.pdb
+            copy /Y "%BIN_NET48%\%%~nf.pdb" "%OUT_CONTENTS%\" >nul
+            if errorlevel 1 goto :SISRUA_FAIL
+        )
+        echo OK: %%~nxf copiado.
     )
-) else (
-    echo AVISO: sisRUA_NET48.dll nao encontrado em %BIN_NET48%
-    echo AutoCAD 2024 nao sera suportado neste bundle - build net48 ausente.
 )
 
 echo [4/6] Copiando backend Python...

@@ -18,13 +18,22 @@ if errorlevel 1 (
   exit /b 1
 )
 
-REM net48 (AutoCAD 2024) é opcional e depende das DLLs do AutoCAD 2024 instaladas.
-REM Para forçar, use:
-REM   set SISRUA_BUILD_NET48=1
-if "%SISRUA_BUILD_NET48%"=="1" (
-  dotnet build "%PLUGIN_CSPROJ%" -c Release -f net48 -p:SISRUA_INCLUDE_NET48=true
+REM net48 (AutoCAD 2021) é opcional.
+if "%SISRUA_BUILD_NET48_ACAD2021%"=="1" (
+  echo Building net48 for AutoCAD 2021...
+  dotnet build "%PLUGIN_CSPROJ%" -c Release -f net48 -p:SISRUA_INCLUDE_NET48=true -p:TargetAcadVersion=2021
   if errorlevel 1 (
-    echo ERRO: falha ao compilar o plugin net48. Verifique AutoCAD 2024 instalado e Acad2024Dir no csproj.
+    echo ERRO: falha ao compilar o plugin net48 para AutoCAD 2021. Verifique AutoCAD 2021 instalado e Acad2021Dir no csproj.
+    exit /b 1
+  )
+)
+
+REM net48 (AutoCAD 2024) é opcional e depende das DLLs do AutoCAD 2024 instaladas.
+if "%SISRUA_BUILD_NET48_ACAD2024%"=="1" (
+  echo Building net48 for AutoCAD 2024...
+  dotnet build "%PLUGIN_CSPROJ%" -c Release -f net48 -p:SISRUA_INCLUDE_NET48=true -p:TargetAcadVersion=2024
+  if errorlevel 1 (
+    echo ERRO: falha ao compilar o plugin net48 para AutoCAD 2024. Verifique AutoCAD 2024 instalado e Acad2024Dir no csproj.
     exit /b 1
   )
 )

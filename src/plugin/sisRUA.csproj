@@ -9,25 +9,28 @@
     -->
     <Acad2026Dir Condition="'$(Acad2026Dir)'==''">C:\Program Files\Autodesk\AutoCAD 2026</Acad2026Dir>
     <Acad2024Dir Condition="'$(Acad2024Dir)'==''">C:\Program Files\Autodesk\AutoCAD 2024</Acad2024Dir>
+    <Acad2021Dir Condition="'$(Acad2021Dir)'==''">C:\Program Files\Autodesk\AutoCAD 2021</Acad2021Dir>
 
     <TargetFrameworks>net8.0-windows</TargetFrameworks>
-    <TargetFrameworks Condition="'$(SISRUA_INCLUDE_NET48)'=='true' Or Exists('$(Acad2024Dir)\\AcCoreMgd.dll')">net48;net8.0-windows</TargetFrameworks>
+    <!-- Inclui net48 se SISRUA_INCLUDE_NET48 for true, ou se qualquer um dos AcCoreMgd.dll for encontrado -->
+    <TargetFrameworks Condition="'$(SISRUA_INCLUDE_NET48)'=='true' Or Exists('$(Acad2024Dir)\\AcCoreMgd.dll') Or Exists('$(Acad2021Dir)\\AcCoreMgd.dll')">$(TargetFrameworks);net48</TargetFrameworks>
     <OutputType>Library</OutputType>
     <RootNamespace>sisRUA</RootNamespace>
-    <AssemblyName>sisRUA</AssemblyName>
     <UseWindowsForms>true</UseWindowsForms>
     <Platform>x64</Platform>
     <LangVersion>latest</LangVersion>
     <!-- Plugin precisa levar DLLs de NuGet junto (ex.: WebView2). -->
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(TargetFramework)'=='net48'">
-    <AssemblyName>sisRUA_NET48</AssemblyName>
+    <!-- Define a versão do AutoCAD alvo para builds net48. Padrão é 2024. -->
+    <TargetAcadVersion Condition="'$(TargetAcadVersion)'==''">2024</TargetAcadVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
     <AssemblyName>sisRUA_NET8</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)'=='net48'">
+    <AssemblyName>sisRUA_NET48_ACAD$(TargetAcadVersion)</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
@@ -45,7 +48,23 @@
     </Reference>
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)'=='net48'">
+  <ItemGroup Condition="'$(TargetFramework)'=='net48' AND '$(TargetAcadVersion)'=='2021'">
+    <Reference Include="AcCoreMgd">
+      <HintPath>$(Acad2021Dir)\AcCoreMgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="AcDbMgd">
+      <HintPath>$(Acad2021Dir)\AcDbMgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="AcMgd">
+      <HintPath>$(Acad2021Dir)\AcMgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)'=='net48' AND '$(TargetAcadVersion)'=='2024'">
     <Reference Include="AcCoreMgd">
       <HintPath>$(Acad2024Dir)\AcCoreMgd.dll</HintPath>
       <Private>False</Private>
@@ -58,7 +77,6 @@
       <HintPath>$(Acad2024Dir)\AcMgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <!-- net48 precisa de referência explícita em alguns ambientes de build -->
     <Reference Include="System.Net.Http" />
   </ItemGroup>
 
