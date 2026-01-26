@@ -1,5 +1,29 @@
 @echo off
+
 setlocal
+
+REM ======================================================
+REM  Configuracao para Assinatura de Codigo Digital
+REM  Pre-requisito: Windows SDK instalado (signtool.exe)
+REM ======================================================
+set CODE_SIGN_THUMBPRINT=
+REM Exemplo: set CODE_SIGN_THUMBPRINT=SEU_THUMBPRINT_AQUI
+
+REM Tenta encontrar signtool.exe dinamicamente
+set SIGNSERVER_PATH=
+for /f "delims=" %%a in ('powershell -Command "Get-ChildItem -Path \"${env:ProgramFiles(x86)}\Windows Kits\" -Recurse -Filter \"signtool.exe\" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName | Select-Object -First 1"') do (
+    set SIGNSERVER_PATH=%%a
+)
+
+if "%CODE_SIGN_THUMBPRINT%"=="" (
+    echo AVISO: Variavel CODE_SIGN_THUMBPRINT nao definida. Nenhuma assinatura de codigo sera realizada.
+) else if "%SIGNSERVER_PATH%"=="" (
+    echo ERRO: signtool.exe nao encontrado. Por favor, instale o Windows SDK com 'Windows SDK Signing Tools for Desktop Apps'.
+    exit /b 1
+) else (
+    echo INFO: signtool.exe encontrado em "%SIGNSERVER_PATH%"
+)
+
 
 REM ======================================================
 REM  Build completo para distribuicao
@@ -10,13 +34,12 @@ REM ======================================================
 set ROOT=%~dp0
 set PLUGIN_CSPROJ=%ROOT%src\plugin\sisRUA.csproj
 
-echo [0/3] Build do plugin .NET (Release)...
-REM net8 (AutoCAD 2025–2026) é obrigatório
 dotnet build "%PLUGIN_CSPROJ%" -c Release -f net8.0-windows
 if errorlevel 1 (
   echo ERRO: falha ao compilar o plugin net8.
   exit /b 1
 )
+call :SIGN_FILE "%ROOT%src\plugin\bin\x64\%CONFIG%\net8.0-windows\sisRUA_NET8.dll"
 
 REM net48 (AutoCAD 2021) é opcional.
 if "%SISRUA_BUILD_NET48_ACAD2021%"=="1" (
@@ -26,6 +49,7 @@ if "%SISRUA_BUILD_NET48_ACAD2021%"=="1" (
     echo ERRO: falha ao compilar o plugin net48 para AutoCAD 2021. Verifique AutoCAD 2021 instalado e Acad2021Dir no csproj.
     exit /b 1
   )
+  call :SIGN_FILE "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2021.dll"
 )
 
 REM net48 (AutoCAD 2024) é opcional e depende das DLLs do AutoCAD 2024 instaladas.
@@ -36,7 +60,9 @@ if "%SISRUA_BUILD_NET48_ACAD2024%"=="1" (
     echo ERRO: falha ao compilar o plugin net48 para AutoCAD 2024. Verifique AutoCAD 2024 instalado e Acad2024Dir no csproj.
     exit /b 1
   )
+  call :SIGN_FILE "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2024.dll"
 )
+
 
 echo [0.5/3] Build do frontend (Release)...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%tools\build_frontend.ps1"
@@ -50,6 +76,7 @@ if errorlevel 1 (
   echo ERRO: falha ao gerar backend exe.
   exit /b 1
 )
+call :SIGN_FILE "%ROOT%bundle-template\sisRUA.bundle\Contents\backend\sisrua_backend.exe"
 
 echo [1.5/3] Smoke test do backend EXE (sem OSM)...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%tools\smoke_backend.ps1" -SkipOsm
@@ -69,6 +96,22 @@ if errorlevel 1 (
 )
 
 echo OK: release\\sisRUA.bundle pronto.
+goto :EOF
+
+:SIGN_FILE
+set SIGN_TARGET=%1
+if not "%CODE_SIGN_THUMBPRINT%"=="" (
+    if not "%SIGNSERVER_PATH%"=="" (
+        echo INFO: Assinando digitalmente "%SIGN_TARGET%"...
+        "%SIGNSERVER_PATH%" sign /fd SHA256 /sha1 %CODE_SIGN_THUMBPRINT% /tr http://timestamp.digicert.com /td SHA256 "%SIGN_TARGET%"
+        if errorlevel 1 (
+            echo ERRO: Falha ao assinar "%SIGN_TARGET%". Verifique o thumbprint e o certificado.
+            exit /b 1
+        )
+    )
+)
+goto :EOF
+
 endlocal
 
 exit /b 0
