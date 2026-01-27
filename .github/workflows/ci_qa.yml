@@ -17,10 +17,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install backend deps (CI + dev)
+      - name: Install backend deps (CI + dev + SAST + SCA)
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r src/backend/requirements-ci.txt -r src/backend/requirements-dev.txt
+          python -m pip install -r src/backend/requirements-ci.txt -r src/backend/requirements-dev.txt bandit pip-audit
+      - name: Run Bandit (SAST)
+        run: bandit -r src/backend -c pyproject.toml --exclude src/backend/tests -f custom -o qa/out/test-reports/bandit.json || true
+      - name: Run pip-audit (SCA)
+        run: pip-audit -r src/backend/requirements-ci.txt -r src/backend/requirements-dev.txt --json -o qa/out/test-reports/pip-audit.json || true
       - name: Run pytest (JUnit)
         env:
           LOCALAPPDATA: /tmp/localappdata
@@ -49,7 +53,7 @@ jobs:
           cache-dependency-path: src/frontend/package-lock.json
       - name: Install deps
         working-directory: src/frontend
-        run: npm ci --no-audit --no-fund
+        run: npm ci
       - name: Run vitest (JUnit)
         working-directory: src/frontend
         run: |

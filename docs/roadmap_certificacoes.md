@@ -60,6 +60,11 @@ Este documento serve como um roadmap para as certificações que o projeto sisRU
     *   Garantir a compatibilidade com as versões mais recentes do AutoCAD (o trabalho que acabamos de fazer é um passo fundamental).
     *   Submeter o aplicativo para avaliação da Autodesk.
 
+### 5.1. ISO 14001 (Environmental Management Systems)
+*   **Descrição**: Norma internacional que especifica os requisitos para um sistema de gestão ambiental. Ajuda organizações a identificar, monitorar e controlar seus impactos ambientais.
+*   **Relevância para o sisRUA**: Se o plugin's functionality (e.g., related to urban planning, infrastructure, resource management) has a direct or indirect environmental impact that needs to be managed and minimized, this could become relevant for some clients or markets. However, for a software plugin, it's generally less direct.
+*   **Status de Relevância**: Avaliado e considerado **não relevante** para o contexto atual do projeto sisRUA, uma vez que seus impactos ambientais diretos são mínimos.
+
 ## Conclusão
 
 O projeto sisRUA já demonstra uma forte cultura de qualidade e atenção aos detalhes, o que facilita a busca por qualquer uma dessas certificações. A escolha de qual certificação priorizar dependerá das prioridades estratégicas, do mercado-alvo e dos requisitos específicos dos clientes. Sugere-se iniciar com ISO 9001 para formalizar a gestão da qualidade, e simultaneamente investigar ISO 27001 e a conformidade com LGPD/GDPR para segurança e privacidade dos dados, além da certificação Autodesk para o reconhecimento de mercado.
