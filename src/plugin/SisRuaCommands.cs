@@ -824,9 +824,18 @@ namespace sisRUA
                     ed.WriteMessage($"\n[sisRUA] Aviso: {cleanedFeatures.Count() - mergedFeatures.Count()} polylines foram fundidas.");
                 }
                 
+                // Aplica a simplificação de polylines
+                double polylineSimplificationTolerance = 0.1 * metersToDrawingUnits; // 0.1m tolerance in drawing units
+                var simplifiedFeatures = GeometryCleaner.SimplifyPolylines(mergedFeatures, polylineSimplificationTolerance);
+                if (simplifiedFeatures.Count() < mergedFeatures.Count()) // Check for actual simplification (reduced points)
+                {
+                    Log($"INFO: Simplified polylines with {polylineSimplificationTolerance} tolerance.");
+                    ed.WriteMessage($"\n[sisRUA] Aviso: Polylines simplificadas (tolerância: {polylineSimplificationTolerance:F2} unidades).");
+                }
+                
                 // --- FIM FASE 1.5.2 ---
 
-                foreach (var f in mergedFeatures)
+                foreach (var f in simplifiedFeatures)
                 {
                     if (f == null) continue;
 

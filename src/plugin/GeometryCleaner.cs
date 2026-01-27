@@ -191,10 +191,128 @@ namespace sisRUA
             return Math.Abs(p1[0] - p2[0]) < tolerance && Math.Abs(p1[1] - p2[1]) < tolerance;
         }
 
+        }
+
+        // Douglas-Peucker algorithm implementation
+        private static List<List<double>> SimplifyPolyline(List<List<double>> points, double tolerance)
+        {
+            if (points == null || points.Count < 3) return points;
+
+            int first = 0;
+            int last = points.Count - 1;
+            List<int> pointIndexesToKeep = new List<int>();
+
+            // Add the first and last points to the list of points to keep
+            pointIndexesToKeep.Add(first);
+            pointIndexesToKeep.Add(last);
+
+            // The algorithm is recursive, so we need a stack to manage segments
+            Stack<int[]> stack = new Stack<int[]>();
+            stack.Push(new int[] { first, last });
+
+            while (stack.Count > 0)
+            {
+                int[] currentSegment = stack.Pop();
+                first = currentSegment[0];
+                last = currentSegment[1];
+
+                double maxDistance = 0;
+                int index = 0;
+
+                // Find the point with the maximum distance from the segment (first, last)
+                for (int i = first + 1; i < last; i++)
+                {
+                    double distance = PerpendicularDistance(points[i], points[first], points[last]);
+                    if (distance > maxDistance)
+                    {
+                        maxDistance = distance;
+                        index = i;
+                    }
+                }
+
+                // If max distance is greater than tolerance, recursively simplify the two new segments
+                if (maxDistance > tolerance)
+                {
+                    pointIndexesToKeep.Add(index);
+                    stack.Push(new int[] { first, index });
+                    stack.Push(new int[] { index, last });
+                }
+            }
+
+            // Reconstruct the simplified polyline from the kept points
+            return pointIndexesToKeep
+                .OrderBy(i => i)
+                .Select(i => points[i])
+                .ToList();
+        }
+
+        // Calculate perpendicular distance from a point to a line segment
+        private static double PerpendicularDistance(List<double> p, List<double> lineStart, List<double> lineEnd)
+        {
+            double dx = lineEnd[0] - lineStart[0];
+            double dy = lineEnd[1] - lineStart[1];
+
+            // If the line segment is a point
+            if (dx == 0 && dy == 0)
+            {
+                return Math.Sqrt(Math.Pow(p[0] - lineStart[0], 2) + Math.Pow(p[1] - lineStart[1], 2));
+            }
+
+            // Calculate the t value for the closest point on the line
+            double t = ((p[0] - lineStart[0]) * dx + (p[1] - lineStart[1]) * dy) / (dx * dx + dy * dy);
+
+            // Clamp t to the segment (0.0 to 1.0)
+            t = Math.Max(0, Math.Min(1, t));
+
+            // Closest point on the segment
+            double closestX = lineStart[0] + t * dx;
+            double closestY = lineStart[1] + t * dy;
+
+            // Distance from p to the closest point
+            return Math.Sqrt(Math.Pow(p[0] - closestX, 2) + Math.Pow(p[1] - closestY, 2));
+        }
+
+        /// <summary>
+        /// Simplifica CadFeatures do tipo Polyline usando o algoritmo Douglas-Peucker.
+        /// </summary>
+        /// <param name="features">Lista de CadFeatures a serem processados.</param>
+        /// <param name="tolerance">A tolerância para a simplificação (distância máxima permitida de um vértice à linha simplificada).</param>
+        /// <returns>Uma nova lista de CadFeatures com polylines simplificadas.</returns>
         public static IEnumerable<CadFeature> SimplifyPolylines(IEnumerable<CadFeature> features, double tolerance)
         {
-            // Implementação futura
-            return features;
+            if (features == null || !features.Any())
+            {
+                return Enumerable.Empty<CadFeature>();
+            }
+
+            List<CadFeature> simplifiedFeatures = new List<CadFeature>();
+
+            foreach (var feature in features)
+            {
+                if (feature.FeatureType == CadFeatureType.Polyline && feature.CoordsXy != null && feature.CoordsXy.Count > 2)
+                {
+                    // Convert original points to a simplified list
+                    var simplifiedCoords = SimplifyPolyline(feature.CoordsXy, tolerance);
+
+                    // Create a new CadFeature for the simplified polyline
+                    var simplifiedPolyline = new CadFeature
+                    {
+                        FeatureType = CadFeatureType.Polyline,
+                        Layer = feature.Layer,
+                        Name = feature.Name,
+                        Highway = feature.Highway,
+                        WidthMeters = feature.WidthMeters,
+                        CoordsXy = simplifiedCoords
+                    };
+                    simplifiedFeatures.Add(simplifiedPolyline);
+                }
+                else
+                {
+                    // Add non-polylines or polylines that don't need simplification directly
+                    simplifiedFeatures.Add(feature);
+                }
+            }
+            return simplifiedFeatures;
         }
     }
 }
