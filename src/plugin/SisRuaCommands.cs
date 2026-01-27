@@ -16,6 +16,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Globalization;
+using System.Data.SQLite; // Add this using for ProjectRepository
 
 namespace sisRUA
 {
@@ -29,6 +31,65 @@ namespace sisRUA
         {
             PropertyNameCaseInsensitive = true
         };
+        private static ProjectRepository _projectRepository = new ProjectRepository(); // Instantiate the repository
+
+        private static IEnumerable<CadFeature> _lastDrawnFeatures; // Store features from last drawing operation
+        private static string _lastDrawnCrsOut; // Store CRS from last drawing operation
+
+        [CommandMethod("SISRUA_SAVE_PROJECT", CommandFlags.Session)]
+        public static void SisRuaSaveProjectCommand()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            if (doc == null)
+            {
+                Log("WARN: SISRUA_SAVE_PROJECT called with no active document.");
+                Application.ShowAlertDialog("Nenhum desenho ativo para salvar.");
+                return;
+            }
+
+            if (_lastDrawnFeatures == null || !_lastDrawnFeatures.Any())
+            {
+                Log("WARN: SISRUA_SAVE_PROJECT called but no features were drawn since last AutoCAD session or command.");
+                Application.ShowAlertDialog("Nenhum dado recente para salvar. Desenhe algo primeiro com SISRUA.");
+                return;
+            }
+
+            Editor ed = doc.Editor;
+
+            PromptStringOptions psoId = new PromptStringOptions("\n[sisRUA] Digite o ID do projeto (ex: A001, deixe em branco para gerar):")
+            {
+                AllowSpaces = false,
+                AllowEmpty = true
+            };
+            PromptResult resId = ed.GetString(psoId);
+            string projectId = resId.StringResult.Trim();
+
+            if (string.IsNullOrWhiteSpace(projectId))
+            {
+                // Generate sequential ID: YYYYMMDDHHMMss
+                projectId = DateTime.Now.ToString("yyyyMMddHHmmss");
+                ed.WriteMessage($"\n[sisRUA] ID de projeto gerado automaticamente: {projectId}");
+            }
+
+            PromptStringOptions psoName = new PromptStringOptions($"\n[sisRUA] Digite o nome do projeto (opcional, padrão: 'Projeto {projectId}'):")
+            {
+                AllowEmpty = true
+            };
+            PromptResult resName = ed.GetString(psoName);
+            string projectName = string.IsNullOrWhiteSpace(resName.StringResult) ? $"Projeto {projectId}" : resName.StringResult.Trim();
+
+            try
+            {
+                _projectRepository.SaveProject(projectId, projectName, _lastDrawnCrsOut, _lastDrawnFeatures);
+                ed.WriteMessage($"\n[sisRUA] Projeto '{projectName}' (ID: {projectId}) salvo com sucesso.");
+            }
+            catch (Exception ex)
+            {
+                Log($"ERROR: Failed to save project '{projectId}': {ex.Message}");
+                Application.ShowAlertDialog($"Erro ao salvar projeto: {ex.Message}");
+            }
+        }
+
 
         /// <summary>
         /// Garante que uma definição de bloco esteja carregada no desenho.
@@ -579,6 +640,10 @@ namespace sisRUA
 
                 ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
                 DrawCadFeatures(prepareResponse.Features);
+
+                // Store last drawn features for saving
+                _lastDrawnFeatures = prepareResponse.Features;
+                _lastDrawnCrsOut = prepareResponse.CrsOut;
             }
             catch (HttpRequestException httpEx)
             {
@@ -627,6 +692,10 @@ namespace sisRUA
                 ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
                 DrawCadFeatures(prepareResponse.Features);
                 EnsureOsmAttributionMText(prepareResponse.Features);
+
+                // Store last drawn features for saving
+                _lastDrawnFeatures = prepareResponse.Features;
+                _lastDrawnCrsOut = prepareResponse.CrsOut;
             }
             catch (HttpRequestException httpEx)
             {
