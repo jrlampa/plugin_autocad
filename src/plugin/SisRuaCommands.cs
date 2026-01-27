@@ -90,6 +90,76 @@ namespace sisRUA
             }
         }
 
+        [CommandMethod("SISRUA_RELOAD_PROJECT", CommandFlags.Session)]
+        public static void SisRuaReloadProjectCommand()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            if (doc == null)
+            {
+                Log("WARN: SISRUA_RELOAD_PROJECT called with no active document.");
+                Application.ShowAlertDialog("Nenhum desenho ativo para carregar.");
+                return;
+            }
+
+            Editor ed = doc.Editor;
+            
+            try
+            {
+                var projects = _projectRepository.ListProjects();
+                if (!projects.Any())
+                {
+                    Application.ShowAlertDialog("Não há projetos salvos para carregar.");
+                    ed.WriteMessage("\n[sisRUA] Nenhum projeto salvo encontrado.");
+                    return;
+                }
+
+                ed.WriteMessage("\n--- Projetos Salvos ---");
+                foreach (var p in projects)
+                {
+                    ed.WriteMessage($"\nID: {p.projectId}, Nome: {p.projectName}, Data: {p.creationDate}");
+                }
+                ed.WriteMessage("\n---------------------");
+
+                PromptStringOptions pso = new PromptStringOptions("\n[sisRUA] Digite o ID do projeto a carregar:")
+                {
+                    AllowSpaces = false,
+                    AllowEmpty = false
+                };
+                PromptResult res = ed.GetString(pso);
+                if (res.Status != PromptStatus.OK)
+                {
+                    ed.WriteMessage("\n[sisRUA] Operação de carregamento cancelada.");
+                    return;
+                }
+
+                string selectedProjectId = res.StringResult.Trim();
+                var (projectName, crsOut, features) = _projectRepository.LoadProject(selectedProjectId);
+
+                if (features == null || !features.Any())
+                {
+                    Application.ShowAlertDialog($"Projeto '{selectedProjectId}' não encontrado ou vazio.");
+                    ed.WriteMessage($"\n[sisRUA] Projeto '{selectedProjectId}' não encontrado ou vazio.");
+                    return;
+                }
+
+                // Optionally, clear current Model Space before redrawing
+                // For simplicity, we will just draw over for now. User can clear manually if needed.
+
+                ed.WriteMessage($"\n[sisRUA] Carregando e redesenhando projeto '{projectName}' (ID: {selectedProjectId})...");
+                DrawCadFeatures(features);
+                
+                _lastDrawnFeatures = features;
+                _lastDrawnCrsOut = crsOut;
+
+                ed.WriteMessage($"\n[sisRUA] Projeto '{projectName}' redesenhado com sucesso.");
+            }
+            catch (Exception ex)
+            {
+                Log($"ERROR: Failed to load project: {ex.Message}");
+                Application.ShowAlertDialog($"Erro ao carregar projeto: {ex.Message}");
+            }
+        }
+
 
         /// <summary>
         /// Garante que uma definição de bloco esteja carregada no desenho.
