@@ -14,7 +14,16 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
   exit 1
 }
 
-function Copy-FrontendToTemp([string]$srcDir, [string]$dstDir) {
+# --- Le a versao de VERSION.txt ---
+$AppVersionPath = Join-Path $PSScriptRoot "..\\VERSION.txt"
+$AppVersion = "0.0.0"
+if (Test-Path $AppVersionPath) {
+  $AppVersion = (Get-Content $AppVersionPath).Trim()
+}
+Write-Host "INFO: Usando versao do projeto: $AppVersion"
+# --- Fim Leitura Versao ---
+
+function Copy-FrontendToTemp([string]$srcDir, [string]$dstDir, [string]$version) {
   New-Item -ItemType Directory -Force -Path $dstDir | Out-Null
 
   $items = @(
@@ -35,6 +44,15 @@ function Copy-FrontendToTemp([string]$srcDir, [string]$dstDir) {
       Copy-Item -Path $p -Destination (Join-Path $dstDir $it) -Recurse -Force
     }
   }
+
+  # Atualiza a versao no package.json copiado
+  $packageJsonPath = Join-Path $dstDir "package.json"
+  if (Test-Path $packageJsonPath) {
+    $packageJson = Get-Content $packageJsonPath | ConvertFrom-Json
+    $packageJson.version = $version
+    $packageJson | ConvertTo-Json -Depth 99 | Set-Content $packageJsonPath
+    Write-Host "INFO: package.json em $packageJsonPath atualizado para versao $version."
+  }
 }
 
 $tempRoot = Join-Path $env:TEMP ("sisrua_frontend_build_" + [Guid]::NewGuid().ToString("N"))
@@ -42,7 +60,7 @@ $tempDir = $tempRoot
 
 try {
   Write-Host "[frontend] Preparando build em pasta temporaria (evita travas em pastas sincronizadas)..."
-  Copy-FrontendToTemp -srcDir $FrontendDir -dstDir $tempDir
+  Copy-FrontendToTemp -srcDir $FrontendDir -dstDir $tempDir -version $AppVersion
 
   Push-Location $tempDir
   try {
