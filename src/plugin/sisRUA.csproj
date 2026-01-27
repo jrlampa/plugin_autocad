@@ -84,6 +84,7 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2277.86" />
     <!-- Versão que suporta net48 e net8 -->
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
   </ItemGroup>
 
   <ItemGroup>
