@@ -21,6 +21,13 @@
       "layer": "SISRUA_INFRA_CAIXA",
       "scale": 1.0,
       "rotation": 0.0
+    },
+    "BANCO": {
+      "block_name": "BANCO_GENERICO",
+      "block_filepath": "BANCO_GENERICO.dxf",
+      "layer": "SISRUA_MOBILIARIO_URBANO",
+      "scale": 1.0,
+      "rotation": 0.0
     }
   }
 }
