@@ -815,9 +815,18 @@ namespace sisRUA
                     Log($"INFO: Removed {features.Count() - cleanedFeatures.Count()} duplicate polylines.");
                     ed.WriteMessage($"\n[sisRUA] Aviso: {features.Count() - cleanedFeatures.Count()} polylines duplicadas removidas.");
                 }
+
+                // Aplica a fusão de polylines contíguas
+                var mergedFeatures = GeometryCleaner.MergeContiguousPolylines(cleanedFeatures);
+                if (mergedFeatures.Count() < cleanedFeatures.Count())
+                {
+                    Log($"INFO: Merged {cleanedFeatures.Count() - mergedFeatures.Count()} polylines.");
+                    ed.WriteMessage($"\n[sisRUA] Aviso: {cleanedFeatures.Count() - mergedFeatures.Count()} polylines foram fundidas.");
+                }
+                
                 // --- FIM FASE 1.5.2 ---
 
-                foreach (var f in cleanedFeatures)
+                foreach (var f in mergedFeatures)
                 {
                     if (f == null) continue;
 
