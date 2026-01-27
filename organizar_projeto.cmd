@@ -118,6 +118,15 @@ if exist "%FRONTEND_DIST%" (
     echo Gere o build do Vite e tente novamente.
 )
 
+echo [5.5/6] Copiando Blocos CAD (.dxf/.dwg)...
+if exist "%ROOT%Blocks" (
+    SET SISRUA_STEP=copiando Blocos CAD
+    xcopy /E /I /Y "%ROOT%Blocks" "%OUT_CONTENTS%\Blocks" >nul
+    if errorlevel 1 goto :SISRUA_FAIL
+) else (
+    echo AVISO: Pasta 'Blocks' nao encontrada em %ROOT%. Nenhuma definicao de bloco sera incluida.
+)
+
 echo [6/6] Copiando Resources (mapeamento, prancha, etc)...
 if exist "%SRC_BUNDLE%\Contents\Resources" (
     SET SISRUA_STEP=copiando Resources
