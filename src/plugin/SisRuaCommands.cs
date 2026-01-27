@@ -515,7 +515,7 @@ namespace sisRUA
                 }
 
                 ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
-                DrawPolylines(prepareResponse.Features);
+                DrawCadFeatures(prepareResponse.Features);
             }
             catch (HttpRequestException httpEx)
             {
@@ -562,7 +562,7 @@ namespace sisRUA
                 }
 
                 ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
-                DrawPolylines(prepareResponse.Features);
+                DrawCadFeatures(prepareResponse.Features);
                 EnsureOsmAttributionMText(prepareResponse.Features);
             }
             catch (HttpRequestException httpEx)
@@ -580,13 +580,13 @@ namespace sisRUA
             }
         }
 
-        private static void DrawPolylines(IEnumerable<CadFeature> features)
+        private static void DrawCadFeatures(IEnumerable<CadFeature> features)
         {
-            Log("INFO: DrawPolylines started.");
+            Log("INFO: DrawCadFeatures started.");
             Document doc = Application.DocumentManager.MdiActiveDocument;
             if (doc == null)
             {
-                Log("WARN: DocumentManager.MdiActiveDocument is null in DrawPolylines.");
+                Log("WARN: DocumentManager.MdiActiveDocument is null in DrawCadFeatures.");
                 return;
             }
 
@@ -602,65 +602,98 @@ namespace sisRUA
                 ObjectId msId = SymbolUtilityServices.GetBlockModelSpaceId(db);
                 BlockTableRecord ms = (BlockTableRecord)tr.GetObject(msId, OpenMode.ForWrite);
 
-                int created = 0;
+                int createdPolylines = 0;
+                int createdBlocks = 0;
+
                 foreach (var f in features)
                 {
-                    if (f?.CoordsXy == null || f.CoordsXy.Count < 2) continue;
+                    if (f == null) continue;
 
                     var (layerName, aci) = GetLayerStyleForFeature(f);
                     EnsureLayer(tr, db, lt, layerName, aci);
 
-                    // Sempre construímos a linha-guia (eixo) em memória. Se possível, desenhamos a via como
-                    // "duas bordas" (offset ± largura/2) para um visual melhor (sem precisar preencher).
-                    var center = new Polyline();
-                    for (int i = 0; i < f.CoordsXy.Count; i++)
+                    switch (f.FeatureType)
                     {
-                        var pt = f.CoordsXy[i];
-                        if (pt == null || pt.Count < 2) continue;
-                        center.AddVertexAt(
-                            center.NumberOfVertices,
-                            new Autodesk.AutoCAD.Geometry.Point2d(pt[0] * metersToDrawingUnits, pt[1] * metersToDrawingUnits),
-                            0,
-                            0,
-                            0
-                        );
-                    }
+                        case CadFeatureType.Polyline:
+                            if (f.CoordsXy == null || f.CoordsXy.Count < 2) continue;
 
-                    if (center.NumberOfVertices < 2)
-                    {
-                        center.Dispose();
-                        continue;
-                    }
+                            // Desenho de Polylines
+                            var centerPolyline = new Polyline();
+                            for (int i = 0; i < f.CoordsXy.Count; i++)
+                            {
+                                var pt = f.CoordsXy[i];
+                                if (pt == null || pt.Count < 2) continue;
+                                centerPolyline.AddVertexAt(
+                                    centerPolyline.NumberOfVertices,
+                                    new Autodesk.AutoCAD.Geometry.Point2d(pt[0] * metersToDrawingUnits, pt[1] * metersToDrawingUnits),
+                                    0,
+                                    0,
+                                    0
+                                );
+                            }
 
-                    double? widthUnits = TryGetRoadWidthUnits(f, metersToDrawingUnits);
+                            if (centerPolyline.NumberOfVertices < 2)
+                            {
+                                centerPolyline.Dispose();
+                                continue;
+                            }
 
-                    bool drewAsOffsets = false;
-                    if (widthUnits.HasValue && widthUnits.Value > 0.05 && IsFinite(widthUnits.Value))
-                    {
-                        drewAsOffsets = TryAppendOffsetRoadEdges(tr, ms, center, widthUnits.Value / 2.0, layerName);
-                        if (drewAsOffsets)
-                        {
-                            created += 2; // bordas esquerda/direita (mínimo)
-                            center.Dispose(); // não desenhamos o eixo quando o offset funciona
-                            continue;
-                        }
-                    }
+                            double? widthUnits = TryGetRoadWidthUnits(f, metersToDrawingUnits);
 
-                    // Fallback: desenha o eixo (e, se houver largura, tenta como polyline com largura constante).
-                    if (widthUnits.HasValue && widthUnits.Value > 0.05 && IsFinite(widthUnits.Value))
-                    {
-                        center.ConstantWidth = widthUnits.Value;
+                            bool drewAsOffsets = false;
+                            if (widthUnits.HasValue && widthUnits.Value > 0.05 && IsFinite(widthUnits.Value))
+                            {
+                                drewAsOffsets = TryAppendOffsetRoadEdges(tr, ms, centerPolyline, widthUnits.Value / 2.0, layerName);
+                                if (drewAsOffsets)
+                                {
+                                    createdPolylines += 2; // bordas esquerda/direita (mínimo)
+                                    centerPolyline.Dispose(); // não desenhamos o eixo quando o offset funciona
+                                    continue;
+                                }
+                            }
+
+                            // Fallback: desenha o eixo (e, se houver largura, tenta como polyline com largura constante).
+                            if (widthUnits.HasValue && widthUnits.Value > 0.05 && IsFinite(widthUnits.Value))
+                            {
+                                centerPolyline.ConstantWidth = widthUnits.Value;
+                            }
+                            centerPolyline.Layer = layerName;
+                            centerPolyline.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
+                            ms.AppendEntity(centerPolyline);
+                            tr.AddNewlyCreatedDBObject(centerPolyline, true);
+                            createdPolylines++;
+                            break;
+
+                        case CadFeatureType.Point:
+                            // Inserção de Blocos
+                            if (f.InsertionPointXy == null || f.InsertionPointXy.Count < 2 || string.IsNullOrWhiteSpace(f.BlockName) || string.IsNullOrWhiteSpace(f.BlockFilePath))
+                            {
+                                Log($"WARN: Skipping point feature due to missing data: InsertionPointXy, BlockName, or BlockFilePath is null/empty for feature {f.Name ?? "unnamed"}.");
+                                continue;
+                            }
+                            
+                            Autodesk.AutoCAD.Geometry.Point3d insertionPt = new Autodesk.AutoCAD.Geometry.Point3d(
+                                f.InsertionPointXy[0] * metersToDrawingUnits,
+                                f.InsertionPointXy[1] * metersToDrawingUnits,
+                                f.InsertionPointXy.Count > 2 ? f.InsertionPointXy[2] * metersToDrawingUnits : 0.0
+                            );
+
+                            InsertBlock(
+                                tr, db, ms,
+                                f.BlockName, f.BlockFilePath,
+                                insertionPt,
+                                f.Rotation ?? 0.0,
+                                f.Scale ?? 1.0,
+                                layerName
+                            );
+                            createdBlocks++;
+                            break;
                     }
-                    center.Layer = layerName;
-                    center.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
-                    ms.AppendEntity(center);
-                    tr.AddNewlyCreatedDBObject(center, true);
-                    created++;
                 }
 
                 tr.Commit();
-                ed.WriteMessage($"\n[sisRUA] Sucesso! {created} polylines criadas no Model Space.");
-                Log($"INFO: DrawPolylines completed. {created} polylines created.");
+                ed.WriteMessage($"\n[sisRUA] Sucesso! {createdPolylines} polylines e {createdBlocks} blocos criados no Model Space.");
+                Log($"INFO: DrawCadFeatures completed. {createdPolylines} polylines and {createdBlocks} blocks created.");
                 ed.Regen();
             }
         }
