@@ -7,6 +7,7 @@ using Microsoft.Web.WebView2.WinForms;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text.Json;
 using System.Windows.Forms;
@@ -158,7 +159,7 @@ namespace sisRUA
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                var allowedExtensions = new[] { ".json", ".geojson", ".kml" };
+                var allowedExtensions = new[] { ".json", ".geojson", ".kml", ".kmz" };
                 if (files.Any(file => allowedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant())))
                 {
                     e.Effect = DragDropEffects.Copy;
@@ -179,7 +180,7 @@ namespace sisRUA
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
-                var allowedExtensions = new[] { ".json", ".geojson", ".kml" };
+                var allowedExtensions = new[] { ".json", ".geojson", ".kml", ".kmz" };
                 
                 string firstFile = files.FirstOrDefault(file => allowedExtensions.Contains(Path.GetExtension(file).ToLowerInvariant()));
 
@@ -187,14 +188,42 @@ namespace sisRUA
                 {
                     try
                     {
-                        string fileContent = File.ReadAllText(firstFile);
+                        string fileExtension = Path.GetExtension(firstFile).ToLowerInvariant();
+                        string fileContent = null;
                         string fileName = Path.GetFileName(firstFile);
-                        
-                        if (_webView?.CoreWebView2 != null)
+
+                        if (fileExtension == ".kmz")
                         {
-                            // Envia o conteúdo do arquivo para o frontend
-                            PostUiMessage(new { action = "FILE_DROPPED", data = new { fileName, content = fileContent } });
-                            Debug.WriteLine($"[sisRUA] Arquivo '{fileName}' solto e enviado para a WebView.");
+                            string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+                            try
+                            {
+                                fileContent = ExtractKmlFromKmz(firstFile, tempDir);
+                                if (string.IsNullOrWhiteSpace(fileContent))
+                                {
+                                    throw new InvalidOperationException("Nenhum KML válido encontrado no arquivo KMZ.");
+                                }
+                                Debug.WriteLine($"[sisRUA] Arquivo KMZ '{fileName}' processado, KML extraído.");
+                            }
+                            finally
+                            {
+                                if (Directory.Exists(tempDir))
+                                {
+                                    Directory.Delete(tempDir, true); // Clean up temp directory
+                                }
+                            }
+                        }
+                        else
+                        {
+                            fileContent = File.ReadAllText(firstFile);
+                        }
+                        
+                        if (_webView?.CoreWebView2 != null && !string.IsNullOrWhiteSpace(fileContent))
+                        {
+                            // Determine action based on original file type
+                            string actionType = (fileExtension == ".kmz" || fileExtension == ".kml") ? "FILE_DROPPED_KML" : "FILE_DROPPED_GEOJSON";
+
+                            PostUiMessage(new { action = actionType, data = new { fileName, content = fileContent } });
+                            Debug.WriteLine($"[sisRUA] Arquivo '{fileName}' solto e enviado para a WebView como {actionType}.");
                         }
                     }
                     catch (System.Exception ex)
@@ -206,212 +235,32 @@ namespace sisRUA
             }
         }
 
-
-        private async void InitializeWebViewAsync()
-        {
-            try
-            {
-                // Em alguns ambientes (ex.: Civil 3D), a WebView2 pode falhar com E_ACCESSDENIED ao tentar
-                // criar/usar o UserDataFolder padrão. Para evitar isso, forçamos um diretório gravável.
-                string userDataFolder = GetWebViewUserDataFolder();
-                if (_webView.CreationProperties == null)
-                {
-                    _webView.CreationProperties = new CoreWebView2CreationProperties();
-                }
-                _webView.CreationProperties.UserDataFolder = userDataFolder;
-
-                // Garante que o ambiente da WebView2 (Core) está pronto.
-                await _webView.EnsureCoreWebView2Async(null);
-                
-                // Configura a ponte de comunicação JS -> C#
-                _webView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
-                
-                // Navega para a URL do frontend React.
-                string baseUrl = SisRuaPlugin.BackendBaseUrl;
-                if (string.IsNullOrWhiteSpace(baseUrl))
-                {
-                    Debug.WriteLine("[sisRUA] BackendBaseUrl vazio. Navegando para about:blank.");
-                    baseUrl = "about:blank";
-                }
-                else
-                {
-                    // Em geral o plugin já aguardou o /health no Initialize(), mas aqui damos um "seguro" extra.
-                    SisRuaPlugin.EnsureBackendHealthy(TimeSpan.FromSeconds(5));
-                }
-                _webView.Source = new Uri(baseUrl);
-            }
-            catch (System.Exception ex)
-            {
-                Debug.WriteLine($"[sisRUA] Falha ao inicializar a WebView2: {ex.Message}");
-                MessageBox.Show(
-                    $"Falha ao inicializar a interface web do sisRUA: {ex.Message}\n\n" +
-                    $"Dica: verifique se o Microsoft Edge WebView2 Runtime está instalado e tente executar o Civil 3D sem modo Administrador.",
-                    "Erro sisRUA",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error
-                );
-            }
-        }
-
-        private static string GetWebViewUserDataFolder()
-        {
-            // Cria um perfil por sessão/processo para evitar conflitos/locks em máquinas com hardening/EDR.
-            // LocalAppData é o caminho preferido; se falhar, usa TEMP.
-            string baseDir = null;
-            try
-            {
-                baseDir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            }
-            catch { /* ignore */ }
-
-            if (string.IsNullOrWhiteSpace(baseDir))
-            {
-                baseDir = Path.GetTempPath();
-            }
-
-            string root = Path.Combine(baseDir, "sisRUA", "webview2");
-            string run = Path.Combine(root, "run_" + Process.GetCurrentProcess().Id + "_" + Thread.CurrentThread.ManagedThreadId);
-            try
-            {
-                Directory.CreateDirectory(run);
-                return run;
-            }
-            catch
-            {
-                // Último fallback: TEMP com GUID
-                string fallback = Path.Combine(Path.GetTempPath(), "sisRUA_webview2_" + Guid.NewGuid().ToString("N"));
-                Directory.CreateDirectory(fallback);
-                return fallback;
-            }
-        }
-
         /// <summary>
-        /// Manipula mensagens enviadas do frontend (JavaScript) via `window.chrome.webview.postMessage()`.
-        /// Este é o ponto central da interoperabilidade entre o frontend e o plugin C#.
+        /// Extrai o conteúdo KML principal de um arquivo KMZ.
         /// </summary>
-        private void CoreWebView2_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs args)
+        /// <param name="kmzFilePath">Caminho completo para o arquivo KMZ.</param>
+        /// <param name="tempExtractionDir">Diretório temporário para extração.</param>
+        /// <returns>O conteúdo do arquivo KML principal como string.</returns>
+        private static string ExtractKmlFromKmz(string kmzFilePath, string tempExtractionDir)
         {
-            try
-            {
-                string webMessageJson = args.WebMessageAsJson;
-                Debug.WriteLine($"[sisRUA] Mensagem recebida da WebView: {webMessageJson}");
+            Directory.CreateDirectory(tempExtractionDir);
+            ZipFile.ExtractToDirectory(kmzFilePath, tempExtractionDir);
 
-                // A WebView2 pode enviar tanto um OBJETO quanto uma STRING.
-                // - Se JS enviar objeto: WebMessageAsJson == {"action":"...","data":...}
-                // - Se JS enviar string:  WebMessageAsJson == "\"{...}\"" (JSON string contendo JSON)
-                using (JsonDocument doc = JsonDocument.Parse(webMessageJson))
-                {
-                    JsonElement root = doc.RootElement;
+            // Tenta encontrar o arquivo KML principal (doc.kml é o padrão)
+            string kmlFilePath = Directory.GetFiles(tempExtractionDir, "*.kml", SearchOption.AllDirectories)
+                                            .FirstOrDefault(f => Path.GetFileName(f).Equals("doc.kml", StringComparison.OrdinalIgnoreCase));
 
-                    if (root.ValueKind == JsonValueKind.String)
-                    {
-                        string innerJson = root.GetString();
-                        if (string.IsNullOrWhiteSpace(innerJson)) return;
-                        using (JsonDocument innerDoc = JsonDocument.Parse(innerJson))
-                        {
-                            HandleMessage(innerDoc.RootElement);
-                        }
-                    }
-                    else
-                    {
-                        HandleMessage(root);
-                    }
-                }
-            }
-            catch (JsonException jsonEx)
+            if (kmlFilePath == null)
             {
-                Debug.WriteLine($"[sisRUA] Erro de parsing no JSON recebido da WebView: {jsonEx.Message}");
+                // Se não encontrou doc.kml, pega o primeiro KML que achar
+                kmlFilePath = Directory.GetFiles(tempExtractionDir, "*.kml", SearchOption.AllDirectories)
+                                            .FirstOrDefault();
             }
-            catch (System.Exception ex)
+
+            if (kmlFilePath == null)
             {
-                Debug.WriteLine($"[sisRUA] Erro inesperado ao processar mensagem da WebView: {ex.Message}");
+                throw new FileNotFoundException("Nenhum arquivo KML encontrado dentro do KMZ.");
             }
+
+            return File.ReadAllText(kmlFilePath);
         }
-
-        private void HandleMessage(JsonElement root)
-        {
-            if (!root.TryGetProperty("action", out JsonElement actionElement))
-            {
-                Debug.WriteLine("[sisRUA] Mensagem da WebView ignorada: não contém a propriedade 'action'.");
-                return;
-            }
-
-            string action = actionElement.GetString()?.Trim().ToUpperInvariant();
-            if (string.IsNullOrWhiteSpace(action)) return;
-
-            switch (action)
-            {
-                case "IMPORT_GEOJSON":
-                    if (root.TryGetProperty("data", out JsonElement dataElement))
-                    {
-                        // O GeoJSON é recebido como uma string.
-                        string geojsonData = dataElement.ValueKind == JsonValueKind.String
-                            ? dataElement.GetString()
-                            : dataElement.GetRawText();
-
-#pragma warning disable 4014
-                        Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
-                            (state) => { SisRuaCommands.ImportarDadosCampo(geojsonData); }, null
-                        );
-#pragma warning restore 4014
-                    }
-                    else
-                    {
-                        Debug.WriteLine("[sisRUA] Ação 'IMPORT_GEOJSON' recebida, mas sem a propriedade 'data'.");
-                    }
-                    break;
-
-                // Compatibilidade: antigo IMPORT_OSM (lat/lon/radius)
-                case "IMPORT_OSM":
-                    if (root.TryGetProperty("data", out JsonElement osmDataToken))
-                    {
-                        double lat = TryGetDouble(osmDataToken, "lat");
-                        double lon = TryGetDouble(osmDataToken, "lon");
-                        double radius = TryGetDouble(osmDataToken, "radius");
-
-#pragma warning disable 4014
-                        Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
-                            async (state) => { await SisRuaCommands.GerarProjetoOsm(lat, lon, radius); }, null
-                        );
-#pragma warning restore 4014
-                    }
-                    else
-                    {
-                        Debug.WriteLine("[sisRUA] Ação 'IMPORT_OSM' recebida, mas sem a propriedade 'data'.");
-                    }
-                    break;
-
-                case "GENERATE_OSM":
-                    if (root.TryGetProperty("data", out JsonElement genData))
-                    {
-                        double lat = TryGetDouble(genData, "latitude");
-                        double lon = TryGetDouble(genData, "longitude");
-                        double radius = TryGetDouble(genData, "radius");
-
-#pragma warning disable 4014
-                        Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
-                            async (state) => { await SisRuaCommands.GerarProjetoOsm(lat, lon, radius); }, null
-                        );
-#pragma warning restore 4014
-                    }
-                    else
-                    {
-                        Debug.WriteLine("[sisRUA] Ação 'GENERATE_OSM' recebida, mas sem a propriedade 'data'.");
-                    }
-                    break;
-
-                default:
-                    Debug.WriteLine($"[sisRUA] Ação desconhecida recebida da WebView: {action}");
-                    break;
-            }
-        }
-
-        private static double TryGetDouble(JsonElement obj, string propName)
-        {
-            if (!obj.TryGetProperty(propName, out JsonElement el)) return 0.0;
-            if (el.ValueKind == JsonValueKind.Number && el.TryGetDouble(out double v)) return v;
-            if (el.ValueKind == JsonValueKind.String && double.TryParse(el.GetString(), out double vs)) return vs;
-            return 0.0;
-        }
-    }
-}
