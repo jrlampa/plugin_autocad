@@ -24,6 +24,8 @@ Este documento define requisitos **auditáveis** (com IDs) para rastreabilidade.
 - **FR-011 — Inserção de Blocos a partir de OSM**: o plugin deve inserir blocos CAD a partir de dados OSM (ex: postes, medidores) com base em tags e mapeamento configurável.
 - **FR-012 — Inserção de Blocos a partir de GeoJSON**: o plugin deve inserir blocos CAD a partir de dados GeoJSON com geometria de ponto e metadados de bloco.
 - **FR-013 — Padronização Gráfica de Blocos**: os blocos inseridos devem seguir as padronizações definidas (camadas, escala, rotação, etc.), conforme configurado em `blocks_mapping.json`.
+- **FR-014 — Persistência de Projeto**: o plugin deve permitir salvar o desenho atual como um projeto no banco de dados SQLite, associado a um `project_id` fornecido ou gerado.
+- **FR-015 — Recuperação e Redesenho de Projeto**: o plugin deve permitir listar projetos salvos e redesenhar um projeto selecionado a partir do banco de dados SQLite.
 
 ## Não-funcionais (NFR)
 
@@ -32,4 +34,5 @@ Este documento define requisitos **auditáveis** (com IDs) para rastreabilidade.
 - **NFR-003 — Logs**: backend deve gerar logs locais para suporte (rotacionados).
 - **NFR-004 — Privacidade**: sem telemetria por padrão; rede externa apenas quando o usuário solicitar OSM.
 - **NFR-005 — Trusted Locations (UX)**: instalação deve reduzir alertas de segurança (“Trusted Folder”) configurando `TRUSTEDPATHS` quando possível.
+- **NFR-006 — Integridade dos Dados Persistidos**: os dados de projeto salvos no SQLite (polylines e blocos) devem ser recuperados com todas as suas propriedades íntegras e corresponder ao estado original.
 
