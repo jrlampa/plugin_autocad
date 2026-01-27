@@ -113,6 +113,27 @@ Evita retrabalho futuro
 
 Base para cadastro técnico
 
+FASE 1.5.1 — PERSISTÊNCIA DE DADOS COM SQLITE
+Objetivo
+
+Permitir salvar e recuperar projetos desenhados para redesenho rápido.
+
+Entregas
+
+Integração SQLite local (projects.db)
+
+Comando `SISRUA_SAVE_PROJECT` (salvar projeto atual)
+
+Comando `SISRUA_RELOAD_PROJECT` (listar e redesenhar projetos salvos)
+
+Benefício
+
+Recuperação de trabalho
+
+Reutilização de projetos
+
+Base para auditoria/gestão de histórico
+
 FASE 2 — ELEVAÇÃO E RELEVO (OFFLINE)
 Objetivo
 

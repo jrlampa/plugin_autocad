@@ -82,9 +82,9 @@ Esta é uma cláusula central para o desenvolvimento de software.
     *   **Contribuição do Projeto**: Os scripts de build (`build_release.cmd`, `organizar_projeto.cmd`) e o `.csproj` definem o processo controlado de compilação e empacotamento.
     *   **Próximos Passos Sugeridos**: Formalizar um documento de "Guia de Build/Release" que detalhe todos os passos para a geração de uma release final.
 *   **Identificação e Rastreabilidade (8.5.2)**:
-    *   **Contribuição do Projeto**: `VERSION.txt`, nomes dos binários (ex: `sisRUA_NET48_ACAD2021.dll`), e o controle de versão do Git garantem identificação e rastreabilidade dos artefatos.
+    *   **Contribuição do Projeto**: `VERSION.txt`, nomes dos binários (ex: `sisRUA_NET48_ACAD2021.dll`), e o controle de versão do Git garantem identificação e rastreabilidade dos artefatos. A **FASE 1.5.1 (Persistência SQLite)** adiciona rastreabilidade aos projetos salvos via `project_id`.
 *   **Propriedade de Clientes ou Provedores Externos (8.5.3)**:
-    *   **Contribuição do Projeto**: A gestão de tokens de autenticação (`BackendAuthToken`) e os mecanismos de privacidade (`SisRuaPalette.cs`) visam proteger os dados do usuário.
+    *   **Contribuição do Projeto**: A gestão de tokens de autenticação (`BackendAuthToken`) e os mecanismos de privacidade (`SisRuaPalette.cs`) visam proteger os dados do usuário. A **FASE 1.5.1 (Persistência SQLite)** garante que os dados de projeto são armazenados localmente sob controle do usuário.
 *   **Preservação (8.5.4)**:
     *   **Contribuição do Projeto**: O versionamento Git e o empacotamento em bundles contribuem para a preservação dos produtos.
 *   **Atividades Pós-Entrega (8.5.5)**:
