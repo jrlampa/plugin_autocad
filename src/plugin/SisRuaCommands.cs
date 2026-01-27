@@ -326,6 +326,69 @@ namespace sisRUA
         private static readonly Lazy<Dictionary<string, LayerStyle>> _highwayLayerMap =
             new Lazy<Dictionary<string, LayerStyle>>(LoadHighwayLayerMap, isThreadSafe: true);
 
+        private sealed class BlockMapEntry
+        {
+            [JsonPropertyName("block_name")]
+            public string BlockName { get; set; }
+            [JsonPropertyName("block_filepath")]
+            public string BlockFilePath { get; set; } // Relative path from Contents/Blocks/
+            [JsonPropertyName("layer")]
+            public string Layer { get; set; }
+            [JsonPropertyName("scale")]
+            public double? Scale { get; set; }
+            [JsonPropertyName("rotation")]
+            public double? Rotation { get; set; }
+        }
+
+        private sealed class BlockMapConfig
+        {
+            [JsonPropertyName("default_block_path")]
+            public string DefaultBlockPath { get; set; } // Path from Contents/ to Blocks/
+            [JsonPropertyName("mappings")]
+            public Dictionary<string, BlockMapEntry> Mappings { get; set; }
+        }
+
+        private static readonly Lazy<Dictionary<string, BlockMapEntry>> _blockMapping =
+            new Lazy<Dictionary<string, BlockMapEntry>>(LoadBlockMapping, isThreadSafe: true);
+
+        private static Dictionary<string, BlockMapEntry> LoadBlockMapping()
+        {
+            var map = new Dictionary<string, BlockMapEntry>(StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                string asmDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                if (!string.IsNullOrWhiteSpace(asmDir))
+                {
+                    string cfgPath = Path.Combine(asmDir, "Resources", "blocks_mapping.json");
+                    if (File.Exists(cfgPath))
+                    {
+                        string text = File.ReadAllText(cfgPath);
+                        var cfg = JsonSerializer.Deserialize<BlockMapConfig>(text, _jsonOptions);
+                        if (cfg?.Mappings != null)
+                        {
+                            foreach (var kv in cfg.Mappings)
+                            {
+                                if (string.IsNullOrWhiteSpace(kv.Key) || kv.Value == null) continue;
+                                // Resolve block_filepath relative to the bundle's Blocks/ folder
+                                if (!string.IsNullOrWhiteSpace(cfg.DefaultBlockPath) && !Path.IsPathRooted(kv.Value.BlockFilePath))
+                                {
+                                    kv.Value.BlockFilePath = Path.Combine(asmDir, cfg.DefaultBlockPath, kv.Value.BlockFilePath);
+                                }
+                                map[kv.Key.Trim()] = kv.Value;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Log($"WARN: Error loading blocks_mapping.json: {ex.Message}");
+            }
+
+            return map;
+        }
+
         private static Dictionary<string, LayerStyle> LoadHighwayLayerMap()
         {
             // Default (embutido)
