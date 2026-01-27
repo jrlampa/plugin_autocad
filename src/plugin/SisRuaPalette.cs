@@ -246,15 +246,32 @@ namespace sisRUA
             Directory.CreateDirectory(tempExtractionDir);
             ZipFile.ExtractToDirectory(kmzFilePath, tempExtractionDir);
 
-            // Tenta encontrar o arquivo KML principal (doc.kml é o padrão)
-            string kmlFilePath = Directory.GetFiles(tempExtractionDir, "*.kml", SearchOption.AllDirectories)
-                                            .FirstOrDefault(f => Path.GetFileName(f).Equals("doc.kml", StringComparison.OrdinalIgnoreCase));
+            // Strategy for finding the main KML file:
+            // 1. First, try to find "doc.kml" (standard KMZ convention)
+            // 2. If not found, look for KML files in the root directory
+            // 3. If still not found, search recursively for any .kml file
+            // Note: For future improvement, consider parsing the main KML file to follow
+            // NetworkLink elements that might point to other KML files within the archive,
+            // ensuring all relevant geographic data is extracted.
 
+            string kmlFilePath = null;
+
+            // Priority 1: Look for "doc.kml" (standard KMZ root file)
+            var allKmlFiles = Directory.GetFiles(tempExtractionDir, "*.kml", SearchOption.AllDirectories).ToList();
+            kmlFilePath = allKmlFiles.FirstOrDefault(f => 
+                Path.GetFileName(f).Equals("doc.kml", StringComparison.OrdinalIgnoreCase));
+
+            // Priority 2: If not found, prefer KML files in the root directory
             if (kmlFilePath == null)
             {
-                // Se não encontrou doc.kml, pega o primeiro KML que achar
-                kmlFilePath = Directory.GetFiles(tempExtractionDir, "*.kml", SearchOption.AllDirectories)
-                                            .FirstOrDefault();
+                kmlFilePath = allKmlFiles.FirstOrDefault(f => 
+                    Path.GetDirectoryName(f).Equals(tempExtractionDir, StringComparison.OrdinalIgnoreCase));
+            }
+
+            // Priority 3: Fallback to any KML file found
+            if (kmlFilePath == null)
+            {
+                kmlFilePath = allKmlFiles.FirstOrDefault();
             }
 
             if (kmlFilePath == null)
@@ -264,3 +281,148 @@ namespace sisRUA
 
             return File.ReadAllText(kmlFilePath);
         }
+
+        private async void InitializeWebViewAsync()
+        {
+            try
+            {
+                // Em alguns ambientes (ex.: Civil 3D), a WebView2 pode falhar com E_ACCESSDENIED ao tentar
+                // criar/usar o UserDataFolder padrão. Para evitar isso, forçamos um diretório gravável.
+                string userDataFolder = GetWebViewUserDataFolder();
+                if (_webView.CreationProperties == null)
+                {
+                    _webView.CreationProperties = new CoreWebView2CreationProperties();
+                }
+                _webView.CreationProperties.UserDataFolder = userDataFolder;
+
+                // Garante que o ambiente da WebView2 (Core) está pronto.
+                await _webView.EnsureCoreWebView2Async(null);
+                
+                // Configura a ponte de comunicação JS -> C#
+                _webView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+                
+                // Navega para a URL do frontend React.
+                string baseUrl = SisRuaPlugin.BackendBaseUrl;
+                if (string.IsNullOrWhiteSpace(baseUrl))
+                {
+                    Debug.WriteLine("[sisRUA] BackendBaseUrl vazio. Navegando para about:blank.");
+                    baseUrl = "about:blank";
+                }
+                else
+                {
+                    // Em geral o plugin já aguardou o /health no Initialize(), mas aqui damos um "seguro" extra.
+                    SisRuaPlugin.EnsureBackendHealthy(TimeSpan.FromSeconds(5));
+                }
+                _webView.Source = new Uri(baseUrl);
+            }
+            catch (System.Exception ex)
+            {
+                Debug.WriteLine($"[sisRUA] Falha ao inicializar a WebView2: {ex.Message}");
+                MessageBox.Show(
+                    $"Falha ao inicializar a interface web do sisRUA: {ex.Message}\n\n" +
+                    $"Dica: verifique se o Microsoft Edge WebView2 Runtime está instalado e tente executar o Civil 3D sem modo Administrador.",
+                    "Erro sisRUA",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error
+                );
+            }
+        }
+
+        private string GetWebViewUserDataFolder()
+        {
+            string localSisRuaDir = SisRuaPlugin.GetLocalSisRuaDir();
+            if (string.IsNullOrEmpty(localSisRuaDir))
+            {
+                return Path.Combine(Path.GetTempPath(), "sisRUA_webview2");
+            }
+            return Path.Combine(localSisRuaDir, "webview2");
+        }
+
+        /// <summary>
+        /// Manipula mensagens enviadas do frontend (JavaScript) via `window.chrome.webview.postMessage()`.
+        /// Este é o ponto central da interoperabilidade entre o frontend e o plugin C#.
+        /// </summary>
+        private void CoreWebView2_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs args)
+        {
+            try
+            {
+                string jsonMessage = args.WebMessageAsJson;
+                Debug.WriteLine($"[sisRUA] Mensagem recebida da WebView: {jsonMessage}");
+                
+                // Usamos JsonDocument para uma análise preliminar e eficiente da mensagem.
+                using (JsonDocument doc = JsonDocument.Parse(jsonMessage))
+                {
+                    JsonElement root = doc.RootElement;
+                    if (!root.TryGetProperty("action", out JsonElement actionElement))
+                    {
+                        Debug.WriteLine("[sisRUA] Mensagem da WebView ignorada: não contém a propriedade 'action'.");
+                        return;
+                    }
+
+                    string action = actionElement.GetString()?.ToUpperInvariant();
+                    if (string.IsNullOrWhiteSpace(action)) return;
+                    
+                    switch (action)
+                    {
+                        case "IMPORT_GEOJSON":
+                            if (root.TryGetProperty("data", out JsonElement dataElement))
+                            {
+                                // O GeoJSON é recebido como uma string.
+                                string geojsonData = dataElement.GetRawText();
+                                
+                                // IMPORTANTE: As APIs do AutoCAD só podem ser chamadas a partir da thread principal.
+                                // O evento WebMessageReceived executa em uma thread de UI do WinForms, não na thread do AutoCAD.
+                                // Usamos ExecuteInApplicationContext para delegar a execução do nosso comando para o contexto correto,
+                                // garantindo a estabilidade e prevenindo "fatal errors".
+                                Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
+                                    (state) => { SisRuaCommands.ImportarDadosCampo(geojsonData); }, null
+                                );
+                            }
+                            else
+                            {
+                                Debug.WriteLine("[sisRUA] Ação 'IMPORT_GEOJSON' recebida, mas sem a propriedade 'data'.");
+                            }
+                            break;
+
+                        case "GENERATE_OSM":
+                            if (root.TryGetProperty("data", out JsonElement osmDataElement))
+                            {
+                                // Extrai latitude, longitude e radius
+                                double? lat = null, lon = null, radius = null;
+                                if (osmDataElement.TryGetProperty("latitude", out JsonElement latElement))
+                                    lat = latElement.GetDouble();
+                                if (osmDataElement.TryGetProperty("longitude", out JsonElement lonElement))
+                                    lon = lonElement.GetDouble();
+                                if (osmDataElement.TryGetProperty("radius", out JsonElement radiusElement))
+                                    radius = radiusElement.GetDouble();
+
+                                if (lat.HasValue && lon.HasValue && radius.HasValue)
+                                {
+                                    Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
+                                        (state) => { SisRuaCommands.GerarProjetoOsm(lat.Value, lon.Value, radius.Value); }, null
+                                    );
+                                }
+                                else
+                                {
+                                    Debug.WriteLine("[sisRUA] Ação 'GENERATE_OSM' recebida, mas dados incompletos (lat/lon/radius).");
+                                }
+                            }
+                            break;
+
+                        default:
+                            Debug.WriteLine($"[sisRUA] Ação desconhecida recebida da WebView: {action}");
+                            break;
+                    }
+                }
+            }
+            catch (JsonException jsonEx)
+            {
+                Debug.WriteLine($"[sisRUA] Erro de parsing no JSON recebido da WebView: {jsonEx.Message}");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.WriteLine($"[sisRUA] Erro inesperado ao processar mensagem da WebView: {ex.Message}");
+            }
+        }
+    }
+}
