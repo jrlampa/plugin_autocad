@@ -315,7 +315,7 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
 
     try:
         graph = ox.graph_from_point((latitude, longitude), dist=radius, network_type="all")
-        _, edges = ox.graph_to_gdfs(graph)
+        nodes, edges = ox.graph_to_gdfs(graph) # Get nodes as well
         edges = edges[edges.geometry.notna()]
     except Exception as e:
         cached = _read_cache(key)
@@ -327,100 +327,7 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
 
     features: List[CadFeature] = [] # Changed type to CadFeature
 
-    def _parse_float_maybe(x: Any) -> Optional[float]:
-        if x is None:
-            return None
-        if isinstance(x, (int, float)):
-            xf = float(x)
-            return xf if math.isfinite(xf) else None
-        try:
-            s = str(x).strip().lower()
-            if not s or s == "nan":
-                return None
-            # remove unidade comum
-            s = s.replace("meters", "").replace("meter", "").replace("metres", "").replace("metre", "").replace("m", "")
-            # separadores comuns: "7;8" → pega o primeiro número
-            for sep in [";", ","]:
-                if sep in s:
-                    s = s.split(sep)[0]
-                    break
-            s = s.strip()
-            xf = float(s)
-            return xf if math.isfinite(xf) else None
-        except Exception:
-            return None
-
-    def _parse_int_maybe(x: Any) -> Optional[int]:
-        if x is None:
-            return None
-        if isinstance(x, int):
-            return x
-        if isinstance(x, float) and math.isfinite(x):
-            return int(x)
-        try:
-            s = str(x).strip().lower()
-            if not s or s == "nan":
-                return None
-            # "2;1" → pega o primeiro
-            for sep in [";", ","]:
-                if sep in s:
-                    s = s.split(sep)[0]
-                    break
-            # "2 lanes"
-            digits = ""
-            for ch in s:
-                if ch.isdigit():
-                    digits += ch
-                elif digits:
-                    break
-            if not digits:
-                return None
-            return int(digits)
-        except Exception:
-            return None
-
-    def _estimate_width_m(row, highway_tag: Optional[str]) -> Optional[float]:
-        # 1) width explícito no OSM
-        w = row.get("width") if row is not None else None
-        if isinstance(w, list) and w:
-            w = w[0]
-        wv = _parse_float_maybe(w)
-        if wv and wv > 0.5:
-            return min(max(wv, 2.0), 40.0)
-
-        # 2) lanes → largura aproximada (calçada a calçada / curb-to-curb)
-        lanes = row.get("lanes") if row is not None else None
-        if isinstance(lanes, list) and lanes:
-            lanes = lanes[0]
-        ln = _parse_int_maybe(lanes)
-        if ln is None:
-            # fallback por tipo de via
-            defaults = {
-                "motorway": 3,
-                "trunk": 2,
-                "primary": 2,
-                "secondary": 2,
-                "tertiary": 2,
-                "residential": 2,
-                "service": 1,
-                "unclassified": 2,
-                "track": 1,
-                "path": 1,
-                "footway": 1,
-                "cycleway": 1,
-            }
-            ln = defaults.get((highway_tag or "").lower())
-
-        if ln is None:
-            return None
-
-        lane_w = 3.2  # m
-        width = float(ln) * lane_w
-        # pisos estreitos para vias não-carro
-        if (highway_tag or "").lower() in ("footway", "path", "cycleway"):
-            width = max(1.8, min(width, 4.0))
-        return min(max(width, 2.0), 30.0)
-
+    # Process Edges (Polylines) - existing logic
     for _, row in edges.iterrows():
         geom = row.geometry
         highway = row.get("highway")
@@ -444,9 +351,51 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
                 )
             )
 
-    payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features, cache_hit=False) # Changed to PrepareResponse
-    _write_cache(key, payload.model_dump()) # Changed to model_dump
-    return payload.model_dump()
+    # Process Nodes (Points / Blocks) - new logic for FASE 1.5
+    point_features_query = {
+        "highway": ["street_light", "traffic_signals"],
+        "power": ["pole", "tower"],
+        "amenity": ["bench", "parking", "bus_stop"]
+    }
+    
+    # Filter nodes based on tags that usually represent point features
+    # Convert node geometries (points) to projected coordinates
+    for _, node_row in nodes.iterrows():
+        point_geom = node_row.geometry
+        
+        # Ensure it's a point and valid
+        if point_geom is None or point_geom.geom_type != "Point":
+            continue
+
+        tags = node_row.to_dict() # Get all tags from the node
+        
+        block_name = None
+        # Basic mapping logic from OSM tags to block types
+        if tags.get("highway") == "street_light":
+            block_name = "POSTE"
+        elif tags.get("power") == "pole":
+            block_name = "POSTE"
+        elif tags.get("amenity") == "bench":
+            block_name = "BANCO" # Example, would need BANCO_GENERICO.dxf
+        # Add more mappings as needed for FASE 1.5
+
+        if block_name:
+            # Project the point coordinates
+            x_proj, y_proj = transformer.transform(point_geom.x, point_geom.y)
+            if math.isfinite(x_proj) and math.isfinite(y_proj):
+                features.append(
+                    CadFeature(
+                        feature_type="Point",
+                        layer="SISRUA_OSM_PONTOS", # Specific layer for OSM points/blocks
+                        name=_norm_optional_str(tags.get("name")),
+                        block_name=block_name,
+                        # block_filepath will be resolved by C# plugin using blocks_mapping.json
+                        insertion_point_xy=[x_proj, y_proj],
+                        rotation=0.0, # Default rotation
+                        scale=1.0 # Default scale
+                    )
+                )
+
 
 
 @app.post("/api/v1/prepare/osm")
