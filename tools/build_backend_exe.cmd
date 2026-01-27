@@ -34,6 +34,58 @@ if not exist "%BACKEND_SRC%\standalone.py" (
   exit /b 1
 )
 
+REM --- Versionamento (lê VERSION.txt e cria .rc file para PyInstaller) ---
+set APP_VERSION=0.0.0
+if exist "%ROOT%\VERSION.txt" (
+  for /f "usebackq delims=" %%v in ("%ROOT%\VERSION.txt") do set APP_VERSION=%%v
+)
+echo INFO: Usando versao do projeto: %APP_VERSION%
+
+REM PyInstaller espera um arquivo .rc para incorporar a versao no EXE.
+REM Criamos um temporario.
+set VERSION_RC_FILE="%BUILD_TMP%\version.rc"
+set MAJOR_VERSION=0
+set MINOR_VERSION=0
+set PATCH_VERSION=0
+for /f "tokens=1-3 delims=." %%a in ("%APP_VERSION%") do (
+  set MAJOR_VERSION=%%a
+  set MINOR_VERSION=%%b
+  set PATCH_VERSION=%%c
+)
+
+echo # UTF-8
+echo #include "winver.h" > %VERSION_RC_FILE%
+echo 1 VERSIONINFO >> %VERSION_RC_FILE%
+echo FILEVERSION %MAJOR_VERSION%,%MINOR_VERSION%,%PATCH_VERSION%,0 >> %VERSION_RC_FILE%
+echo PRODUCTVERSION %MAJOR_VERSION%,%MINOR_VERSION%,%PATCH_VERSION%,0 >> %VERSION_RC_FILE%
+echo FILEFLAGSMASK 0x17L >> %VERSION_RC_FILE%
+echo #ifdef _DEBUG >> %VERSION_RC_FILE%
+echo FILEFLAGS 0x1L >> %VERSION_RC_FILE%
+echo #else >> %VERSION_RC_FILE%
+echo FILEFLAGS 0x0L >> %VERSION_RC_FILE%
+echo #endif >> %VERSION_RC_FILE%
+echo BEGIN >> %VERSION_RC_FILE%
+echo   BLOCK "StringFileInfo" >> %VERSION_RC_FILE%
+echo   BEGIN >> %VERSION_RC_FILE%
+echo     BLOCK "040904b0" >> %VERSION_RC_FILE%
+echo     BEGIN >> %VERSION_RC_FILE%
+echo       VALUE "CompanyName", "sisRUA" >> %VERSION_RC_FILE%
+echo       VALUE "FileDescription", "sisRUA Backend" >> %VERSION_RC_FILE%
+echo       VALUE "FileVersion", "%APP_VERSION%" >> %VERSION_RC_FILE%
+echo       VALUE "InternalName", "sisrua_backend" >> %VERSION_RC_FILE%
+echo       VALUE "LegalCopyright", "Copyright (C) sisRUA" >> %VERSION_RC_FILE%
+echo       VALUE "OriginalFilename", "sisrua_backend.exe" >> %VERSION_RC_FILE%
+echo       VALUE "ProductName", "sisRUA Backend" >> %VERSION_RC_FILE%
+echo       VALUE "ProductVersion", "%APP_VERSION%" >> %VERSION_RC_FILE%
+echo     END >> %VERSION_RC_FILE%
+echo   END >> %VERSION_RC_FILE%
+echo   BLOCK "VarFileInfo" >> %VERSION_RC_FILE%
+echo   BEGIN >> %VERSION_RC_FILE%
+echo     VALUE "Translation", 0x0409, 0x04B0 >> %VERSION_RC_FILE%
+echo   END >> %VERSION_RC_FILE%
+echo END >> %VERSION_RC_FILE%
+REM --- Fim Versionamento ---
+
 REM Se já existe um EXE pronto e não foi pedido rebuild, reutiliza.
 REM Para forçar rebuild:
 REM   set SISRUA_REBUILD_BACKEND_EXE=1
@@ -100,6 +152,7 @@ if not exist "%DIST_TMP%" mkdir "%DIST_TMP%"
   --copy-metadata osmnx ^
   --copy-metadata pyproj ^
   --collect-data pyproj ^
+  --version-file %VERSION_RC_FILE% ^
   --distpath "%DIST_TMP%" ^
   --workpath "%BUILD_ROOT%\\pyinstaller-work" ^
   --specpath "%BUILD_ROOT%\\pyinstaller-spec" ^
