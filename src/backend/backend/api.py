@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Tuple, Optional, Literal
 import uuid
 import os
 import sys
@@ -49,6 +49,38 @@ class PrepareJobRequest(BaseModel):
     geojson: Any | None = None
 
 
+class CadFeature(BaseModel):
+    feature_type: Literal["Polyline", "Point"] = "Polyline"  # Default to Polyline
+    layer: Optional[str] = None
+    name: Optional[str] = None
+    highway: Optional[str] = None
+    width_m: Optional[float] = None
+
+    # For Polyline features
+    coords_xy: Optional[List[List[float]]] = None
+
+    # For Point features (blocks)
+    insertion_point_xy: Optional[List[float]] = None
+    block_name: Optional[str] = None
+    block_filepath: Optional[str] = None
+    rotation: Optional[float] = None
+    scale: Optional[float] = None
+
+
+class PrepareResponse(BaseModel):
+    crs_out: Optional[str] = None
+    features: List[CadFeature]
+
+
+class JobStatusResponse(BaseModel):
+    job_id: str
+    kind: str
+    status: str
+    progress: float
+    message: Optional[str] = None
+    result: Optional[PrepareResponse] = None # Change type from Any to PrepareResponse
+    error: Optional[str] = None
+
 def _init_job(kind: str) -> str:
     job_id = str(uuid.uuid4())
     job_store[job_id] = {
@@ -63,7 +95,7 @@ def _init_job(kind: str) -> str:
     return job_id
 
 
-def _update_job(job_id: str, *, status: str | None = None, progress: float | None = None, message: str | None = None, result: dict | None = None, error: str | None = None) -> None:
+def _update_job(job_id: str, *, status: str | None = None, progress: float | None = None, message: str | None = None, result: Dict | None = None, error: str | None = None) -> None:
     job = job_store.get(job_id)
     if not job:
         return
@@ -93,7 +125,6 @@ def _cache_key(parts: list[str]) -> str:
         h.update(b"|")
     return h.hexdigest()
 
-
 def _read_cache(key: str) -> Optional[dict]:
     try:
         path = _cache_dir() / f"{key}.json"
@@ -103,7 +134,6 @@ def _read_cache(key: str) -> Optional[dict]:
         return _sanitize_jsonable(data)
     except Exception:
         return None
-
 
 def _write_cache(key: str, payload: dict) -> None:
     try:
@@ -144,8 +174,8 @@ def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest) -> None:
         else:
             raise ValueError("kind inválido. Use 'osm' ou 'geojson'.")
 
-        safe_result = _sanitize_jsonable(result)
-        _update_job(job_id, status="completed", progress=1.0, message="Concluído.", result=safe_result)
+        safe_result = PrepareResponse(**_sanitize_jsonable(result)) # Ensure it's a PrepareResponse object
+        _update_job(job_id, status="completed", progress=1.0, message="Concluído.", result=safe_result.model_dump()) # Use model_dump
     except Exception as e:
         _update_job(job_id, status="failed", progress=1.0, message="Falhou.", error=str(e))
 
@@ -179,13 +209,12 @@ def _utm_zone(longitude: float) -> int:
 def _sirgas2000_utm_epsg(latitude: float, longitude: float) -> int:
     """
     Para o Brasil (hemisfério sul), SIRGAS 2000 / UTM zona S segue a família EPSG:31960 + zona.
-    Ex.: zona 24S -> 31984.
+    Ex.: zona 24S → 31984.
     """
     zone = _utm_zone(longitude)
     # Roadmap do projeto assume SIRGAS 2000 / UTM.
     # Fórmula conhecida para zonas Sul: 31960 + zone.
     return 31960 + zone
-
 
 def _to_linestrings(geom) -> List[Any]:
     # Import local para evitar puxar stack GIS pesada na importação do módulo (melhor para CI e startup).
@@ -198,7 +227,6 @@ def _to_linestrings(geom) -> List[Any]:
     if isinstance(geom, MultiLineString):
         return list(geom.geoms)
     return []
-
 
 def _project_lines_to_xy(lines: List[Any], transformer: Any) -> List[List[List[float]]]:
     """
@@ -222,7 +250,6 @@ def _project_lines_to_xy(lines: List[Any], transformer: Any) -> List[List[List[f
             out.append(coords)
     return out
 
-
 def _norm_optional_str(v: Any) -> Optional[str]:
     """
     Normaliza valores vindos do pandas/osmnx para algo serializável em JSON.
@@ -245,7 +272,6 @@ def _norm_optional_str(v: Any) -> Optional[str]:
     except Exception:
         return None
 
-
 def _sanitize_jsonable(obj: Any) -> Any:
     """
     Garante que o payload é serializável como JSON estrito (sem NaN/Inf), evitando 500 em JSONResponse.
@@ -256,6 +282,8 @@ def _sanitize_jsonable(obj: Any) -> Any:
         return obj
     if isinstance(obj, float):
         return obj if math.isfinite(obj) else None
+    if isinstance(obj, BaseModel): # Handle Pydantic models
+        return obj.model_dump(mode='json')
     if isinstance(obj, dict):
         out: Dict[str, Any] = {}
         for k, v in obj.items():
@@ -270,7 +298,6 @@ def _sanitize_jsonable(obj: Any) -> Any:
         return str(obj)
     except Exception:
         return None
-
 
 def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> dict:
     # Import local: OSMnx/GeoPandas podem ser pesados; só precisamos disso ao executar OSM.
@@ -298,7 +325,7 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
             return cached
         raise HTTPException(status_code=503, detail=f"Falha ao obter dados do OSM (sem cache local disponível). Detalhes: {e}")
 
-    features: List[Dict[str, Any]] = []
+    features: List[CadFeature] = [] # Changed type to CadFeature
 
     def _parse_float_maybe(x: Any) -> Optional[float]:
         if x is None:
@@ -312,7 +339,7 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
                 return None
             # remove unidade comum
             s = s.replace("meters", "").replace("meter", "").replace("metres", "").replace("metre", "").replace("m", "")
-            # separadores comuns: "7;8" -> pega o primeiro número
+            # separadores comuns: "7;8" → pega o primeiro número
             for sep in [";", ","]:
                 if sep in s:
                     s = s.split(sep)[0]
@@ -334,7 +361,7 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
             s = str(x).strip().lower()
             if not s or s == "nan":
                 return None
-            # "2;1" -> pega o primeiro
+            # "2;1" → pega o primeiro
             for sep in [";", ","]:
                 if sep in s:
                     s = s.split(sep)[0]
@@ -361,7 +388,7 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
         if wv and wv > 0.5:
             return min(max(wv, 2.0), 40.0)
 
-        # 2) lanes -> largura aproximada (calçada a calçada / curb-to-curb)
+        # 2) lanes → largura aproximada (calçada a calçada / curb-to-curb)
         lanes = row.get("lanes") if row is not None else None
         if isinstance(lanes, list) and lanes:
             lanes = lanes[0]
@@ -407,19 +434,19 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
         lines = _to_linestrings(geom)
         for coords_xy in _project_lines_to_xy(lines, transformer):
             features.append(
-                {
-                    "layer": "SISRUA_OSM_VIAS",
-                    "name": name,
-                    "highway": highway,
-                    "width_m": width_m,
-                    "coords_xy": coords_xy,
-                }
+                CadFeature(
+                    feature_type="Polyline",
+                    layer="SISRUA_OSM_VIAS",
+                    name=name,
+                    highway=highway,
+                    width_m=width_m,
+                    coords_xy=coords_xy,
+                )
             )
 
-    payload = {"crs_out": f"EPSG:{epsg_out}", "features": features, "cache_hit": False}
-    payload = _sanitize_jsonable(payload)
-    _write_cache(key, payload)
-    return payload
+    payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features, cache_hit=False) # Changed to PrepareResponse
+    _write_cache(key, payload.model_dump()) # Changed to model_dump
+    return payload.model_dump()
 
 
 @app.post("/api/v1/prepare/osm")
@@ -431,7 +458,6 @@ async def prepare_osm(req: PrepareOsmRequest, x_sisrua_token: str | None = Heade
     _require_token(x_sisrua_token)
     return _prepare_osm_compute(req.latitude, req.longitude, req.radius)
 
-
 def _prepare_geojson_compute(geo: Any) -> dict:
     from pyproj import Transformer  # type: ignore
     from shapely.geometry import LineString  # type: ignore
@@ -439,7 +465,7 @@ def _prepare_geojson_compute(geo: Any) -> dict:
     if isinstance(geo, str):
         geo = json.loads(geo)
 
-    # Encontrar um ponto de referência para detectar zona UTM
+    # Encontrar um ponto de referância para detectar zona UTM
     def _first_lonlat(obj) -> Tuple[float, float]:
         if not obj:
             return (0.0, 0.0)
@@ -471,7 +497,7 @@ def _prepare_geojson_compute(geo: Any) -> dict:
     epsg_out = _sirgas2000_utm_epsg(lat0, lon0)
     transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_out}", always_xy=True)
 
-    features: List[Dict[str, Any]] = []
+    features: List[CadFeature] = [] # Changed type to CadFeature
 
     def _emit_feature(layer: Optional[str], name: Optional[str], highway: Optional[str], coords_lonlat):
         if not coords_lonlat or len(coords_lonlat) < 2:
@@ -480,12 +506,13 @@ def _prepare_geojson_compute(geo: Any) -> dict:
         coords_xy_list = _project_lines_to_xy([line], transformer)
         for coords_xy in coords_xy_list:
             features.append(
-                {
-                    "layer": layer or "SISRUA_GEOJSON",
-                    "name": name,
-                    "highway": highway,
-                    "coords_xy": coords_xy,
-                }
+                CadFeature(
+                    feature_type="Polyline", # Explicitly set feature_type
+                    layer=layer or "SISRUA_GEOJSON",
+                    name=name,
+                    highway=highway,
+                    coords_xy=coords_xy,
+                )
             )
 
     t = geo.get("type")
@@ -504,6 +531,28 @@ def _prepare_geojson_compute(geo: Any) -> dict:
             elif gtype == "MultiLineString":
                 for part in coords or []:
                     _emit_feature(layer, name, highway, part)
+            elif gtype == "Point": # Handle Point features from GeoJSON
+                point_lonlat = coords
+                if point_lonlat and len(point_lonlat) >= 2:
+                    lon, lat = point_lonlat[0], point_lonlat[1]
+                    # Project point
+                    x_proj, y_proj = transformer.transform(lon, lat)
+                    if math.isfinite(x_proj) and math.isfinite(y_proj):
+                        block_name = props.get("block_name") or props.get("BlockName")
+                        block_filepath = props.get("block_filepath") or props.get("BlockFilePath")
+                        features.append(
+                            CadFeature(
+                                feature_type="Point",
+                                layer=layer or "SISRUA_GEOJSON_POINT",
+                                name=name,
+                                block_name=_norm_optional_str(block_name),
+                                block_filepath=_norm_optional_str(block_filepath),
+                                insertion_point_xy=[x_proj, y_proj],
+                                rotation=props.get("rotation"),
+                                scale=props.get("scale"),
+                            )
+                        )
+
     elif t == "Feature":
         props = geo.get("properties") or {}
         geom = geo.get("geometry") or {}
@@ -518,21 +567,42 @@ def _prepare_geojson_compute(geo: Any) -> dict:
         elif gtype == "MultiLineString":
             for part in coords or []:
                 _emit_feature(layer, name, highway, part)
+        elif gtype == "Point": # Handle Point features from GeoJSON
+            point_lonlat = coords
+            if point_lonlat and len(point_lonlat) >= 2:
+                lon, lat = point_lonlat[0], point_lonlat[1]
+                # Project point
+                x_proj, y_proj = transformer.transform(lon, lat)
+                if math.isfinite(x_proj) and math.isfinite(y_proj):
+                    block_name = props.get("block_name") or props.get("BlockName")
+                    block_filepath = props.get("block_filepath") or props.get("BlockFilePath")
+                    features.append(
+                        CadFeature(
+                            feature_type="Point",
+                            layer=layer or "SISRUA_GEOJSON_POINT",
+                            name=name,
+                            block_name=_norm_optional_str(block_name),
+                            block_filepath=_norm_optional_str(block_filepath),
+                            insertion_point_xy=[x_proj, y_proj],
+                            rotation=props.get("rotation"),
+                            scale=props.get("scale"),
+                        )
+                    )
     else:
-        raise HTTPException(status_code=400, detail="GeoJSON não suportado. Use Feature/FeatureCollection com LineString/MultiLineString.")
+        raise HTTPException(status_code=400, detail="GeoJSON não suportado. Use Feature/FeatureCollection com LineString/MultiLineString/Point.")
 
-    payload = {"crs_out": f"EPSG:{epsg_out}", "features": features}
+    payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features)
 
     # Cache por conteúdo (ajuda em reimportações repetidas)
     try:
         raw = json.dumps(geo, sort_keys=True, ensure_ascii=False)
         key = _cache_key(["prepare_geojson", raw])
-        _write_cache(key, payload)
-        payload["cache_hit"] = False
+        _write_cache(key, payload.model_dump())
+        payload.cache_hit = False # Add cache_hit attribute
     except Exception:
         pass
 
-    return payload
+    return payload.model_dump()
 
 
 @app.post("/api/v1/prepare/geojson")
@@ -543,7 +613,6 @@ async def prepare_geojson(req: PrepareGeoJsonRequest, x_sisrua_token: str | None
     """
     _require_token(x_sisrua_token)
     return _prepare_geojson_compute(req.geojson)
-
 
 def _maybe_mount_frontend():
     """
@@ -571,7 +640,7 @@ def _maybe_mount_frontend():
                 """
                 <html>
                   <head><title>sisRUA</title></head>
-                  <body style="font-family: Arial; padding: 24px; max-width: 980px; margin: 0 auto;">
+                  <body style=\"font-family: Arial; padding: 24px; max-width: 980px; margin: 0 auto;\">
                     <h2>sisRUA (modo mínimo)</h2>
                     <p>
                       O backend está rodando, mas não há build do frontend em <code>Contents/frontend/dist</code>.
@@ -579,31 +648,31 @@ def _maybe_mount_frontend():
                     </p>
 
                     <h3>Gerar ruas via OSM</h3>
-                    <div style="display:flex; gap:12px; flex-wrap: wrap; align-items: end;">
+                    <div style=\"display:flex; gap:12px; flex-wrap: wrap; align-items: end;\">
                       <div>
                         <label>Latitude</label><br/>
-                        <input id="lat" value="-21.7634" style="width:180px; padding:8px;"/>
+                        <input id=\"lat\" value=\"-21.7634\" style=\"width:180px; padding:8px;\"/>
                       </div>
                       <div>
                         <label>Longitude</label><br/>
-                        <input id="lon" value="-41.3235" style="width:180px; padding:8px;"/>
+                        <input id=\"lon\" value=\"-41.3235\" style=\"width:180px; padding:8px;\"/>
                       </div>
                       <div>
                         <label>Raio (m)</label><br/>
-                        <input id="radius" value="500" style="width:140px; padding:8px;"/>
+                        <input id=\"radius\" value=\"500\" style=\"width:140px; padding:8px;\"/>
                       </div>
-                      <button id="btnOsm" style="padding:10px 14px; font-weight:700;">GERAR OSM → CAD</button>
+                      <button id=\"btnOsm\" style=\"padding:10px 14px; font-weight:700;\">GERAR OSM → CAD</button>
                     </div>
 
-                    <h3 style="margin-top:24px;">Importar GeoJSON</h3>
+                    <h3 style=\"margin-top:24px;\">Importar GeoJSON</h3>
                     <p>Selecione um arquivo GeoJSON, ou arraste-o na paleta (o C# envia via FILE_DROPPED).</p>
-                    <div style="display:flex; gap:12px; flex-wrap: wrap; align-items: center;">
-                      <input id="file" type="file" accept=".json,.geojson" />
-                      <button id="btnGeo" style="padding:10px 14px; font-weight:700;">IMPORTAR GEOJSON → CAD</button>
+                    <div style=\"display:flex; gap:12px; flex-wrap: wrap; align-items: center;\">
+                      <input id=\"file\" type=\"file\" accept=\".json,.geojson\" />
+                      <button id=\"btnGeo\" style=\"padding:10px 14px; font-weight:700;\">IMPORTAR GEOJSON → CAD</button>
                     </div>
-                    <pre id="status" style="margin-top:18px; padding:12px; background:#f4f4f4; border:1px solid #ddd; white-space: pre-wrap;"></pre>
+                    <pre id=\"status\" style=\"margin-top:18px; padding:12px; background:#f4f4f4; border:1px solid #ddd; white-space: pre-wrap;\"</pre>
 
-                    <hr style="margin:24px 0;"/>
+                    <hr style=\"margin:24px 0;\"/>
                     <h3>Para habilitar a UI completa (React)</h3>
                     <ol>
                       <li>Entre em <code>Contents/frontend</code></li>
@@ -616,7 +685,7 @@ def _maybe_mount_frontend():
                       let geojsonText = null;
 
                       function log(msg) {
-                        statusEl.textContent = (new Date().toLocaleTimeString()) + " - " + msg + "\\n" + statusEl.textContent;
+                        statusEl.textContent = (new Date().toLocaleTimeString()) + " - " + msg + "\n" + statusEl.textContent;
                       }
 
                       function postToCad(message) {
@@ -669,7 +738,7 @@ def _maybe_mount_frontend():
                     </script>
                   </body>
                 </html>
-                """
+                "
             )
 
 
