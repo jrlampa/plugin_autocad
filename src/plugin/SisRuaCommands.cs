@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Text;
@@ -28,6 +29,84 @@ namespace sisRUA
         {
             PropertyNameCaseInsensitive = true
         };
+
+        /// <summary>
+        /// Garante que uma definição de bloco esteja carregada no desenho.
+        /// Se não existir, carrega-a do arquivo especificado.
+        /// </summary>
+        /// <param name="tr">Transação ativa.</param>
+        /// <param name="db">Database do desenho atual.</param>
+        /// <param name="blockName">Nome do bloco na BlockTable (ex: POSTE_GENERICO).</param>
+        /// <param name="blockFilePath">Caminho completo para o arquivo DXF/DWG contendo a definição do bloco.</param>
+        /// <returns>ObjectId da definição do bloco na BlockTable.</returns>
+        private static ObjectId EnsureBlockDefinitionLoaded(Transaction tr, Database db, string blockName, string blockFilePath)
+        {
+            Log($"INFO: Ensuring block definition '{blockName}' from '{blockFilePath}' is loaded.");
+            BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
+
+            if (bt.Has(blockName))
+            {
+                Log($"DEBUG: Block '{blockName}' already loaded.");
+                return bt[blockName];
+            }
+
+            Log($"INFO: Block '{blockName}' not found. Loading from file '{blockFilePath}'.");
+            using (Database blockDb = new Database(false, true))
+            {
+                // Tenta ler como DWG ou DXF
+                try
+                {
+                    blockDb.ReadDwgFile(blockFilePath, FileShare.Read, true, "");
+                }
+                catch (System.Exception ex)
+                {
+                    Log($"ERROR: Failed to read block file '{blockFilePath}' as DWG: {ex.Message}");
+                    try
+                    {
+                        // Tenta ler como DXF se DWG falhar
+                        blockDb.DxfIn(blockFilePath, "");
+                    }
+                    catch (System.Exception dxfEx)
+                    {
+                        Log($"ERROR: Failed to read block file '{blockFilePath}' as DXF: {dxfEx.Message}");
+                        throw new System.Exception($"Não foi possível carregar a definição do bloco '{blockName}' do arquivo '{blockFilePath}'. Erro: {dxfEx.Message}", dxfEx);
+                    }
+                }
+
+                ObjectIdCollection ids = new ObjectIdCollection();
+                // Itera sobre a BlockTable do arquivo do bloco para encontrar a definição do bloco
+                using (Transaction blockTr = blockDb.TransactionManager.StartTransaction())
+                {
+                    BlockTable blockFileBt = (BlockTable)blockTr.GetObject(blockDb.BlockTableId, OpenMode.ForRead);
+                    foreach (ObjectId btrId in blockFileBt)
+                    {
+                        BlockTableRecord btr = (BlockTableRecord)blockTr.GetObject(btrId, OpenMode.ForRead);
+                        // Ignora blocos anônimos e layout (model/paper space)
+                        if (btr.IsAnonymous || btr.IsLayout) continue;
+
+                        // Se o bloco no arquivo for nomeado como o que queremos (ou se for o *ModelSpace),
+                        // assume que a definição está lá
+                        if (string.Equals(btr.Name, blockName, StringComparison.OrdinalIgnoreCase) || btr.Name == "*Model_Space")
+                        {
+                            ids.Add(btrId);
+                        }
+                    }
+                    blockTr.Commit();
+                }
+
+                if (ids.Count == 0)
+                {
+                    throw new System.Exception($"Não foi encontrada a definição do bloco '{blockName}' dentro do arquivo '{blockFilePath}'.");
+                }
+
+                // Adiciona a definição do bloco ao desenho atual.
+                bt.UpgradeOpen();
+                db.Insert(blockName, blockDb, ids[0], true);
+                bt.DowngradeOpen();
+                Log($"INFO: Block definition '{blockName}' loaded successfully.");
+                return bt[blockName];
+            }
+        }
 
         private static void Log(string message)
         {
