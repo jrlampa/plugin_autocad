@@ -107,6 +107,44 @@ namespace sisRUA
                 return bt[blockName];
             }
         }
+        
+        /// <summary>
+        /// Insere uma instância de bloco no Model Space.
+        /// </summary>
+        /// <param name="tr">Transação ativa.</param>
+        /// <param name="db">Database do desenho atual.</param>
+        /// <param name="ms">BlockTableRecord do Model Space.</param>
+        /// <param name="blockName">Nome do bloco a ser inserido (deve ter a definição carregada).</param>
+        /// <param name="blockFilePath">Caminho para o arquivo DXF/DWG contendo a definição do bloco (usado se precisar carregar).</param>
+        /// <param name="insertionPoint">Ponto de inserção do bloco.</param>
+        /// <param name="rotation">Rotação do bloco em radianos.</param>
+        /// <param name="scale">Fator de escala do bloco.</param>
+        /// <param name="layerName">Nome da camada onde o bloco será inserido.</param>
+        private static void InsertBlock(Transaction tr, Database db, BlockTableRecord ms, string blockName, string blockFilePath, Autodesk.AutoCAD.Geometry.Point3d insertionPoint, double rotation, double scale, string layerName)
+        {
+            Log($"INFO: Inserting block '{blockName}' at {insertionPoint.X},{insertionPoint.Y},{insertionPoint.Z}.");
+            try
+            {
+                // Garante que a definição do bloco está carregada
+                ObjectId blockDefId = EnsureBlockDefinitionLoaded(tr, db, blockName, blockFilePath);
+
+                BlockReference br = new BlockReference(insertionPoint, blockDefId);
+                br.Rotation = rotation;
+                br.ScaleFactors = new Autodesk.AutoCAD.Geometry.Scale3d(scale);
+                br.Layer = layerName;
+                br.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256); // Sempre ByLayer
+
+                ms.AppendEntity(br);
+                tr.AddNewlyCreatedDBObject(br, true);
+                Log($"DEBUG: Block instance '{blockName}' inserted successfully.");
+            }
+            catch (System.Exception ex)
+            {
+                Log($"ERROR: Failed to insert block '{blockName}' at {insertionPoint.ToString()}: {ex.Message}");
+                // Não propaga o erro para não interromper o desenho de outras features
+            }
+        }
+
 
         private static void Log(string message)
         {
