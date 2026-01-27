@@ -24,6 +24,7 @@ Este documento detalha como o projeto sisRUA e suas práticas de desenvolvimento
     *   **Controles de Acesso**: Mecanismo de `BackendAuthToken` para proteger a comunicação com o backend (NFR-001), conforme detalhado em `docs/ISO_27001_Alignment.md`.
     *   **Logging**: O logging robusto (`SisRuaPlugin.cs`, `SisRuaCommands.cs`) ajuda na detecção de anomalias e incidentes de segurança.
     *   **Segurança no Desenvolvimento**: Práticas de desenvolvimento seguro, SAST e SCA implementadas no pipeline de CI/CD.
+    *   **Qualidade dos Dados Geométricos (FASE 1.5.2)**: A limpeza e simplificação de geometria OSM ajudam a garantir a integridade dos dados espaciais no CAD, reduzindo erros e ambiguidades.
 *   **Próximos Passos Sugeridos**: Consultar `docs/ISO_27001_Alignment.md` para melhorias contínuas na segurança.
 
 ## 2. Mapeamento de Dados e Fluxo de Dados Pessoais no Projeto

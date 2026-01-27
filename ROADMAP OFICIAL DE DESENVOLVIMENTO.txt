@@ -134,6 +134,27 @@ Reutilização de projetos
 
 Base para auditoria/gestão de histórico
 
+FASE 1.5.2 — LIMPEZA E SIMPLIFICAÇÃO DE GEOMETRIA OSM
+Objetivo
+
+Melhorar a qualidade dos desenhos CAD gerados a partir de OSM, reduzindo linhas duplicadas, sobrepostas ou complexas.
+
+Entregas
+
+Remoção de Polylines Duplicadas Exatas
+
+Fusão de Polylines Colineares/Contíguas
+
+Simplificação de Polylines (Douglas-Peucker)
+
+Benefício
+
+Desenhos mais limpos e performáticos
+
+Redução de erros em operações CAD subsequentes
+
+Experiência de usuário aprimorada
+
 FASE 2 — ELEVAÇÃO E RELEVO (OFFLINE)
 Objetivo
 

@@ -96,7 +96,7 @@ Esta é uma cláusula central para o desenvolvimento de software.
 *   **Próximos Passos Sugeridos**: Formalizar critérios de liberação (ex: todos os testes críticos PASS, sem bugs P0/P1 abertos) e um registro de liberação.
 
 ### 5.7. Controle de Saídas Não Conformes (Cláusula 8.7)
-*   **Contribuição do Projeto**: O sistema de logs no plugin (`SisRuaPlugin.cs`, `SisRuaCommands.cs`) e as mensagens de erro na UI (`SisRuaPalette.cs`) ajudam a identificar e reportar saídas não conformes. O registro de incidentes no `execution-record-template.md` também é uma forma de controle.
+*   **Contribuição do Projeto**: O sistema de logs no plugin (`SisRuaPlugin.cs`, `SisRuaCommands.cs`) e as mensagens de erro na UI (`SisRuaPalette.cs`) ajudam a identificar e reportar saídas não conformes. A **FASE 1.5.2 (Limpeza de Geometria OSM)** visa reduzir a ocorrência de saídas não conformes (desenhos confusos, sobrepostos) ao otimizar a geometria antes do desenho. O registro de incidentes no `execution-record-template.md` também é uma forma de controle.
 *   **Próximos Passos Sugeridos**: Formalizar um processo para tratamento de bugs e não conformidades, incluindo análise da causa raiz e ações corretivas/preventivas.
 
 ## 6. Avaliação de Desempenho (Cláusula 9)
