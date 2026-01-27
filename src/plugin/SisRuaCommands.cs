@@ -804,10 +804,20 @@ namespace sisRUA
                 ObjectId msId = SymbolUtilityServices.GetBlockModelSpaceId(db);
                 BlockTableRecord ms = (BlockTableRecord)tr.GetObject(msId, OpenMode.ForWrite);
 
-                int createdPolylines = 0;
                 int createdBlocks = 0;
 
-                foreach (var f in features)
+                // --- FASE 1.5.2: Limpeza e Simplificação de Geometria OSM ---
+                // Aplica a remoção de duplicatas antes de desenhar.
+                // Outras operações de limpeza (fusão, simplificação) viriam aqui.
+                var cleanedFeatures = GeometryCleaner.RemoveDuplicatePolylines(features);
+                if (cleanedFeatures.Count() < features.Count())
+                {
+                    Log($"INFO: Removed {features.Count() - cleanedFeatures.Count()} duplicate polylines.");
+                    ed.WriteMessage($"\n[sisRUA] Aviso: {features.Count() - cleanedFeatures.Count()} polylines duplicadas removidas.");
+                }
+                // --- FIM FASE 1.5.2 ---
+
+                foreach (var f in cleanedFeatures)
                 {
                     if (f == null) continue;
 
