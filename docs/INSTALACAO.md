@@ -12,7 +12,7 @@ Quando o AutoCAD inicia, ele detecta o `PackageContents.xml` e carrega o plugin.
 
 ## Instalação via instalador (EXE)
 
-1) Execute o instalador `sisRUA-Installer.exe`
+1) Execute o instalador `sisRUA-Installer-<versão>.exe` (ex.: `sisRUA-Installer-0.2.0.exe`)
 2) Abra/reabra o AutoCAD
 3) Rode o comando `SISRUA`
 

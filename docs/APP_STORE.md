@@ -4,7 +4,7 @@ Este documento organiza o “pacote” mínimo para submissão com qualidade de 
 
 ## 1) Artefatos
 
-- **Instalador**: `installer/out/sisRUA-Installer.exe` (com versão).
+- **Instalador**: `installer/out/sisRUA-Installer-<versão>.exe` (ex.: `sisRUA-Installer-0.2.0.exe`).
 - **Bundle**: `sisRUA.bundle` (para auditoria interna).
 - **Assinatura digital** (recomendado): DLLs + EXE do backend + instalador.
 
