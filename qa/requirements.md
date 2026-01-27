@@ -29,6 +29,7 @@ Este documento define requisitos **auditáveis** (com IDs) para rastreabilidade.
 - **FR-016 — Remoção de Polylines Duplicadas**: o plugin deve identificar e remover polylines com geometria e atributos idênticos antes do desenho.
 - **FR-017 — Fusão de Polylines Contíguas**: o plugin deve identificar e fundir polylines contíguas e colineares em uma única polyline antes do desenho.
 - **FR-018 — Simplificação de Polylines**: o plugin deve simplificar polylines complexas (reduzindo o número de vértices) com base em uma tolerância configurável.
+- **FR-019 — Importação de Arquivos KMZ**: o plugin deve permitir a importação de arquivos KMZ via drag-n-drop, extraindo e processando seu conteúdo KML.
 
 ## Não-funcionais (NFR)
 
