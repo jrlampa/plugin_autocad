@@ -264,6 +264,9 @@ namespace sisRUA
 
         private sealed class CadFeature
         {
+            [JsonPropertyName("feature_type")]
+            public CadFeatureType FeatureType { get; set; } = CadFeatureType.Polyline; // Default to Polyline
+
             [JsonPropertyName("layer")]
             public string Layer { get; set; }
 
@@ -277,9 +280,33 @@ namespace sisRUA
             [JsonPropertyName("width_m")]
             public double? WidthMeters { get; set; }
 
+            // Para feições do tipo Polyline
             [JsonPropertyName("coords_xy")]
             public List<List<double>> CoordsXy { get; set; }
+
+            // Para feições do tipo Point (blocos)
+            [JsonPropertyName("insertion_point_xy")]
+            public List<double> InsertionPointXy { get; set; }
+
+            [JsonPropertyName("block_name")]
+            public string BlockName { get; set; }
+
+            [JsonPropertyName("block_filepath")]
+            public string BlockFilePath { get; set; } // Path to the DXF/DWG file for this block
+
+            [JsonPropertyName("rotation")]
+            public double? Rotation { get; set; }
+
+            [JsonPropertyName("scale")]
+            public double? Scale { get; set; }
         }
+
+        private enum CadFeatureType
+        {
+            Polyline,
+            Point
+        }
+
 
         private sealed class LayerStyle
         {
