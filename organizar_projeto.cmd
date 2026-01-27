@@ -41,6 +41,21 @@ if not exist "%OUT_CONTENTS%" (
   if not exist "%OUT_CONTENTS%" goto :SISRUA_FAIL
 )
 
+REM --- Versionamento (lê VERSION.txt e atualiza PackageContents.xml) ---
+set APP_VERSION=0.0.0
+if exist "%ROOT%\VERSION.txt" (
+  for /f "usebackq delims=" %%v in ("%ROOT%\VERSION.txt") do set APP_VERSION=%%v
+)
+echo INFO: Usando versao do projeto: %APP_VERSION%
+
+echo [1.5/6] Atualizando AppVersion em PackageContents.xml...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\update_package_contents_xml.ps1" -PackageContentsPath "%SRC_BUNDLE%\PackageContents.xml" -AppVersion "%APP_VERSION%"
+if errorlevel 1 (
+  echo ERRO: falha ao atualizar AppVersion em PackageContents.xml.
+  exit /b 1
+)
+REM --- Fim Versionamento ---
+
 echo [2/6] Copiando PackageContents.xml...
 if not exist "%SRC_BUNDLE%\PackageContents.xml" (
     echo ERRO: PackageContents.xml nao encontrado em %SRC_BUNDLE%
