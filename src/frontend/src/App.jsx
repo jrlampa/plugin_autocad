@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Circle, Marker, Popup, useMap, GeoJSON, Polyline } from 'react-leaflet';
+import 'leaflet/dist/images/marker-icon.png';
+import 'leaflet/dist/images/marker-shadow.png';
 import 'leaflet/dist/leaflet.css';
 import {
   Loader2, Download, Zap, CheckCircle2, AlertTriangle,
@@ -7,6 +9,7 @@ import {
   CircleDot, X, PenTool, Save, Globe, UploadCloud, LayoutTemplate, FileJson, Spline
 } from 'lucide-react';
 import L from 'leaflet';
+import { kml } from '@mapbox/togeojson'; // Import the togeojson library
 
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -105,7 +108,27 @@ export default function App() {
       if (typeof event.data === 'string') {
         try {
           const message = JSON.parse(event.data);
-          if (message.action === 'FILE_DROPPED' && message.data.content) {
+          // Handle KML files from C# plugin (KMZ extraction)
+          if (message.action === 'FILE_DROPPED_KML' && message.data.content) {
+            console.log("KML content received from C# host via drag-drop (KMZ extraction). Converting to GeoJSON.");
+            try {
+              // Convert KML string to GeoJSON object
+              const parser = new DOMParser();
+              const kmlDoc = parser.parseFromString(message.data.content, "text/xml");
+              const convertedGeoJson = kml(kmlDoc); // Use the kml function from @mapbox/togeojson
+
+              if (convertedGeoJson && convertedGeoJson.type && (convertedGeoJson.features || convertedGeoJson.geometry)) {
+                setPreviewGeoJson(convertedGeoJson);
+              } else {
+                alert("Arquivo KMZ/KML inválido. O conteúdo KML não pôde ser convertido para GeoJSON válido.");
+              }
+            } catch (kmlError) {
+              alert(`Erro ao processar o arquivo KMZ/KML: ${kmlError.message}`);
+              console.error("Erro ao converter KML para GeoJSON:", kmlError);
+            }
+          }
+          // Handle standard GeoJSON files from C# plugin
+          else if (message.action === 'FILE_DROPPED' && message.data.content) {
             console.log("GeoJSON content received from C# host via drag-drop.");
             
             // Limpa o preview anterior
