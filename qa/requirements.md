@@ -18,6 +18,12 @@ Este documento define requisitos **auditáveis** (com IDs) para rastreabilidade.
 - **FR-005 — CRS**: o backend deve projetar dados de entrada (EPSG:4326) para **SIRGAS 2000 / UTM** automaticamente.
 - **FR-006 — Atribuição OSM**: ao usar dados OSM, deve existir atribuição visível (UI) e anotação no DWG.
 - **FR-007 — Feedback de progresso (jobs)**: enquanto o backend processa um job, a UI deve exibir progresso/estado e apresentar mensagens de erro claras quando aplicável.
+- **FR-008 — Limpar Dados Locais**: o plugin deve fornecer um comando ou funcionalidade na UI para que o usuário possa apagar todos os dados locais persistidos pelo sisRUA (cache, logs, tokens).
+- **FR-009 — Associatividade e Notificação de Alterações**: o plugin deve manter associatividade entre as entidades CAD geradas e os dados de origem (OSM/GeoJSON), notificando o usuário sobre possíveis alterações nos dados de origem e oferecendo a opção de atualização.
+- **FR-010 — Guia de Usuário e Documentação de Suporte**: o projeto deve fornecer um guia de usuário abrangente e documentação de suporte para facilitar o uso e a resolução de problemas do plugin.
+- **FR-011 — Inserção de Blocos a partir de OSM**: o plugin deve inserir blocos CAD a partir de dados OSM (ex: postes, medidores) com base em tags e mapeamento configurável.
+- **FR-012 — Inserção de Blocos a partir de GeoJSON**: o plugin deve inserir blocos CAD a partir de dados GeoJSON com geometria de ponto e metadados de bloco.
+- **FR-013 — Padronização Gráfica de Blocos**: os blocos inseridos devem seguir as padronizações definidas (camadas, escala, rotação, etc.), conforme configurado em `blocks_mapping.json`.
 
 ## Não-funcionais (NFR)
 
