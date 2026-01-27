@@ -1,5 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
+    <!-- Read version from VERSION.txt -->
+    <VersionTextPath Condition="'$(VersionTextPath)' == ''">$(MSBuildProjectDirectory)\..\..\VERSION.txt</VersionTextPath>
+    <AppVersion Condition="'$(AppVersion)' == '' And Exists('$(VersionTextPath)')">
+      $([System.IO.File]::ReadAllText('$(VersionTextPath)').Trim())
+    </AppVersion>
+    <AppVersion Condition="'$(AppVersion)' == ''">0.0.0</AppVersion>
+
+    <Version>$(AppVersion)</Version>
+    <AssemblyVersion>$(AppVersion)</AssemblyVersion>
+    <FileVersion>$(AppVersion)</FileVersion>
+    <InformationalVersion>$(AppVersion)</InformationalVersion>
+
     <!--
       - AutoCAD 2024 roda em .NET Framework (net48)
       - AutoCAD 2025+ roda em .NET 8 (net8.0-windows)
@@ -89,5 +102,6 @@
 
   <ItemGroup>
     <Compile Remove="history\**" />
+    <Compile Remove="tests\**" />
   </ItemGroup>
 </Project>
