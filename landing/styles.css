@@ -456,6 +456,56 @@ details p{
   font-size: 13px;
 }
 
+/* Support/Contribuir */
+.support{
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 28px;
+  align-items: start;
+  margin-top: 22px;
+  padding: 22px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: linear-gradient(180deg, rgba(79,227,164,.08), rgba(106,167,255,.06));
+  box-shadow: 0 16px 44px rgba(0,0,0,.28);
+}
+.support__qr{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.support__image{
+  width: 220px;
+  height: 220px;
+  border-radius: 16px;
+  border: 2px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.05);
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  object-fit: contain;
+}
+.support__info{
+  padding-left: 8px;
+}
+.support__info h3{
+  color: rgba(232,236,255,.95);
+}
+.support__info ul{
+  list-style: none;
+  padding-left: 0;
+}
+.support__info li{
+  position: relative;
+  padding-left: 24px;
+  margin-bottom: 8px;
+}
+.support__info li::before{
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--ok);
+  font-weight: 700;
+}
+
 /* Footer */
 .footer{
   padding: 40px 0 22px;
@@ -502,6 +552,8 @@ details p{
   .cards{ grid-template-columns: repeat(2, minmax(0,1fr)); }
   .steps{ grid-template-columns: 1fr; }
   .faq{ grid-template-columns: 1fr; }
+  .support{ grid-template-columns: 1fr; gap: 20px; }
+  .support__qr{ align-items: center; }
   .footer__grid{ grid-template-columns: 1fr; }
 }
 @media (max-width: 520px){
