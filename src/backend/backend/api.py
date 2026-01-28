@@ -15,6 +15,9 @@ from pathlib import Path
 AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN") or ""
 AUTH_HEADER_NAME = "X-SisRua-Token"
 
+# Lock para proteger job_store contra race conditions
+_job_store_lock = threading.Lock()
+
 # Backend principal (produção): JSON → polylines.
 
 def _require_token(x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
@@ -70,6 +73,7 @@ class CadFeature(BaseModel):
 class PrepareResponse(BaseModel):
     crs_out: Optional[str] = None
     features: List[CadFeature]
+    cache_hit: Optional[bool] = None  # Indica se o resultado veio do cache
 
 
 class JobStatusResponse(BaseModel):
@@ -83,32 +87,34 @@ class JobStatusResponse(BaseModel):
 
 def _init_job(kind: str) -> str:
     job_id = str(uuid.uuid4())
-    job_store[job_id] = {
-        "job_id": job_id,
-        "kind": kind,
-        "status": "queued",
-        "progress": 0.0,
-        "message": "Aguardando...",
-        "result": None,
-        "error": None,
-    }
+    with _job_store_lock:
+        job_store[job_id] = {
+            "job_id": job_id,
+            "kind": kind,
+            "status": "queued",
+            "progress": 0.0,
+            "message": "Aguardando...",
+            "result": None,
+            "error": None,
+        }
     return job_id
 
 
 def _update_job(job_id: str, *, status: str | None = None, progress: float | None = None, message: str | None = None, result: Dict | None = None, error: str | None = None) -> None:
-    job = job_store.get(job_id)
-    if not job:
-        return
-    if status is not None:
-        job["status"] = status
-    if progress is not None:
-        job["progress"] = float(max(0.0, min(1.0, progress)))
-    if message is not None:
-        job["message"] = message
-    if result is not None:
-        job["result"] = result
-    if error is not None:
-        job["error"] = error
+    with _job_store_lock:
+        job = job_store.get(job_id)
+        if not job:
+            return
+        if status is not None:
+            job["status"] = status
+        if progress is not None:
+            job["progress"] = float(max(0.0, min(1.0, progress)))
+        if message is not None:
+            job["message"] = message
+        if result is not None:
+            job["result"] = result
+        if error is not None:
+            job["error"] = error
 
 
 def _cache_dir() -> Path:
@@ -143,7 +149,7 @@ def _write_cache(key: str, payload: dict) -> None:
     except Exception:
         return
 
-# Armazenamento simples em memória (jobs). Em produção, isso pode virar persistência.
+# Armazenamento simples em memória (jobs). Em produção, isso pode virar persistância.
 
 @app.get("/api/v1/auth/check")
 async def auth_check(x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
@@ -186,13 +192,15 @@ async def create_prepare_job(payload: PrepareJobRequest, x_sisrua_token: str | N
     job_id = _init_job(payload.kind)
     t = threading.Thread(target=_run_prepare_job_sync, args=(job_id, payload), daemon=True)
     t.start()
-    return job_store[job_id]
+    with _job_store_lock:
+        return job_store[job_id]
 
 
 @app.get("/api/v1/jobs/{job_id}")
 async def get_job(job_id: str, x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
     _require_token(x_sisrua_token)
-    job = job_store.get(job_id)
+    with _job_store_lock:
+        job = job_store.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
@@ -249,6 +257,28 @@ def _project_lines_to_xy(lines: List[Any], transformer: Any) -> List[List[List[f
         if len(coords) >= 2:
             out.append(coords)
     return out
+
+def _estimate_width_m(row: Any, highway: Optional[str]) -> Optional[float]:
+    """
+    Estima a largura em metros baseado no tipo de highway.
+    Retorna None se não conseguir estimar.
+    """
+    if not highway:
+        return None
+    
+    # Mapeamento básico de tipos de highway para larguras (em metros)
+    width_map = {
+        "residential": 5.0,
+        "tertiary": 8.0,
+        "secondary": 10.0,
+        "primary": 12.0,
+        "motorway": 20.0,
+        "footway": 2.0,
+        "cycleway": 3.0,
+        "service": 4.0,
+    }
+    
+    return width_map.get(highway, 6.0)  # Default 6.0m
 
 def _norm_optional_str(v: Any) -> Optional[str]:
     """
@@ -307,6 +337,7 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
     key = _cache_key(["prepare_osm", f"{latitude:.6f}", f"{longitude:.6f}", str(int(radius))])
     cached = _read_cache(key)
     if cached is not None:
+        # Retorna o cache com cache_hit marcado
         cached["cache_hit"] = True
         return cached
 
@@ -318,6 +349,7 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
         nodes, edges = ox.graph_to_gdfs(graph) # Get nodes as well
         edges = edges[edges.geometry.notna()]
     except Exception as e:
+        # Tenta usar cache como fallback em caso de erro
         cached = _read_cache(key)
         if cached is not None:
             cached["cache_hit"] = True
@@ -396,6 +428,18 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
                     )
                 )
 
+    epsg_out = _sirgas2000_utm_epsg(latitude, longitude)
+    payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features)
+    
+    # Cache por conteúdo
+    try:
+        key = _cache_key(["prepare_osm", f"{latitude:.6f}", f"{longitude:.6f}", str(int(radius))])
+        _write_cache(key, payload.model_dump())
+        payload.cache_hit = False
+    except Exception:
+        pass
+    
+    return payload.model_dump()
 
 
 @app.post("/api/v1/prepare/osm")
@@ -586,10 +630,10 @@ def _maybe_mount_frontend():
         @app.get("/", response_class=HTMLResponse)
         async def root():
             return HTMLResponse(
-                """
+                '''
                 <html>
                   <head><title>sisRUA</title></head>
-                  <body style=\"font-family: Arial; padding: 24px; max-width: 980px; margin: 0 auto;\">
+                  <body style="font-family: Arial; padding: 24px; max-width: 980px; margin: 0 auto;">
                     <h2>sisRUA (modo mínimo)</h2>
                     <p>
                       O backend está rodando, mas não há build do frontend em <code>Contents/frontend/dist</code>.
@@ -597,31 +641,31 @@ def _maybe_mount_frontend():
                     </p>
 
                     <h3>Gerar ruas via OSM</h3>
-                    <div style=\"display:flex; gap:12px; flex-wrap: wrap; align-items: end;\">
+                    <div style="display:flex; gap:12px; flex-wrap: wrap; align-items: end;">
                       <div>
                         <label>Latitude</label><br/>
-                        <input id=\"lat\" value=\"-21.7634\" style=\"width:180px; padding:8px;\"/>
+                        <input id="lat" value="-21.7634" style="width:180px; padding:8px;"/>
                       </div>
                       <div>
                         <label>Longitude</label><br/>
-                        <input id=\"lon\" value=\"-41.3235\" style=\"width:180px; padding:8px;\"/>
+                        <input id="lon" value="-41.3235" style="width:180px; padding:8px;"/>
                       </div>
                       <div>
                         <label>Raio (m)</label><br/>
-                        <input id=\"radius\" value=\"500\" style=\"width:140px; padding:8px;\"/>
+                        <input id="radius" value="500" style="width:140px; padding:8px;"/>
                       </div>
-                      <button id=\"btnOsm\" style=\"padding:10px 14px; font-weight:700;\">GERAR OSM → CAD</button>
+                      <button id="btnOsm" style="padding:10px 14px; font-weight:700;">GERAR OSM → CAD</button>
                     </div>
 
-                    <h3 style=\"margin-top:24px;\">Importar GeoJSON</h3>
+                    <h3 style="margin-top:24px;">Importar GeoJSON</h3>
                     <p>Selecione um arquivo GeoJSON, ou arraste-o na paleta (o C# envia via FILE_DROPPED).</p>
-                    <div style=\"display:flex; gap:12px; flex-wrap: wrap; align-items: center;\">
-                      <input id=\"file\" type=\"file\" accept=\".json,.geojson\" />
-                      <button id=\"btnGeo\" style=\"padding:10px 14px; font-weight:700;\">IMPORTAR GEOJSON → CAD</button>
+                    <div style="display:flex; gap:12px; flex-wrap: wrap; align-items: center;">
+                      <input id="file" type="file" accept=".json,.geojson" />
+                      <button id="btnGeo" style="padding:10px 14px; font-weight:700;">IMPORTAR GEOJSON → CAD</button>
                     </div>
-                    <pre id=\"status\" style=\"margin-top:18px; padding:12px; background:#f4f4f4; border:1px solid #ddd; white-space: pre-wrap;\"</pre>
+                    <pre id="status" style="margin-top:18px; padding:12px; background:#f4f4f4; border:1px solid #ddd; white-space: pre-wrap;"></pre>
 
-                    <hr style=\"margin:24px 0;\"/>
+                    <hr style="margin:24px 0;"/>
                     <h3>Para habilitar a UI completa (React)</h3>
                     <ol>
                       <li>Entre em <code>Contents/frontend</code></li>
@@ -630,7 +674,7 @@ def _maybe_mount_frontend():
                     </ol>
 
                     <script>
-                      const statusEl = document.getElementById('status');
+                      const statusEl = document.getElementById("status");
                       let geojsonText = null;
 
                       function log(msg) {
@@ -646,21 +690,21 @@ def _maybe_mount_frontend():
                         }
                       }
 
-                      document.getElementById('btnOsm').addEventListener('click', () => {
-                        const latitude = Number(document.getElementById('lat').value);
-                        const longitude = Number(document.getElementById('lon').value);
-                        const radius = Number(document.getElementById('radius').value);
+                      document.getElementById("btnOsm").addEventListener("click", () => {
+                        const latitude = Number(document.getElementById("lat").value);
+                        const longitude = Number(document.getElementById("lon").value);
+                        const radius = Number(document.getElementById("radius").value);
                         postToCad({ action: "GENERATE_OSM", data: { latitude, longitude, radius } });
                       });
 
-                      document.getElementById('file').addEventListener('change', async (e) => {
+                      document.getElementById("file").addEventListener("change", async (e) => {
                         const f = e.target.files && e.target.files[0];
                         if (!f) return;
                         geojsonText = await f.text();
                         log("Arquivo carregado: " + f.name);
                       });
 
-                      document.getElementById('btnGeo').addEventListener('click', () => {
+                      document.getElementById("btnGeo").addEventListener("click", () => {
                         if (!geojsonText) {
                           log("Nenhum GeoJSON carregado.");
                           return;
@@ -670,11 +714,11 @@ def _maybe_mount_frontend():
 
                       // Recebe mensagens do C# (drag & drop na paleta)
                       if (window.chrome && window.chrome.webview) {
-                        window.chrome.webview.addEventListener('message', (event) => {
+                        window.chrome.webview.addEventListener("message", (event) => {
                           try {
-                            if (typeof event.data === 'string') {
+                            if (typeof event.data === "string") {
                               const msg = JSON.parse(event.data);
-                              if (msg.action === 'FILE_DROPPED' && msg.data && msg.data.content) {
+                              if (msg.action === "FILE_DROPPED" && msg.data && msg.data.content) {
                                 geojsonText = msg.data.content;
                                 log("FILE_DROPPED recebido do AutoCAD: " + (msg.data.fileName || "(sem nome)"));
                               }
@@ -687,7 +731,7 @@ def _maybe_mount_frontend():
                     </script>
                   </body>
                 </html>
-                "
+                '''
             )
 
 
