@@ -22,16 +22,21 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r src/backend/requirements-ci.txt -r src/backend/requirements-dev.txt bandit pip-audit
       - name: Run Bandit (SAST)
-        run: bandit -r src/backend -c pyproject.toml --exclude src/backend/tests -f custom -o qa/out/test-reports/bandit.json || true
+        run: |
+          mkdir -p qa/out/test-reports
+          bandit -r src/backend --exclude src/backend/tests -f json -o qa/out/test-reports/bandit.json || true
       - name: Run pip-audit (SCA)
-        run: pip-audit -r src/backend/requirements-ci.txt -r src/backend/requirements-dev.txt --json -o qa/out/test-reports/pip-audit.json || true
+        run: |
+          mkdir -p qa/out/test-reports
+          pip-audit -r src/backend/requirements-ci.txt -r src/backend/requirements-dev.txt --json -o qa/out/test-reports/pip-audit.json || true
       - name: Run pytest (JUnit)
         env:
           LOCALAPPDATA: /tmp/localappdata
         run: |
           mkdir -p qa/out/test-reports
           mkdir -p "$LOCALAPPDATA"
-          python -m pytest -q src/backend --junitxml qa/out/test-reports/pytest-junit.xml
+          cd src/backend
+          python -m pytest --junitxml ../../qa/out/test-reports/pytest-junit.xml
       - name: Upload backend artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -56,9 +61,11 @@ jobs:
         run: npm ci
       - name: Run vitest (JUnit)
         working-directory: src/frontend
+        env:
+          VITEST_JUNIT_OUTPUT_FILE: ../../qa/out/test-reports/vitest-junit.xml
         run: |
           mkdir -p ../../qa/out/test-reports
-          npm test -- --run --reporter=default --reporter=junit --outputFile=../../qa/out/test-reports/vitest-junit.xml
+          npm test -- --run
       - name: Install Playwright browsers
         if: ${{ hashFiles('src/frontend/playwright.config.*') != '' }}
         working-directory: src/frontend
