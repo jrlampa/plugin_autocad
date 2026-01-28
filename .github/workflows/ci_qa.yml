@@ -28,7 +28,7 @@ jobs:
       - name: Run pip-audit (SCA)
         run: |
           mkdir -p qa/out/test-reports
-          pip-audit -r src/backend/requirements-ci.txt -r src/backend/requirements-dev.txt --json -o qa/out/test-reports/pip-audit.json || true
+          pip-audit -r src/backend/requirements-ci.txt -r src/backend/requirements-dev.txt --format json -o qa/out/test-reports/pip-audit.json || true
       - name: Run pytest (JUnit)
         env:
           LOCALAPPDATA: /tmp/localappdata
