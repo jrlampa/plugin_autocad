@@ -17,6 +17,10 @@ if not exist "%ISCC%" (
   exit /b 1
 )
 
+echo INFO: Ativando builds de compatibilidade para AutoCAD 2021 e 2024...
+set SISRUA_BUILD_NET48_ACAD2021=1
+set SISRUA_BUILD_NET48_ACAD2024=1
+
 REM Gera release completo (backend EXE + bundle) em ..\release
 call "%ROOT%..\build_release.cmd"
 if errorlevel 1 (
