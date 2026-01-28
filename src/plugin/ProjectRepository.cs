@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using Autodesk.AutoCAD.ApplicationServices; // For LogToEditor
+using CadFeature = sisRUA.SisRuaCommands.CadFeature;
+using CadFeatureType = sisRUA.SisRuaCommands.CadFeatureType;
 
 namespace sisRUA
 {
@@ -156,7 +158,7 @@ namespace sisRUA
                         transaction.Commit();
                         SisRuaCommands.Log($"INFO: Project '{projectId}' saved successfully with {features.Count()} features.");
                     }
-                    catch (Exception ex)
+                    catch (System.Exception ex)
                     {
                         transaction.Rollback();
                         SisRuaCommands.Log($"ERROR: Failed to save project '{projectId}': {ex.Message}");
@@ -206,7 +208,7 @@ namespace sisRUA
                         while (reader.Read())
                         {
                             CadFeature feature = new CadFeature();
-                            feature.FeatureType = Enum.Parse<CadFeatureType>(reader.GetString(reader.GetOrdinal("feature_type")));
+                            feature.FeatureType = (CadFeatureType)Enum.Parse(typeof(CadFeatureType), reader.GetString(reader.GetOrdinal("feature_type")));
                             feature.Layer = reader.IsDBNull(reader.GetOrdinal("layer")) ? null : reader.GetString(reader.GetOrdinal("layer"));
                             feature.Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name"));
                             feature.Highway = reader.IsDBNull(reader.GetOrdinal("highway")) ? null : reader.GetString(reader.GetOrdinal("highway"));

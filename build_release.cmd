@@ -9,19 +9,17 @@ REM ======================================================
 set CODE_SIGN_THUMBPRINT=
 REM Exemplo: set CODE_SIGN_THUMBPRINT=SEU_THUMBPRINT_AQUI
 
-REM Tenta encontrar signtool.exe dinamicamente
-set SIGNSERVER_PATH=
-for /f "delims=" %%a in ('powershell -Command "Get-ChildItem -Path \"${env:ProgramFiles(x86)}\Windows Kits\" -Recurse -Filter \"signtool.exe\" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName | Select-Object -First 1"') do (
-    set SIGNSERVER_PATH=%%a
-)
+REM Opcionalmente, o usuario pode configurar assinatura de codigo.
+REM Para evitar problemas de parsing com parenteses em caminhos, NENHUMA
+REM deteccao automatica de signtool.exe e feita aqui.
+set SIGNSERVER_PATH=%SIGNSERVER_PATH%
 
 if "%CODE_SIGN_THUMBPRINT%"=="" (
     echo AVISO: Variavel CODE_SIGN_THUMBPRINT nao definida. Nenhuma assinatura de codigo sera realizada.
 ) else if "%SIGNSERVER_PATH%"=="" (
-    echo ERRO: signtool.exe nao encontrado. Por favor, instale o Windows SDK com 'Windows SDK Signing Tools for Desktop Apps'.
-    exit /b 1
+    echo AVISO: CODE_SIGN_THUMBPRINT definido, mas SIGNSERVER_PATH nao configurado. Nenhuma assinatura sera realizada.
 ) else (
-    echo INFO: signtool.exe encontrado em "%SIGNSERVER_PATH%"
+    echo INFO: Assinatura de codigo habilitada com signtool em "%SIGNSERVER_PATH%".
 )
 
 
@@ -32,6 +30,7 @@ REM  - bundle em release\
 REM ======================================================
 
 set ROOT=%~dp0
+set CONFIG=Release
 set PLUGIN_CSPROJ=%ROOT%src\plugin\sisRUA.csproj
 
 dotnet build "%PLUGIN_CSPROJ%" -c Release -f net8.0-windows
@@ -44,22 +43,24 @@ call :SIGN_FILE "%ROOT%src\plugin\bin\x64\%CONFIG%\net8.0-windows\sisRUA_NET8.dl
 REM net48 (AutoCAD 2021) é opcional.
 if "%SISRUA_BUILD_NET48_ACAD2021%"=="1" (
   echo Building net48 for AutoCAD 2021...
-  dotnet build "%PLUGIN_CSPROJ%" -c Release -f net48 -p:SISRUA_INCLUDE_NET48=true -p:TargetAcadVersion=2021
+  dotnet build "%PLUGIN_CSPROJ%" -c Release -f net48 -p:SISRUA_INCLUDE_NET48=true -p:TargetAcadVersion=2021 -p:OutputPath="%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2021"
   if errorlevel 1 (
     echo ERRO: falha ao compilar o plugin net48 para AutoCAD 2021. Verifique AutoCAD 2021 instalado e Acad2021Dir no csproj.
     exit /b 1
   )
+  copy /Y "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2021\sisRUA_NET48_ACAD2021.dll" "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2021.dll" >nul
   call :SIGN_FILE "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2021.dll"
 )
 
 REM net48 (AutoCAD 2024) é opcional e depende das DLLs do AutoCAD 2024 instaladas.
 if "%SISRUA_BUILD_NET48_ACAD2024%"=="1" (
   echo Building net48 for AutoCAD 2024...
-  dotnet build "%PLUGIN_CSPROJ%" -c Release -f net48 -p:SISRUA_INCLUDE_NET48=true -p:TargetAcadVersion=2024
+  dotnet build "%PLUGIN_CSPROJ%" -c Release -f net48 -p:SISRUA_INCLUDE_NET48=true -p:TargetAcadVersion=2024 -p:OutputPath="%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2024"
   if errorlevel 1 (
     echo ERRO: falha ao compilar o plugin net48 para AutoCAD 2024. Verifique AutoCAD 2024 instalado e Acad2024Dir no csproj.
     exit /b 1
   )
+  copy /Y "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2024\sisRUA_NET48_ACAD2024.dll" "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2024.dll" >nul
   call :SIGN_FILE "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2024.dll"
 )
 

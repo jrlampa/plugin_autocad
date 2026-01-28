@@ -1,6 +1,6 @@
 # THIRD PARTY NOTICES - sisRUA
 
-Last updated: 2026-01-25
+Last updated: 2026-01-28
 
 This file is **auto-generated** during release build for compliance (Autodesk App Store).
 
@@ -21,20 +21,22 @@ This file is **auto-generated** during release build for compliance (Autodesk Ap
 |charset-normalizer|3.4.4|MIT|https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md|
 |click|8.3.1|BSD-3-Clause|https://github.com/pallets/click/|
 |colorama|0.4.6|BSD License|https://github.com/tartley/colorama|
+|exceptiongroup|1.3.1|MIT License|https://github.com/agronholm/exceptiongroup/blob/main/CHANGES.rst|
 |fastapi|0.128.0|MIT|https://github.com/fastapi/fastapi|
 |geopandas|1.1.2|BSD License|https://github.com/geopandas/geopandas|
 |h11|0.16.0|MIT License|https://github.com/python-hyper/h11|
 |idna|3.11|BSD-3-Clause|https://github.com/kjd/idna|
-|networkx|3.6.1|BSD-3-Clause|https://networkx.org/|
-|numpy|2.4.1|BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0|https://numpy.org|
+|networkx|3.4.2|BSD License|https://networkx.org/|
+|numpy|2.2.6|BSD License|https://numpy.org|
 |osmnx|2.0.7|MIT|UNKNOWN|
 |packaging|26.0|Apache-2.0 OR BSD-2-Clause|https://github.com/pypa/packaging|
-|pandas|3.0.0|BSD License|https://pandas.pydata.org|
+|pandas|2.3.3|BSD License|https://pandas.pydata.org|
 |pydantic|2.12.5|MIT|https://github.com/pydantic/pydantic|
 |pydantic_core|2.41.5|MIT|https://github.com/pydantic/pydantic-core|
 |pyogrio|0.12.1|MIT License|https://github.com/geopandas/pyogrio|
-|pyproj|3.7.2|MIT|https://github.com/pyproj4/pyproj|
+|pyproj|3.7.1|MIT License|https://github.com/pyproj4/pyproj|
 |python-dateutil|2.9.0.post0|Apache Software License; BSD License|https://github.com/dateutil/dateutil|
+|pytz|2025.2|MIT License|http://pythonhosted.org/pytz|
 |requests|2.32.5|Apache Software License|https://requests.readthedocs.io|
 |shapely|2.1.2|BSD License|https://github.com/shapely/shapely|
 |six|1.17.0|MIT License|https://github.com/benjaminp/six|
@@ -54,7 +56,7 @@ This file is **auto-generated** during release build for compliance (Autodesk Ap
 - Declared license: MIT
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\annotated_doc-0.0.4.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\annotated_doc-0.0.4.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -68,7 +70,7 @@ UNKNOWN
 - Declared license: MIT License
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\annotated_types-0.7.0.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\annotated_types-0.7.0.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -82,7 +84,7 @@ UNKNOWN
 - Declared license: MIT
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\anyio-4.12.1.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\anyio-4.12.1.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -96,7 +98,7 @@ UNKNOWN
 - Declared license: Mozilla Public License 2.0 (MPL 2.0)
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\certifi-2026.1.4.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\certifi-2026.1.4.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -110,7 +112,7 @@ UNKNOWN
 - Declared license: MIT
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\charset_normalizer-3.4.4.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\charset_normalizer-3.4.4.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -124,7 +126,7 @@ UNKNOWN
 - Declared license: BSD-3-Clause
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\click-8.3.1.dist-info\licenses\LICENSE.txt
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\click-8.3.1.dist-info\licenses\LICENSE.txt
 ```
 
 #### NOTICE
@@ -138,7 +140,21 @@ UNKNOWN
 - Declared license: BSD License
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\colorama-0.4.6.dist-info\licenses\LICENSE.txt
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\colorama-0.4.6.dist-info\licenses\LICENSE.txt
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
+
+### exceptiongroup (1.3.1)
+
+- Declared license: MIT License
+
+```
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\exceptiongroup-1.3.1.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -152,7 +168,7 @@ UNKNOWN
 - Declared license: MIT
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\fastapi-0.128.0.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\fastapi-0.128.0.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -166,7 +182,7 @@ UNKNOWN
 - Declared license: BSD License
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\geopandas-1.1.2.dist-info\licenses\LICENSE.txt
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\geopandas-1.1.2.dist-info\licenses\LICENSE.txt
 ```
 
 #### NOTICE
@@ -180,7 +196,7 @@ UNKNOWN
 - Declared license: MIT License
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\h11-0.16.0.dist-info\licenses\LICENSE.txt
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\h11-0.16.0.dist-info\licenses\LICENSE.txt
 ```
 
 #### NOTICE
@@ -194,7 +210,7 @@ UNKNOWN
 - Declared license: BSD-3-Clause
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\idna-3.11.dist-info\licenses\LICENSE.md
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\idna-3.11.dist-info\licenses\LICENSE.md
 ```
 
 #### NOTICE
@@ -203,12 +219,12 @@ C:\sisrua_build\.venv-backend-build\Lib\site-packages\idna-3.11.dist-info\licens
 UNKNOWN
 ```
 
-### networkx (3.6.1)
+### networkx (3.4.2)
 
-- Declared license: BSD-3-Clause
+- Declared license: BSD License
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\networkx-3.6.1.dist-info\licenses\LICENSE.txt
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\networkx-3.4.2.dist-info\LICENSE.txt
 ```
 
 #### NOTICE
@@ -217,12 +233,12 @@ C:\sisrua_build\.venv-backend-build\Lib\site-packages\networkx-3.6.1.dist-info\l
 UNKNOWN
 ```
 
-### numpy (2.4.1)
+### numpy (2.2.6)
 
-- Declared license: BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0
+- Declared license: BSD License
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\numpy-2.4.1.dist-info\licenses\LICENSE.txt
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\numpy-2.2.6.dist-info\LICENSE.txt
 ```
 
 #### NOTICE
@@ -236,7 +252,7 @@ UNKNOWN
 - Declared license: MIT
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\osmnx-2.0.7.dist-info\licenses\LICENSE.txt
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\osmnx-2.0.7.dist-info\licenses\LICENSE.txt
 ```
 
 #### NOTICE
@@ -250,7 +266,7 @@ UNKNOWN
 - Declared license: Apache-2.0 OR BSD-2-Clause
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\packaging-26.0.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\packaging-26.0.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -259,12 +275,12 @@ C:\sisrua_build\.venv-backend-build\Lib\site-packages\packaging-26.0.dist-info\l
 UNKNOWN
 ```
 
-### pandas (3.0.0)
+### pandas (2.3.3)
 
 - Declared license: BSD License
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\pandas-3.0.0.dist-info\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\pandas-2.3.3.dist-info\LICENSE
 ```
 
 #### NOTICE
@@ -278,7 +294,7 @@ UNKNOWN
 - Declared license: MIT
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\pydantic-2.12.5.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\pydantic-2.12.5.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -292,7 +308,7 @@ UNKNOWN
 - Declared license: MIT
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\pydantic_core-2.41.5.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\pydantic_core-2.41.5.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -306,7 +322,7 @@ UNKNOWN
 - Declared license: MIT License
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\pyogrio-0.12.1.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\pyogrio-0.12.1.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -315,12 +331,12 @@ C:\sisrua_build\.venv-backend-build\Lib\site-packages\pyogrio-0.12.1.dist-info\l
 UNKNOWN
 ```
 
-### pyproj (3.7.2)
+### pyproj (3.7.1)
 
-- Declared license: MIT
+- Declared license: MIT License
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\pyproj-3.7.2.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\pyproj-3.7.1.dist-info\LICENSE
 ```
 
 #### NOTICE
@@ -334,7 +350,21 @@ UNKNOWN
 - Declared license: Apache Software License; BSD License
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\python_dateutil-2.9.0.post0.dist-info\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\python_dateutil-2.9.0.post0.dist-info\LICENSE
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
+
+### pytz (2025.2)
+
+- Declared license: MIT License
+
+```
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\pytz-2025.2.dist-info\LICENSE.txt
 ```
 
 #### NOTICE
@@ -348,7 +378,7 @@ UNKNOWN
 - Declared license: Apache Software License
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\requests-2.32.5.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\requests-2.32.5.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -362,7 +392,7 @@ UNKNOWN
 - Declared license: BSD License
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\shapely-2.1.2.dist-info\licenses\LICENSE.txt
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\shapely-2.1.2.dist-info\licenses\LICENSE.txt
 ```
 
 #### NOTICE
@@ -376,7 +406,7 @@ UNKNOWN
 - Declared license: MIT License
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\six-1.17.0.dist-info\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\six-1.17.0.dist-info\LICENSE
 ```
 
 #### NOTICE
@@ -390,7 +420,7 @@ UNKNOWN
 - Declared license: BSD-3-Clause
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\starlette-0.50.0.dist-info\licenses\LICENSE.md
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\starlette-0.50.0.dist-info\licenses\LICENSE.md
 ```
 
 #### NOTICE
@@ -404,7 +434,7 @@ UNKNOWN
 - Declared license: PSF-2.0
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\typing_extensions-4.15.0.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\typing_extensions-4.15.0.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -418,7 +448,7 @@ UNKNOWN
 - Declared license: MIT
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\typing_inspection-0.4.2.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\typing_inspection-0.4.2.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -432,7 +462,7 @@ UNKNOWN
 - Declared license: Apache-2.0
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\tzdata-2025.3.dist-info\licenses\LICENSE
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\tzdata-2025.3.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -446,7 +476,7 @@ UNKNOWN
 - Declared license: MIT
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\urllib3-2.6.3.dist-info\licenses\LICENSE.txt
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\urllib3-2.6.3.dist-info\licenses\LICENSE.txt
 ```
 
 #### NOTICE
@@ -460,7 +490,7 @@ UNKNOWN
 - Declared license: BSD-3-Clause
 
 ```
-C:\sisrua_build\.venv-backend-build\Lib\site-packages\uvicorn-0.40.0.dist-info\licenses\LICENSE.md
+C:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\uvicorn-0.40.0.dist-info\licenses\LICENSE.md
 ```
 
 #### NOTICE

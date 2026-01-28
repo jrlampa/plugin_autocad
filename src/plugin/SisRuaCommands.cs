@@ -58,8 +58,7 @@ namespace sisRUA
 
             PromptStringOptions psoId = new PromptStringOptions("\n[sisRUA] Digite o ID do projeto (ex: A001, deixe em branco para gerar):")
             {
-                AllowSpaces = false,
-                AllowEmpty = true
+                AllowSpaces = false
             };
             PromptResult resId = ed.GetString(psoId);
             string projectId = resId.StringResult.Trim();
@@ -71,10 +70,7 @@ namespace sisRUA
                 ed.WriteMessage($"\n[sisRUA] ID de projeto gerado automaticamente: {projectId}");
             }
 
-            PromptStringOptions psoName = new PromptStringOptions($"\n[sisRUA] Digite o nome do projeto (opcional, padrão: 'Projeto {projectId}'):")
-            {
-                AllowEmpty = true
-            };
+            PromptStringOptions psoName = new PromptStringOptions($"\n[sisRUA] Digite o nome do projeto (opcional, padrão: 'Projeto {projectId}'):");
             PromptResult resName = ed.GetString(psoName);
             string projectName = string.IsNullOrWhiteSpace(resName.StringResult) ? $"Projeto {projectId}" : resName.StringResult.Trim();
 
@@ -83,7 +79,7 @@ namespace sisRUA
                 _projectRepository.SaveProject(projectId, projectName, _lastDrawnCrsOut, _lastDrawnFeatures);
                 ed.WriteMessage($"\n[sisRUA] Projeto '{projectName}' (ID: {projectId}) salvo com sucesso.");
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Log($"ERROR: Failed to save project '{projectId}': {ex.Message}");
                 Application.ShowAlertDialog($"Erro ao salvar projeto: {ex.Message}");
@@ -122,8 +118,7 @@ namespace sisRUA
 
                 PromptStringOptions pso = new PromptStringOptions("\n[sisRUA] Digite o ID do projeto a carregar:")
                 {
-                    AllowSpaces = false,
-                    AllowEmpty = false
+                    AllowSpaces = false
                 };
                 PromptResult res = ed.GetString(pso);
                 if (res.Status != PromptStatus.OK)
@@ -153,7 +148,7 @@ namespace sisRUA
 
                 ed.WriteMessage($"\n[sisRUA] Projeto '{projectName}' redesenhado com sucesso.");
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Log($"ERROR: Failed to load project: {ex.Message}");
                 Application.ShowAlertDialog($"Erro ao carregar projeto: {ex.Message}");
@@ -232,7 +227,7 @@ namespace sisRUA
 
                 // Adiciona a definição do bloco ao desenho atual.
                 bt.UpgradeOpen();
-                db.Insert(blockName, blockDb, ids[0], true);
+                db.Insert(blockName, blockDb, true);
                 bt.DowngradeOpen();
                 Log($"INFO: Block definition '{blockName}' loaded successfully.");
                 return bt[blockName];
@@ -277,7 +272,7 @@ namespace sisRUA
         }
 
 
-        private static void Log(string message)
+        public static void Log(string message)
         {
             // Use the logger from SisRuaPlugin
             if (SisRuaPlugin.Instance != null)
@@ -393,7 +388,7 @@ namespace sisRUA
             public string Error { get; set; }
         }
 
-        private sealed class CadFeature
+        public sealed class CadFeature
         {
             [JsonPropertyName("feature_type")]
             public CadFeatureType FeatureType { get; set; } = CadFeatureType.Polyline; // Default to Polyline
@@ -432,7 +427,7 @@ namespace sisRUA
             public double? Scale { get; set; }
         }
 
-        private enum CadFeatureType
+        public enum CadFeatureType
         {
             Polyline,
             Point
@@ -561,7 +556,7 @@ namespace sisRUA
                     }
                 }
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Log($"WARN: Error loading layers.json: {ex.Message}");
             }
@@ -605,7 +600,7 @@ namespace sisRUA
                     data = job
                 });
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Log($"WARN: Error notifying UI job progress: {ex.Message}");
             }
@@ -804,6 +799,7 @@ namespace sisRUA
                 ObjectId msId = SymbolUtilityServices.GetBlockModelSpaceId(db);
                 BlockTableRecord ms = (BlockTableRecord)tr.GetObject(msId, OpenMode.ForWrite);
 
+                int createdPolylines = 0;
                 int createdBlocks = 0;
 
                 // --- FASE 1.5.2: Limpeza e Simplificação de Geometria OSM ---
@@ -1019,7 +1015,7 @@ namespace sisRUA
                     tr.Commit();
                 }
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Log($"WARN: Error in EnsureOsmAttributionMText: {ex.Message}");
                 // ignore (não pode falhar o fluxo principal)
@@ -1060,7 +1056,7 @@ namespace sisRUA
                 if (!wMeters.HasValue) return null;
                 return wMeters.Value * metersToDrawingUnits;
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Log($"WARN: Error in TryGetRoadWidthUnits: {ex.Message}");
                 return null;
@@ -1093,7 +1089,7 @@ namespace sisRUA
                 // Se não deu nada, falhou.
                 return appended >= 2;
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Log($"WARN: Error in TryAppendOffsetRoadEdges: {ex.Message}");
                 return false;
@@ -1122,7 +1118,7 @@ namespace sisRUA
                         dbo?.Dispose();
                     }
                 }
-                catch (Exception ex)
+                catch (System.Exception ex)
                 {
                     Log($"WARN: Error appending offset curve: {ex.Message}");
                     try { dbo?.Dispose(); } catch { /* ignore */ }
@@ -1184,7 +1180,7 @@ namespace sisRUA
                             // 0 = imperial: assume inches.
                             return measurement == 1 ? 1.0 : 39.37007874015748;
                         }
-                        catch (Exception ex)
+                        catch (System.Exception ex)
                         {
                             Log($"WARN: Error determining MEASUREMENT system variable: {ex.Message}");
                             // fallback: assume metros
@@ -1209,7 +1205,7 @@ namespace sisRUA
                         return 1.0;
                 }
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Log($"WARN: Error in GetMetersToDrawingUnitsScale: {ex.Message}");
             }
@@ -1237,7 +1233,7 @@ namespace sisRUA
                 tr.AddNewlyCreatedDBObject(ltr, true);
                 Log($"INFO: Created new layer: {layerName}");
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Log($"ERROR: Failed to create layer {layerName}: {ex.Message}");
             }

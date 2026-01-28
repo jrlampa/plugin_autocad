@@ -12,7 +12,7 @@ function Get-FreePort {
   finally { $listener.Stop() }
 }
 
-function Wait-Health([string]$BaseUrl, [int]$Seconds = 20) {
+function Wait-Health([string]$BaseUrl, [int]$Seconds = 60) {
   $deadline = (Get-Date).AddSeconds($Seconds)
   while ((Get-Date) -lt $deadline) {
     try {

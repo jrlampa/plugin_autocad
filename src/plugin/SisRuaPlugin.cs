@@ -99,7 +99,7 @@ namespace sisRUA
                             {
                                 _pythonProcess = Process.GetProcessById(previousPid);
                             }
-                            catch (Exception ex)
+                            catch (System.Exception ex)
                             {
                                 LogToEditor($"\n>>> Aviso: Não foi possível anexar ao processo PID {previousPid}: {ex.Message}");
                                 _pythonProcess = null;
@@ -292,7 +292,7 @@ namespace sisRUA
                 _logger.WriteLine($"Plugin Assembly: {Assembly.GetExecutingAssembly().Location}");
                 _logger.WriteLine($"AutoCAD Process Id: {Process.GetCurrentProcess().Id}");
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 Debug.WriteLine($"[sisRUA] ERROR: Failed to setup logger: {ex.Message}");
                 // Fallback to only editor/debug output if logger setup fails
@@ -538,7 +538,7 @@ namespace sisRUA
                                 Directory.Delete(venvDir, recursive: true);
                             }
                         }
-                        catch (Exception ex) { _logger?.WriteLine($"[DEBUG] Error cleaning up venv dir: {ex.Message}"); /* ignore cleanup errors */ }
+                        catch (System.Exception ex) { _logger?.WriteLine($"[DEBUG] Error cleaning up venv dir: {ex.Message}"); /* ignore cleanup errors */ }
 
                         var (exitCode2, stdout2, stderr2) = RunProcess(pythonExePath, localSisRuaDir, timeoutMs: 10 * 60 * 1000, "-m", "venv", "--without-pip", venvDir);
                         if (exitCode2 != 0 || !File.Exists(venvPython))
@@ -600,7 +600,7 @@ namespace sisRUA
             }
         }
 
-        private static string GetLocalSisRuaDir()
+        public static string GetLocalSisRuaDir()
         {
             try
             {
@@ -608,7 +608,7 @@ namespace sisRUA
                 if (string.IsNullOrWhiteSpace(localAppData)) return null;
                 return Path.Combine(localAppData, "sisRUA");
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 _logger?.WriteLine($"[ERROR] Exception in GetLocalSisRuaDir: {ex}");
                 return null;
@@ -637,7 +637,7 @@ namespace sisRUA
                 _logger?.WriteLine($"[DEBUG] Read last backend port: {p}");
                 return p;
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 _logger?.WriteLine($"[ERROR] Exception in TryReadLastBackendPort: {ex}");
                 return 0;
@@ -656,7 +656,7 @@ namespace sisRUA
                 _logger?.WriteLine($"[DEBUG] Read last backend token (hash): {token?.GetHashCode()}");
                 return token;
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 _logger?.WriteLine($"[ERROR] Exception in TryReadLastBackendToken: {ex}");
                 return null;
@@ -674,7 +674,7 @@ namespace sisRUA
                 File.WriteAllText(statePath, port.ToString());
                 _logger?.WriteLine($"[DEBUG] Persisted backend port: {port}");
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 _logger?.WriteLine($"[ERROR] Exception in PersistBackendPort: {ex}");
             }
@@ -691,7 +691,7 @@ namespace sisRUA
                 File.WriteAllText(statePath, token ?? string.Empty);
                 _logger?.WriteLine($"[DEBUG] Persisted backend token (hash): {token?.GetHashCode()}");
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 _logger?.WriteLine($"[ERROR] Exception in PersistBackendToken: {ex}");
             }
@@ -708,7 +708,7 @@ namespace sisRUA
                 File.WriteAllText(statePath, pid.ToString());
                 _logger?.WriteLine($"[DEBUG] Persisted backend PID: {pid}");
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 _logger?.WriteLine($"[ERROR] Exception in PersistBackendPid: {ex}");
             }
@@ -727,7 +727,7 @@ namespace sisRUA
                 _logger?.WriteLine($"[DEBUG] Read last backend PID: {p}");
                 return p;
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 _logger?.WriteLine($"[ERROR] Exception in TryReadLastBackendPid: {ex}");
                 return 0;
@@ -763,13 +763,13 @@ namespace sisRUA
                         }
                         _logger?.WriteLine($"[INFO] Successfully killed process PID {pid}.");
                     }
-                    catch (Exception ex)
+                    catch (System.Exception ex)
                     {
                         _logger?.WriteLine($"[ERROR] Error killing process PID {pid}: {ex.Message}");
                     }
                 }
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 _logger?.WriteLine($"[ERROR] Exception in TryKillPreviousBackendProcess: {ex}");
             }
@@ -784,7 +784,7 @@ namespace sisRUA
                 _logger?.WriteLine($"[DEBUG] Backend health check to {BackendBaseUrl}/api/v1/health: {resp.IsSuccessStatusCode}");
                 return resp.IsSuccessStatusCode;
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 _logger?.WriteLine($"[WARN] Backend health check failed: {ex.Message}");
                 return false;
@@ -806,7 +806,7 @@ namespace sisRUA
                     return resp.IsSuccessStatusCode;
                 }
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
                 _logger?.WriteLine($"[WARN] Backend auth check failed: {ex.Message}");
                 return false;
@@ -876,7 +876,7 @@ namespace sisRUA
                 bool exited = p.WaitForExit(timeoutMs);
                 if (!exited)
                 {
-                    try { p.Kill(); } catch (Exception ex) { _logger?.WriteLine($"[ERROR] Error killing timed-out process: {ex.Message}"); }
+                    try { p.Kill(); } catch (System.Exception ex) { _logger?.WriteLine($"[ERROR] Error killing timed-out process: {ex.Message}"); }
                     _logger?.WriteLine($"[ERROR] Process timed out. Filename: {fileName}");
                     return (-1, stdout.ToString(), "Timeout ao executar processo.");
                 }

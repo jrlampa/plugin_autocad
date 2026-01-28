@@ -1,126 +1,65 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ApplicationPackage
-  SchemaVersion="1.0"
-  ProductType="Application"
-  Name="sisRUA"
-  AppVersion="1.0.0"
-  Description="sisRUA - plugin AutoCAD (OSM/GeoJSON → CAD)"
-  Author="sisRUA">
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0" ProductType="Application" Name="sisRUA" AppVersion="0.2.0" Description="sisRUA - plugin AutoCAD (OSM/GeoJSON â†’ CAD)" Author="sisRUA">
   <CompanyDetails Name="sisRUA" />
   <Components>
     <!-- AutoCAD 2024 (R24.3) - .NET Framework -->
-    <ComponentEntry
-      AppName="sisRUA"
-      ModuleName="Contents\\sisRUA_NET48_ACAD2021.dll"
-      AppDescription="sisRUA"
-      AppType=".Net"
-      LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="True">
+    <ComponentEntry AppName="sisRUA" ModuleName="Contents\\sisRUA_NET48_ACAD2021.dll" AppDescription="sisRUA" AppType=".Net" LoadOnAutoCADStartup="True" LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.0" SeriesMax="R24.2" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
         <Command Local="SISRUAESCALA" Global="SISRUAESCALA" />
       </Commands>
     </ComponentEntry>
-
     <!-- Civil 3D 2021-2023 (R24.0-R24.2) - .NET Framework -->
-    <ComponentEntry
-      AppName="sisRUA"
-      ModuleName="Contents\\sisRUA_NET48_ACAD2021.dll"
-      AppDescription="sisRUA"
-      AppType=".Net"
-      LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="True">
+    <ComponentEntry AppName="sisRUA" ModuleName="Contents\\sisRUA_NET48_ACAD2021.dll" AppDescription="sisRUA" AppType=".Net" LoadOnAutoCADStartup="True" LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R24.0" SeriesMax="R24.2" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
         <Command Local="SISRUAESCALA" Global="SISRUAESCALA" />
       </Commands>
     </ComponentEntry>
-
     <!-- AutoCAD 2024 (R24.3) - .NET Framework -->
-    <ComponentEntry
-      AppName="sisRUA"
-      ModuleName="Contents\\sisRUA_NET48_ACAD2024.dll"
-      AppDescription="sisRUA"
-      AppType=".Net"
-      LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="True">
+    <ComponentEntry AppName="sisRUA" ModuleName="Contents\\sisRUA_NET48_ACAD2024.dll" AppDescription="sisRUA" AppType=".Net" LoadOnAutoCADStartup="True" LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.3" SeriesMax="R24.3" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
         <Command Local="SISRUAESCALA" Global="SISRUAESCALA" />
       </Commands>
     </ComponentEntry>
-
     <!-- Civil 3D 2024 (R24.3) - .NET Framework -->
-    <ComponentEntry
-      AppName="sisRUA"
-      ModuleName="Contents\\sisRUA_NET48_ACAD2024.dll"
-      AppDescription="sisRUA"
-      AppType=".Net"
-      LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="True">
+    <ComponentEntry AppName="sisRUA" ModuleName="Contents\\sisRUA_NET48_ACAD2024.dll" AppDescription="sisRUA" AppType=".Net" LoadOnAutoCADStartup="True" LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R24.3" SeriesMax="R24.3" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
         <Command Local="SISRUAESCALA" Global="SISRUAESCALA" />
       </Commands>
     </ComponentEntry>
-
     <!-- AutoCAD 2025 (R25.0) - .NET 8 -->
-    <ComponentEntry
-      AppName="sisRUA"
-      ModuleName="Contents\\sisRUA_NET8.dll"
-      AppDescription="sisRUA"
-      AppType=".Net"
-      LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="True">
+    <ComponentEntry AppName="sisRUA" ModuleName="Contents\\sisRUA_NET8.dll" AppDescription="sisRUA" AppType=".Net" LoadOnAutoCADStartup="True" LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R25.0" SeriesMax="R25.0" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
         <Command Local="SISRUAESCALA" Global="SISRUAESCALA" />
       </Commands>
     </ComponentEntry>
-
     <!-- AutoCAD 2026 (R25.1) - .NET 8 -->
-    <ComponentEntry
-      AppName="sisRUA"
-      ModuleName="Contents\\sisRUA_NET8.dll"
-      AppDescription="sisRUA"
-      AppType=".Net"
-      LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="True">
+    <ComponentEntry AppName="sisRUA" ModuleName="Contents\\sisRUA_NET8.dll" AppDescription="sisRUA" AppType=".Net" LoadOnAutoCADStartup="True" LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R25.1" SeriesMax="R25.1" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
         <Command Local="SISRUAESCALA" Global="SISRUAESCALA" />
       </Commands>
     </ComponentEntry>
-
     <!-- Civil 3D 2025 (R25.0) - .NET 8 -->
-    <ComponentEntry
-      AppName="sisRUA"
-      ModuleName="Contents\\sisRUA_NET8.dll"
-      AppDescription="sisRUA"
-      AppType=".Net"
-      LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="True">
+    <ComponentEntry AppName="sisRUA" ModuleName="Contents\\sisRUA_NET8.dll" AppDescription="sisRUA" AppType=".Net" LoadOnAutoCADStartup="True" LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R25.0" SeriesMax="R25.0" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
         <Command Local="SISRUAESCALA" Global="SISRUAESCALA" />
       </Commands>
     </ComponentEntry>
-
     <!-- Civil 3D 2026 (R25.1) - .NET 8 -->
-    <ComponentEntry
-      AppName="sisRUA"
-      ModuleName="Contents\\sisRUA_NET8.dll"
-      AppDescription="sisRUA"
-      AppType=".Net"
-      LoadOnAutoCADStartup="True"
-      LoadOnCommandInvocation="True">
+    <ComponentEntry AppName="sisRUA" ModuleName="Contents\\sisRUA_NET8.dll" AppDescription="sisRUA" AppType=".Net" LoadOnAutoCADStartup="True" LoadOnCommandInvocation="True">
       <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R25.1" SeriesMax="R25.1" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />

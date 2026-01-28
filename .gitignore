@@ -28,6 +28,9 @@ dist/
 release/
 release_gate_test/
 installer/out/
+installer/Output/
+Output/
+
 
 # ===== QA / evidências (gerado) =====
 qa/out/
@@ -41,3 +44,13 @@ qa/out/
 # ===== Notas locais (não versionar) =====
 passo-a-passo.md
 backup/
+
+# ===== Local Build / Temp =====
+local_build/
+
+# Generated Backend EXE (in bundle template)
+bundle-template/sisRUA.bundle/Contents/backend/sisrua_backend.exe
+
+# ===== Local SDKs (BIG FILES) =====
+dll_autocad_*/
+

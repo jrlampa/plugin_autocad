@@ -3,9 +3,7 @@
   <PropertyGroup>
     <!-- Read version from VERSION.txt -->
     <VersionTextPath Condition="'$(VersionTextPath)' == ''">$(MSBuildProjectDirectory)\..\..\VERSION.txt</VersionTextPath>
-    <AppVersion Condition="'$(AppVersion)' == '' And Exists('$(VersionTextPath)')">
-      $([System.IO.File]::ReadAllText('$(VersionTextPath)').Trim())
-    </AppVersion>
+    <AppVersion Condition="'$(AppVersion)' == '' And Exists('$(VersionTextPath)')">$([System.IO.File]::ReadAllText('$(VersionTextPath)').Trim())</AppVersion>
     <AppVersion Condition="'$(AppVersion)' == ''">0.0.0</AppVersion>
 
     <Version>$(AppVersion)</Version>

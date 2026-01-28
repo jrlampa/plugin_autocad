@@ -1,0 +1,433 @@
+[sisrua] build_installer.cmd
+INFO: Ativando builds de compatibilidade para AutoCAD 2021 e 2024...
+AVISO: Variavel CODE_SIGN_THUMBPRINT nao definida. Nenhuma assinatura de codigo sera realizada.
+  Determinando os projetos a serem restaurados...
+  Todos os projetos est├úo atualizados para restaura├º├úo.
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277: foram encontrados conflitos entre diferentes vers├Áes do "WindowsBase" que n├úo puderam ser resolvidas. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277: H├í um conflito entre "WindowsBase, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" e "WindowsBase, Version=8.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:     "WindowsBase, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" foi escolhido porque era principal e "WindowsBase, Version=8.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" n├úo era. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:     As refer├¬ncias depender├úo de "WindowsBase, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" [C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\8.0.23\ref\net8.0\WindowsBase.dll]. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\8.0.23\ref\net8.0\WindowsBase.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\8.0.23\ref\net8.0\WindowsBase.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\8.0.23\ref/net8.0/WindowsBase.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:     Refer├¬ncias que dependem de ou foram unificadas para "WindowsBase, Version=8.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" []. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcCoreMgd.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcCoreMgd.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcCoreMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcDbMgd.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcDbMgd.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcDbMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcCoreMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcMgd.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcMgd.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\DesktopConnectorInterop.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\DesktopConnectorInterop.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcCoreMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AdUiPalettes.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AdUiPalettes.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AdWindows.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AdWindows.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcCustomize.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcCustomize.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcWindows.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcWindows.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AdUIMgd.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AdUIMgd.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcTcMgd.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcTcMgd.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcMNUParser.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcMNUParser.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\plugin_autocad\src\plugin\SisRuaCommands.cs(19,7): warning CS0105: A diretiva using para "System.Globalization" apareceu anteriormente neste namespace [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(378,50): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(402,54): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+  sisRUA -> C:\plugin_autocad\src\plugin\bin\x64\Release\net8.0-windows\sisRUA_NET8.dll
+
+Compila├º├úo com ├¬xito.
+
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277: foram encontrados conflitos entre diferentes vers├Áes do "WindowsBase" que n├úo puderam ser resolvidas. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277: H├í um conflito entre "WindowsBase, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" e "WindowsBase, Version=8.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:     "WindowsBase, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" foi escolhido porque era principal e "WindowsBase, Version=8.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" n├úo era. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:     As refer├¬ncias depender├úo de "WindowsBase, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" [C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\8.0.23\ref\net8.0\WindowsBase.dll]. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\8.0.23\ref\net8.0\WindowsBase.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\8.0.23\ref\net8.0\WindowsBase.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             C:\Program Files\dotnet\packs\Microsoft.NETCore.App.Ref\8.0.23\ref/net8.0/WindowsBase.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:     Refer├¬ncias que dependem de ou foram unificadas para "WindowsBase, Version=8.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35" []. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcCoreMgd.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcCoreMgd.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcCoreMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcDbMgd.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcDbMgd.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcDbMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcCoreMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcMgd.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcMgd.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\DesktopConnectorInterop.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\DesktopConnectorInterop.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcCoreMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AdUiPalettes.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AdUiPalettes.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AdWindows.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AdWindows.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcCustomize.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcCustomize.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcWindows.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcWindows.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AdUIMgd.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AdUIMgd.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcTcMgd.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcTcMgd.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:         C:\Program Files\Autodesk\AutoCAD 2026\AcMNUParser.dll [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:           Inclus├Áes de itens do arquivo de projeto que geraram a refer├¬ncia"C:\Program Files\Autodesk\AutoCAD 2026\AcMNUParser.dll". [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\Program Files\dotnet\sdk\10.0.102\Microsoft.Common.CurrentVersion.targets(2437,5): warning MSB3277:             AcMgd [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\plugin_autocad\src\plugin\SisRuaCommands.cs(19,7): warning CS0105: A diretiva using para "System.Globalization" apareceu anteriormente neste namespace [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(378,50): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(402,54): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+    4 Aviso(s)
+    0 Erro(s)
+
+Tempo Decorrido 00:00:00.57
+Building net48 for AutoCAD 2021...
+  Determinando os projetos a serem restaurados...
+  Todos os projetos est├úo atualizados para restaura├º├úo.
+C:\plugin_autocad\src\plugin\SisRuaCommands.cs(19,7): warning CS0105: A diretiva using para "System.Globalization" apareceu anteriormente neste namespace [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(378,50): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(402,54): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+  sisRUA -> C:\plugin_autocad\src\plugin\bin\x64\Release\net48\sisRUA_NET48_ACAD2021.dll
+
+Compila├º├úo com ├¬xito.
+
+C:\plugin_autocad\src\plugin\SisRuaCommands.cs(19,7): warning CS0105: A diretiva using para "System.Globalization" apareceu anteriormente neste namespace [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(378,50): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(402,54): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+    3 Aviso(s)
+    0 Erro(s)
+
+Tempo Decorrido 00:00:00.39
+Building net48 for AutoCAD 2024...
+  Determinando os projetos a serem restaurados...
+  Todos os projetos est├úo atualizados para restaura├º├úo.
+C:\plugin_autocad\src\plugin\SisRuaCommands.cs(19,7): warning CS0105: A diretiva using para "System.Globalization" apareceu anteriormente neste namespace [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(378,50): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(402,54): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+  sisRUA -> C:\plugin_autocad\src\plugin\bin\x64\Release\net48\sisRUA_NET48_ACAD2024.dll
+
+Compila├º├úo com ├¬xito.
+
+C:\plugin_autocad\src\plugin\SisRuaCommands.cs(19,7): warning CS0105: A diretiva using para "System.Globalization" apareceu anteriormente neste namespace [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(378,50): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(402,54): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+    3 Aviso(s)
+    0 Erro(s)
+
+Tempo Decorrido 00:00:00.35
+[0.5/3] Build do frontend (Release)...
+INFO: Usando versao do projeto: 0.2.0
+[frontend] Preparando build em pasta temporaria (evita travas em pastas sincronizadas)...
+INFO: package.json em C:\Users\JONATA~1\AppData\Local\Temp\sisrua_frontend_build_9540a2ff4c4242e6bfb9cb100349682a\package.json atualizado para versao 0.2.0.
+[frontend] Instalando dependencias (npm install)...
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+
+added 354 packages in 10s
+[frontend] Gerando build (vite)...
+
+> frontend@0.2.0 build
+> vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mÔ£ô[39m 1815 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                 [39m[1m[2m  0.46 kB[22m[1m[22m[2m Ôöé gzip:   0.30 kB[22m
+[2mdist/[22m[35massets/index-DqLR-ZjX.css  [39m[1m[2m 40.44 kB[22m[1m[22m[2m Ôöé gzip:  11.21 kB[22m
+[2mdist/[22m[36massets/index-4OZWGzg2.js   [39m[1m[2m483.73 kB[22m[1m[22m[2m Ôöé gzip: 158.09 kB[22m
+[32mÔ£ô built in 9.58s[39m
+OK: frontend gerado em C:\plugin_autocad\tools\..\\src\\frontend\dist
+[1/3] Gerando backend EXE (opcional, mas recomendado)...
+INFO: Usando versao do projeto: 0.2.0
+# UTF-8
+FILEVERSION 0,2,0,
+PRODUCTVERSION 0,2,0,
+Instalando dependencias do build (pode demorar)...
+Requirement already satisfied: pip in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (25.3)
+Requirement already satisfied: fastapi in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from -r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (0.128.0)
+Requirement already satisfied: uvicorn in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from -r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 2)) (0.40.0)
+Requirement already satisfied: osmnx in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from -r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2.0.7)
+Requirement already satisfied: pyproj in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from -r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 4)) (3.7.1)
+Requirement already satisfied: shapely in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from -r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 5)) (2.1.2)
+Requirement already satisfied: geopandas in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from -r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 6)) (1.1.2)
+Requirement already satisfied: starlette<0.51.0,>=0.40.0 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (0.50.0)
+Requirement already satisfied: pydantic>=2.7.0 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (2.12.5)
+Requirement already satisfied: typing-extensions>=4.8.0 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (4.15.0)
+Requirement already satisfied: annotated-doc>=0.0.2 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (0.0.4)
+Requirement already satisfied: anyio<5,>=3.6.2 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from starlette<0.51.0,>=0.40.0->fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (4.12.1)
+Requirement already satisfied: exceptiongroup>=1.0.2 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from anyio<5,>=3.6.2->starlette<0.51.0,>=0.40.0->fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (1.3.1)
+Requirement already satisfied: idna>=2.8 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from anyio<5,>=3.6.2->starlette<0.51.0,>=0.40.0->fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (3.11)
+Requirement already satisfied: click>=7.0 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from uvicorn->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 2)) (8.3.1)
+Requirement already satisfied: h11>=0.8 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from uvicorn->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 2)) (0.16.0)
+Requirement already satisfied: networkx>=2.5 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (3.4.2)
+Requirement already satisfied: numpy>=1.22 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2.2.6)
+Requirement already satisfied: pandas>=1.4 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2.3.3)
+Requirement already satisfied: requests>=2.27 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2.32.5)
+Requirement already satisfied: certifi in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from pyproj->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 4)) (2026.1.4)
+Requirement already satisfied: pyogrio>=0.7.2 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from geopandas->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 6)) (0.12.1)
+Requirement already satisfied: packaging in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from geopandas->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 6)) (26.0)
+Requirement already satisfied: colorama in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from click>=7.0->uvicorn->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 2)) (0.4.6)
+Requirement already satisfied: python-dateutil>=2.8.2 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from pandas>=1.4->osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2.9.0.post0)
+Requirement already satisfied: pytz>=2020.1 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from pandas>=1.4->osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2025.2)
+Requirement already satisfied: tzdata>=2022.7 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from pandas>=1.4->osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2025.3)
+Requirement already satisfied: annotated-types>=0.6.0 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from pydantic>=2.7.0->fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (0.7.0)
+Requirement already satisfied: pydantic-core==2.41.5 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from pydantic>=2.7.0->fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (2.41.5)
+Requirement already satisfied: typing-inspection>=0.4.2 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from pydantic>=2.7.0->fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (0.4.2)
+Requirement already satisfied: six>=1.5 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from python-dateutil>=2.8.2->pandas>=1.4->osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (1.17.0)
+Requirement already satisfied: charset_normalizer<4,>=2 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from requests>=2.27->osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (3.4.4)
+Requirement already satisfied: urllib3<3,>=1.21.1 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from requests>=2.27->osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2.6.3)
+Requirement already satisfied: pyinstaller in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (6.18.0)
+Requirement already satisfied: altgraph in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from pyinstaller) (0.17.5)
+Requirement already satisfied: packaging>=22.0 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from pyinstaller) (26.0)
+Requirement already satisfied: pefile>=2022.5.30 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from pyinstaller) (2024.8.26)
+Requirement already satisfied: pyinstaller-hooks-contrib>=2025.9 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from pyinstaller) (2026.0)
+Requirement already satisfied: pywin32-ctypes>=0.2.1 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from pyinstaller) (0.2.3)
+Requirement already satisfied: setuptools>=42.0.0 in c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages (from pyinstaller) (65.5.0)
+[licenses] Auditando licencas do backend (pip-licenses)...
+[licenses] Instalando pip-licenses no venv de build...
+[licenses] Gerando relatorio JSON (com textos de licencas)...
+[licenses] Gravando C:\plugin_autocad\tools\..\THIRD_PARTY_NOTICES.md ...
+[licenses] OK.
+Gerando sisrua_backend.exe...
+105 INFO: PyInstaller: 6.18.0, contrib hooks: 2026.0
+105 INFO: Python: 3.10.11
+112 INFO: Platform: Windows-10-10.0.26200-SP0
+112 INFO: Python environment: c:\plugin_autocad\local_build\.venv-backend-build
+113 INFO: wrote c:\plugin_autocad\local_build\\pyinstaller-spec\sisrua_backend.spec
+115 INFO: Removing temporary files and cleaning cache in C:\Users\Jonatas Lampa\AppData\Local\pyinstaller
+149 INFO: Module search paths (PYTHONPATH):
+['C:\\plugin_autocad',
+ 'C:\\Users\\Jonatas '
+ 'Lampa\\AppData\\Local\\Programs\\Python\\Python310\\python310.zip',
+ 'C:\\Users\\Jonatas Lampa\\AppData\\Local\\Programs\\Python\\Python310\\DLLs',
+ 'C:\\Users\\Jonatas Lampa\\AppData\\Local\\Programs\\Python\\Python310\\lib',
+ 'C:\\Users\\Jonatas Lampa\\AppData\\Local\\Programs\\Python\\Python310',
+ 'c:\\plugin_autocad\\local_build\\.venv-backend-build',
+ 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages',
+ 'C:\\plugin_autocad\\src\\backend']
+411 INFO: Appending 'datas' from .spec
+416 INFO: checking Analysis
+416 INFO: Building Analysis because Analysis-00.toc is non existent
+416 INFO: Looking for Python shared library...
+416 INFO: Using Python shared library: C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\python310.dll
+416 INFO: Running Analysis Analysis-00.toc
+416 INFO: Target bytecode optimization level: 0
+416 INFO: Initializing module dependency graph...
+417 INFO: Initializing module graph hook caches...
+426 INFO: Analyzing modules for base_library.zip ...
+884 INFO: Processing standard module hook 'hook-heapq.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+926 INFO: Processing standard module hook 'hook-encodings.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+1801 INFO: Processing standard module hook 'hook-pickle.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+2470 INFO: Caching module dependency graph...
+2494 INFO: Analyzing C:\plugin_autocad\src\backend\standalone.py
+2560 INFO: Processing standard module hook 'hook-uvicorn.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+2918 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+2963 INFO: Processing standard module hook 'hook-xml.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+3096 INFO: Processing standard module hook 'hook-_ctypes.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+3381 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+3384 INFO: SetuptoolsInfo: initializing cached setuptools info...
+3854 INFO: Processing standard module hook 'hook-platform.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+3884 INFO: Processing standard module hook 'hook-difflib.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+4044 INFO: Processing standard module hook 'hook-pyproj.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+4059 WARNING: Datas for pyproj not found at:
+c:\plugin_autocad\local_build\.venv-backend-build\Library\share\proj
+4067 INFO: Processing standard module hook 'hook-certifi.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+4247 INFO: Processing standard module hook 'hook-numpy.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+4439 INFO: Processing standard module hook 'hook-sysconfig.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+5223 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+5432 INFO: Processing standard module hook 'hook-pandas.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+6371 INFO: Processing standard module hook 'hook-pytz.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+7649 INFO: Processing standard module hook 'hook-pandas.io.formats.style.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+8949 INFO: Processing standard module hook 'hook-pandas.plotting.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+9569 INFO: Processing standard module hook 'hook-sqlite3.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+9776 INFO: Processing standard module hook 'hook-pandas.io.clipboard.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+9900 INFO: Processing standard module hook 'hook-dateutil.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+9969 INFO: Processing pre-safe-import-module hook 'hook-six.moves.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+10206 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+10211 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+11484 INFO: Processing standard module hook 'hook-geopandas.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+11499 INFO: Processing standard module hook 'hook-shapely.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+11586 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+11829 INFO: Processing standard module hook 'hook-urllib3.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+11872 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+12416 INFO: Processing standard module hook 'hook-pydantic.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+12940 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+13372 INFO: Processing standard module hook 'hook-anyio.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+13989 INFO: Processing module hooks (post-graph stage)...
+14118 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+14166 WARNING: Hidden import "jinja2" not found!
+14174 INFO: Processing standard module hook 'hook-tzdata.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+14573 INFO: Performing binary vs. data reclassification (1316 entries)
+14649 INFO: Looking for ctypes DLLs
+14672 INFO: Analyzing run-time hooks ...
+14679 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+14679 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+14679 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+14679 INFO: Including run-time hook 'pyi_rth_pyproj.py' from 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+14721 INFO: Creating base_library.zip...
+14734 INFO: Looking for dynamic libraries
+15876 INFO: Extra DLL search directories (AddDllDirectory): ['c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\shapely.libs', 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\numpy.libs', 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\pandas.libs', 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\pyproj.libs', 'c:\\plugin_autocad\\local_build\\.venv-backend-build\\lib\\site-packages\\pyogrio.libs']
+15876 INFO: Extra DLL search directories (PATH): []
+17034 INFO: Warnings written to c:\plugin_autocad\local_build\pyinstaller-work\sisrua_backend\warn-sisrua_backend.txt
+17156 INFO: Graph cross-reference written to c:\plugin_autocad\local_build\pyinstaller-work\sisrua_backend\xref-sisrua_backend.html
+17210 INFO: checking PYZ
+17210 INFO: Building PYZ because PYZ-00.toc is non existent
+17210 INFO: Building PYZ (ZlibArchive) c:\plugin_autocad\local_build\pyinstaller-work\sisrua_backend\PYZ-00.pyz
+17938 INFO: Building PYZ (ZlibArchive) c:\plugin_autocad\local_build\pyinstaller-work\sisrua_backend\PYZ-00.pyz completed successfully.
+17973 INFO: checking PKG
+17973 INFO: Building PKG because PKG-00.toc is non existent
+17973 INFO: Building PKG (CArchive) sisrua_backend.pkg
+31294 INFO: Building PKG (CArchive) sisrua_backend.pkg completed successfully.
+31316 INFO: Bootloader c:\plugin_autocad\local_build\.venv-backend-build\lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe
+31316 INFO: checking EXE
+31316 INFO: Building EXE because EXE-00.toc is non existent
+31316 INFO: Building EXE from EXE-00.toc
+31317 INFO: Copying bootloader EXE to c:\plugin_autocad\local_build\pyinstaller-dist\sisrua_backend.exe
+31404 INFO: Copying icon to EXE
+31510 INFO: Copying 0 resources to EXE
+31510 INFO: Embedding manifest in EXE
+31617 INFO: Appending PKG archive to EXE
+31828 INFO: Fixing EXE headers
+32594 INFO: Building EXE from EXE-00.toc completed successfully.
+32616 INFO: Build complete! The results are available in: c:\plugin_autocad\local_build\pyinstaller-dist
+OK: C:\plugin_autocad\tools\..\bundle-template\sisRUA.bundle\Contents\backend\\sisrua_backend.exe
+[1.5/3] Smoke test do backend EXE (sem OSM)...
+[smoke] Iniciando backend: C:\Users\JONATA~1\AppData\Local\Temp\sisrua_smoke_run_c0dcb661d6e046d18adcfb4838317352\sisrua_backend.exe --port 53283
+[smoke] Health OK: http://127.0.0.1:53283
+[smoke] prepare/geojson OK: 1 feature(s)
+[smoke] OK
+[2/3] Gerando bundle em release\\sisRUA.bundle...
+[1/6] Preparando pasta de saida (deploy)...
+INFO: Usando versao do projeto: 0.2.0
+[1.5/6] Atualizando AppVersion em PackageContents.xml...
+INFO: AppVersion em 'C:\plugin_autocad\bundle-template\sisRUA.bundle\PackageContents.xml' atualizado para '0.2.0'.
+[2/6] Copiando PackageContents.xml...
+[3/6] Copiando binarios .NET (plugin + dependencias)...
+OK: sisRUA_NET48_ACAD2024.dll copiado.
+[4/6] Copiando backend Python...
+[5/6] Copiando frontend (somente dist)...
+[5.5/6] Copiando Blocos CAD (.dxf/.dwg)...
+[6/6] Copiando Resources (mapeamento, prancha, etc)...
+
+======================================================
+ESTRUTURA ORGANIZADA COM SUCESSO
+Local: C:\plugin_autocad\release\sisRUA.bundle
+======================================================
+OK: release\\sisRUA.bundle pronto.
+Versao: 0.2.0
+Compilando instalador...
+Inno Setup 6 Command-Line Compiler
+Copyright (C) 1997-2026 Jordan Russell. All rights reserved.
+Portions Copyright (C) 2000-2026 Martijn Laan. All rights reserved.
+Portions Copyright (C) 2001-2004 Alex Yackimoff. All rights reserved.
+https://www.innosetup.com
+
+Compiler engine version: Inno Setup 6.7.0
+Non-commercial use only
+
+Preprocessing
+   Reading file: C:\Program Files (x86)\Inno Setup 6\ISPPBuiltins.iss
+Parsing [Setup] section, line 9
+Parsing [Setup] section, line 10
+Parsing [Setup] section, line 11
+Parsing [Setup] section, line 12
+Parsing [Setup] section, line 13
+Parsing [Setup] section, line 14
+Parsing [Setup] section, line 15
+Parsing [Setup] section, line 16
+Parsing [Setup] section, line 17
+Parsing [Setup] section, line 18
+Parsing [Setup] section, line 19
+Parsing [Setup] section, line 20
+Reading file (WizardImageFile)
+Reading file (WizardSmallImageFile)
+Preparing Setup program executable
+   Verification successful
+   Updating icons (Setup.e32)
+   Updating version info (Setup.e32)
+Determining language code pages
+Parsing [Languages] section, line 23
+   Reading file: C:\Program Files (x86)\Inno Setup 6\Languages\BrazilianPortuguese.isl
+   Messages in script file
+Reading default messages from Default.isl
+Parsing [Languages] section, line 23
+   Reading file: C:\Program Files (x86)\Inno Setup 6\Languages\BrazilianPortuguese.isl
+Parsing [LangOptions], [Messages], and [CustomMessages] sections
+   Messages in script file
+Reading [Code] section
+Parsing [Files] section, line 27
+Parsing [Files] section, line 30
+Compiling [Code] section
+Deleting sisRUA-Installer-0.2.0.exe from output directory
+Creating setup files
+   Verification successful
+   Updating icons (Setup.exe)
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\PackageContents.xml
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Microsoft.Web.WebView2.Core.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Microsoft.Web.WebView2.WinForms.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Microsoft.Web.WebView2.Wpf.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\sisRUA_NET48_ACAD2024.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\sisRUA_NET48_ACAD2024.pdb
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\sisRUA_NET8.deps.json
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\sisRUA_NET8.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\sisRUA_NET8.dll--
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\sisRUA_NET8.pdb
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\System.Data.SQLite.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\backend\sisrua_backend.exe
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Blocks\.placeholder
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Blocks\BANCO_GENERICO.dxf
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Blocks\CAIXA_GENERICA.dxf
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Blocks\MEDIDOR_GENERICO.dxf
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Blocks\POSTE_GENERICO.dxf
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\frontend\dist\index.html
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\frontend\dist\vite.svg
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\frontend\dist\assets\index-4OZWGzg2.js
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\frontend\dist\assets\index-DqLR-ZjX.css
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Resources\blocks_mapping.json
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Resources\layers.json
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Resources\mapeamento.json
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Resources\prancha.dwg
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\runtimes\linux-x64\native\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\runtimes\osx-x64\native\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\runtimes\win-arm64\native\WebView2Loader.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\runtimes\win-x64\native\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\runtimes\win-x64\native\WebView2Loader.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\runtimes\win-x86\native\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\runtimes\win-x86\native\WebView2Loader.dll
+   Compressing Setup program executable
+   Updating version info (Setup.exe)
+   Updating manifest (Setup.exe)
+
+Warning: The [Setup] section directive "PrivilegesRequired" is set to "admin" but per-user areas (userappdata) are used by the script. Regardless of the version of Windows, if the installation is running in administrative install mode then you should be careful about making any per-user area changes: such changes may not achieve what you are intending. See the "UsedUserAreasWarning" topic in help file for more information.
+
+Successful compile (11,250 sec). Resulting Setup program filename is:
+C:\plugin_autocad\installer\out\sisRUA-Installer-0.2.0.exe
+OK: instalador gerado em C:\plugin_autocad\installer\out
+[sisrua] OK: installer concluido.
