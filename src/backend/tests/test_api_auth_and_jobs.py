@@ -11,6 +11,7 @@ def _import_api_with_token(token: str):
     backend.api lê AUTH_TOKEN no import. Para testes, precisamos setar env antes e recarregar o módulo.
     """
     os.environ["SISRUA_AUTH_TOKEN"] = token
+    import osmnx # Explicitly import osmnx to ensure it's loaded in the test environment
     from backend import api as api_mod  # noqa: WPS433 (import local intencional)
 
     importlib.reload(api_mod)
@@ -93,10 +94,121 @@ def test_jobs_require_token(client):
     assert r.status_code == 401
 
 
-    assert job["status"] == "failed"
-    assert "GeoJSON inválido" in (job.get("error") or job.get("message") or "")
+def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
+    # Mock osmnx calls since it's not installed in CI
+    # Need to set up mocks before any osmnx calls
+    from shapely.geometry import Point, LineString
+    
+    class MockNode:
+        def __init__(self, osmid, x, y, tags):
+            self.osmid = osmid
+            self.x = x
+            self.y = y
+            self.geometry = Point(x, y)
+            self.tags = tags
 
-def test_create_prepare_job_osm_blocks_completes(client, api_mod):
+        def to_dict(self):
+            return self.tags
+
+    class MockEdge:
+        def __init__(self, u, v, key, geometry, tags):
+            self.u = u
+            self.v = v
+            self.key = key
+            self.geometry = geometry
+            self.tags = tags
+
+        def to_dict(self):
+            return self.tags
+
+    class MockRow:
+        """Mock para uma linha retornada por iterrows()"""
+        def __init__(self, item):
+            self._item = item
+            self.geometry = item.geometry if hasattr(item, 'geometry') else None
+            # Make tags accessible as attributes for get() method
+            if hasattr(item, 'tags'):
+                self._tags = item.tags
+                for key, value in item.tags.items():
+                    setattr(self, key, value)
+            else:
+                self._tags = {}
+        
+        def get(self, key, default=None):
+            # First try as attribute
+            if hasattr(self, key) and not key.startswith('_'):
+                return getattr(self, key)
+            # Then try tags
+            if hasattr(self, '_tags'):
+                return self._tags.get(key, default)
+            return default
+        
+        def to_dict(self):
+            # Return tags dictionary directly
+            if hasattr(self, '_tags'):
+                return self._tags.copy()
+            if hasattr(self._item, 'to_dict'):
+                return self._item.to_dict()
+            return {}
+    
+    class MockGeometrySeries:
+        """Mock para edges.geometry que retorna uma série com notna()"""
+        def __init__(self, gdf):
+            self._gdf = gdf
+        
+        def notna(self):
+            # Retorna uma lista booleana que pode ser usada para indexação
+            return [True] * len(self._gdf._data)
+    
+    class MockGDF:
+        def __init__(self, data):
+            self._data = data
+            self._geometry_series = MockGeometrySeries(self)
+
+        def iterrows(self):
+            for item in self._data:
+                yield None, MockRow(item) # row_idx, row_series
+
+        @property
+        def geometry(self):
+            return self._geometry_series
+        
+        def __getitem__(self, key):
+            # Quando indexado com lista booleana (resultado de notna()), retorna o próprio objeto
+            # Isso simula edges[edges.geometry.notna()] retornando edges (todos passam)
+            if isinstance(key, list) and len(key) == len(self._data) and all(isinstance(x, bool) for x in key):
+                return self
+            return self
+
+    mock_nodes_data = [
+        MockNode(1, -41.3235, -21.7634, {"highway": "street_light", "name": "Poste A"}),
+        MockNode(2, -41.3230, -21.7630, {"power": "pole", "name": "Poste B"}),
+        MockNode(3, -41.3232, -21.7632, {"amenity": "bench", "name": "Banco C"}),
+    ]
+    mock_edges_data = [
+        MockEdge(1, 2, 0, LineString([[-41.3235, -21.7634], [-41.3230, -21.7630]]), {"highway": "residential", "name": "Rua D"}),
+    ]
+
+    mock_nodes_gdf = MockGDF(mock_nodes_data)
+    mock_edges_gdf = MockGDF(mock_edges_data)
+
+    # Create a mock graph object that can be passed to graph_to_gdfs
+    class MockGraph:
+        pass
+    
+    mock_graph = MockGraph()
+
+    def mock_graph_from_point(point, dist, network_type):
+        return mock_graph
+
+    def mock_graph_to_gdfs(graph):
+        return mock_nodes_gdf, mock_edges_gdf
+
+    # Mock osmnx module - it's already imported in _import_api_with_token, so we patch it
+    import osmnx
+    monkeypatch.setattr(osmnx, "graph_from_point", mock_graph_from_point)
+    monkeypatch.setattr(osmnx, "graph_to_gdfs", mock_graph_to_gdfs)
+
     # Latitude/Longitude em área que deve conter street_lights/poles
     payload = {
         "kind": "osm",
@@ -110,7 +222,7 @@ def test_create_prepare_job_osm_blocks_completes(client, api_mod):
     job = r.json()
     job_id = job["job_id"]
     
-    deadline = time.time() + 30 # Aumentado o timeout para dados OSM
+    deadline = time.time() + 10 # Adjusted timeout for mock
     last = None
     while time.time() < deadline:
         r2 = client.get(f"/api/v1/jobs/{job_id}", headers={"X-SisRua-Token": "test-token-123"})
@@ -118,25 +230,37 @@ def test_create_prepare_job_osm_blocks_completes(client, api_mod):
         last = r2.json()
         if last["status"] in ("completed", "failed"):
             break
-        time.sleep(0.5)
+        time.sleep(0.1)
 
     assert last is not None
+    if last["status"] == "failed":
+        error_msg = last.get("error", "Unknown error")
+        message = last.get("message", "No message")
+        pytest.fail(f"OSM Job Failed. Error: {error_msg}, Message: {message}")
     assert last["status"] == "completed"
     assert last["result"]["crs_out"].startswith("EPSG:")
     assert isinstance(last["result"]["features"], list)
     
     # Verifica se existem features de ponto (blocos)
     point_features = [f for f in last["result"]["features"] if f["feature_type"] == "Point"]
-    assert len(point_features) >= 1, "Should find at least one point feature (block)"
+    assert len(point_features) >= 3, "Should find 3 point features (blocks)"
     
     # Verifica propriedades de um bloco
-    f_point = point_features[0]
-    assert f_point["feature_type"] == "Point"
-    assert "insertion_point_xy" in f_point
-    assert "block_name" in f_point
-    assert f_point["block_name"] in ["POSTE", "BANCO"] # Based on current mapping in api.py
-    assert "block_filepath" not in f_point # C# will resolve this from config
-    assert f_point["layer"] == "SISRUA_OSM_PONTOS"
+    f_point_poste_a = next((f for f in point_features if f["name"] == "Poste A"), None)
+    assert f_point_poste_a is not None
+    assert f_point_poste_a["feature_type"] == "Point"
+    assert "insertion_point_xy" in f_point_poste_a
+    assert f_point_poste_a["block_name"] == "POSTE"
+    assert f_point_poste_a["layer"] == "SISRUA_OSM_PONTOS"
+
+    f_point_poste_b = next((f for f in point_features if f["name"] == "Poste B"), None)
+    assert f_point_poste_b is not None
+    assert f_point_poste_b["block_name"] == "POSTE"
+
+    f_point_banco_c = next((f for f in point_features if f["name"] == "Banco C"), None)
+    assert f_point_banco_c is not None
+    assert f_point_banco_c["block_name"] == "BANCO"
+
 
     # Verifica se ainda existem features de polilinha
     polyline_features = [f for f in last["result"]["features"] if f["feature_type"] == "Polyline"]
