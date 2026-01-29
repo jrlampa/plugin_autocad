@@ -1,0 +1,371 @@
+AVISO: Variavel CODE_SIGN_THUMBPRINT nao definida. Nenhuma assinatura de codigo sera realizada.
+[0.1/3] Compilando Multi-Target (net48 + net8.0-windows)...
+  Determinando os projetos a serem restaurados...
+  C:\plugin_autocad\src\plugin\sisRUA.csproj restaurado (em 415 ms).
+C:\plugin_autocad\src\plugin\SisRuaCommands.cs(19,7): warning CS0105: A diretiva using para "System.Globalization" apareceu anteriormente neste namespace [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(378,50): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(402,54): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+  sisRUA -> C:\plugin_autocad\src\plugin\bin\x64\Release\net48\sisRUA.dll
+C:\plugin_autocad\src\plugin\SisRuaCommands.cs(19,7): warning CS0105: A diretiva using para "System.Globalization" apareceu anteriormente neste namespace [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(378,50): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(402,54): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+  sisRUA -> C:\plugin_autocad\src\plugin\bin\x64\Release\net8.0-windows\sisRUA.dll
+
+Compila├º├úo com ├¬xito.
+
+C:\plugin_autocad\src\plugin\SisRuaCommands.cs(19,7): warning CS0105: A diretiva using para "System.Globalization" apareceu anteriormente neste namespace [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(378,50): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(402,54): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+C:\plugin_autocad\src\plugin\SisRuaCommands.cs(19,7): warning CS0105: A diretiva using para "System.Globalization" apareceu anteriormente neste namespace [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(378,50): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+C:\plugin_autocad\src\plugin\SisRuaPalette.cs(402,54): warning CS4014: Como esta chamada n├úo ├® aguardada, a execu├º├úo do m├®todo atual continua antes da conclus├úo da chamada. Considere aplicar o operador 'await' ao resultado da chamada. [C:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+    6 Aviso(s)
+    0 Erro(s)
+
+Tempo Decorrido 00:00:06.00
+[0.5/3] Build do frontend (Release)...
+INFO: Usando versao do projeto: 0.3.0
+[frontend] Preparando build em pasta temporaria (evita travas em pastas sincronizadas)...
+INFO: package.json em C:\Users\JONATA~1\AppData\Local\Temp\sisrua_frontend_build_dffa960701954b209c48c0e6c95b2fe5\package.json atualizado para versao 0.3.0.
+[frontend] Instalando dependencias (npm install)...
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+
+added 354 packages in 16s
+[frontend] Gerando build (vite)...
+
+> frontend@0.3.0 build
+> vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32mÔ£ô[39m 1815 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                 [39m[1m[2m  0.46 kB[22m[1m[22m[2m Ôöé gzip:   0.29 kB[22m
+[2mdist/[22m[35massets/index-DHHZdSDk.css  [39m[1m[2m 40.63 kB[22m[1m[22m[2m Ôöé gzip:  11.25 kB[22m
+[2mdist/[22m[36massets/index-tm7ZJOj4.js   [39m[1m[2m483.73 kB[22m[1m[22m[2m Ôöé gzip: 158.09 kB[22m
+[32mÔ£ô built in 6.11s[39m
+OK: frontend gerado em C:\plugin_autocad\tools\..\\src\\frontend\dist
+[1/3] Gerando backend EXE (opcional, mas recomendado)...
+Matando processos sisrua_backend.exe antigos...
+INFO: Usando versao do projeto: 0.3.0
+# UTF-8
+FILEVERSION 0,3,0,
+PRODUCTVERSION 0,3,0,
+Instalando dependencias do build (pode demorar)...
+Requirement already satisfied: pip in c:\sisrua_build\.venv-backend-build\lib\site-packages (25.3)
+Requirement already satisfied: fastapi in c:\sisrua_build\.venv-backend-build\lib\site-packages (from -r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (0.128.0)
+Requirement already satisfied: uvicorn in c:\sisrua_build\.venv-backend-build\lib\site-packages (from -r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 2)) (0.40.0)
+Requirement already satisfied: osmnx in c:\sisrua_build\.venv-backend-build\lib\site-packages (from -r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2.0.7)
+Requirement already satisfied: pyproj in c:\sisrua_build\.venv-backend-build\lib\site-packages (from -r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 4)) (3.7.1)
+Requirement already satisfied: shapely in c:\sisrua_build\.venv-backend-build\lib\site-packages (from -r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 5)) (2.1.2)
+Requirement already satisfied: geopandas in c:\sisrua_build\.venv-backend-build\lib\site-packages (from -r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 6)) (1.1.2)
+Requirement already satisfied: starlette<0.51.0,>=0.40.0 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (0.50.0)
+Requirement already satisfied: pydantic>=2.7.0 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (2.12.5)
+Requirement already satisfied: typing-extensions>=4.8.0 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (4.15.0)
+Requirement already satisfied: annotated-doc>=0.0.2 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (0.0.4)
+Requirement already satisfied: anyio<5,>=3.6.2 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from starlette<0.51.0,>=0.40.0->fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (4.12.1)
+Requirement already satisfied: exceptiongroup>=1.0.2 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from anyio<5,>=3.6.2->starlette<0.51.0,>=0.40.0->fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (1.3.1)
+Requirement already satisfied: idna>=2.8 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from anyio<5,>=3.6.2->starlette<0.51.0,>=0.40.0->fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (3.11)
+Requirement already satisfied: click>=7.0 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from uvicorn->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 2)) (8.3.1)
+Requirement already satisfied: h11>=0.8 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from uvicorn->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 2)) (0.16.0)
+Requirement already satisfied: networkx>=2.5 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (3.4.2)
+Requirement already satisfied: numpy>=1.22 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2.2.6)
+Requirement already satisfied: pandas>=1.4 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2.3.3)
+Requirement already satisfied: requests>=2.27 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2.32.5)
+Requirement already satisfied: certifi in c:\sisrua_build\.venv-backend-build\lib\site-packages (from pyproj->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 4)) (2026.1.4)
+Requirement already satisfied: pyogrio>=0.7.2 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from geopandas->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 6)) (0.12.1)
+Requirement already satisfied: packaging in c:\sisrua_build\.venv-backend-build\lib\site-packages (from geopandas->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 6)) (26.0)
+Requirement already satisfied: colorama in c:\sisrua_build\.venv-backend-build\lib\site-packages (from click>=7.0->uvicorn->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 2)) (0.4.6)
+Requirement already satisfied: python-dateutil>=2.8.2 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from pandas>=1.4->osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2.9.0.post0)
+Requirement already satisfied: pytz>=2020.1 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from pandas>=1.4->osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2025.2)
+Requirement already satisfied: tzdata>=2022.7 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from pandas>=1.4->osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2025.3)
+Requirement already satisfied: annotated-types>=0.6.0 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from pydantic>=2.7.0->fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (0.7.0)
+Requirement already satisfied: pydantic-core==2.41.5 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from pydantic>=2.7.0->fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (2.41.5)
+Requirement already satisfied: typing-inspection>=0.4.2 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from pydantic>=2.7.0->fastapi->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 1)) (0.4.2)
+Requirement already satisfied: six>=1.5 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from python-dateutil>=2.8.2->pandas>=1.4->osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (1.17.0)
+Requirement already satisfied: charset_normalizer<4,>=2 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from requests>=2.27->osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (3.4.4)
+Requirement already satisfied: urllib3<3,>=1.21.1 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from requests>=2.27->osmnx->-r C:\plugin_autocad\tools\..\src\backend\requirements.txt (line 3)) (2.6.3)
+Requirement already satisfied: pyinstaller in c:\sisrua_build\.venv-backend-build\lib\site-packages (6.18.0)
+Requirement already satisfied: altgraph in c:\sisrua_build\.venv-backend-build\lib\site-packages (from pyinstaller) (0.17.5)
+Requirement already satisfied: packaging>=22.0 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from pyinstaller) (26.0)
+Requirement already satisfied: pefile>=2022.5.30 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from pyinstaller) (2024.8.26)
+Requirement already satisfied: pyinstaller-hooks-contrib>=2025.9 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from pyinstaller) (2026.0)
+Requirement already satisfied: pywin32-ctypes>=0.2.1 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from pyinstaller) (0.2.3)
+Requirement already satisfied: setuptools>=42.0.0 in c:\sisrua_build\.venv-backend-build\lib\site-packages (from pyinstaller) (65.5.0)
+[licenses] Auditando licencas do backend (pip-licenses)...
+[licenses] Instalando pip-licenses no venv de build...
+[licenses] Gerando relatorio JSON (com textos de licencas)...
+[licenses] Gravando C:\plugin_autocad\tools\..\THIRD_PARTY_NOTICES.md ...
+[licenses] OK.
+Gerando sisrua_backend.exe...
+186 INFO: PyInstaller: 6.18.0, contrib hooks: 2026.0
+186 INFO: Python: 3.10.11
+199 INFO: Platform: Windows-10-10.0.26200-SP0
+199 INFO: Python environment: C:\sisrua_build\.venv-backend-build
+199 INFO: wrote C:\sisrua_build\\pyinstaller-spec\sisrua_backend.spec
+204 INFO: Removing temporary files and cleaning cache in C:\Users\Jonatas Lampa\AppData\Local\pyinstaller
+255 INFO: Module search paths (PYTHONPATH):
+['C:\\plugin_autocad',
+ 'C:\\Users\\Jonatas '
+ 'Lampa\\AppData\\Local\\Programs\\Python\\Python310\\python310.zip',
+ 'C:\\Users\\Jonatas Lampa\\AppData\\Local\\Programs\\Python\\Python310\\DLLs',
+ 'C:\\Users\\Jonatas Lampa\\AppData\\Local\\Programs\\Python\\Python310\\lib',
+ 'C:\\Users\\Jonatas Lampa\\AppData\\Local\\Programs\\Python\\Python310',
+ 'C:\\sisrua_build\\.venv-backend-build',
+ 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages',
+ 'C:\\plugin_autocad\\src\\backend']
+767 INFO: Appending 'datas' from .spec
+776 INFO: checking Analysis
+776 INFO: Building Analysis because Analysis-00.toc is non existent
+776 INFO: Looking for Python shared library...
+776 INFO: Using Python shared library: C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\python310.dll
+776 INFO: Running Analysis Analysis-00.toc
+776 INFO: Target bytecode optimization level: 0
+776 INFO: Initializing module dependency graph...
+778 INFO: Initializing module graph hook caches...
+799 INFO: Analyzing modules for base_library.zip ...
+1496 INFO: Processing standard module hook 'hook-encodings.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+2038 INFO: Processing standard module hook 'hook-heapq.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+3919 INFO: Processing standard module hook 'hook-pickle.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+4943 INFO: Caching module dependency graph...
+4990 INFO: Analyzing C:\plugin_autocad\src\backend\standalone.py
+5099 INFO: Processing standard module hook 'hook-uvicorn.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+5668 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+5743 INFO: Processing standard module hook 'hook-xml.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+5941 INFO: Processing standard module hook 'hook-_ctypes.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+7217 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+7232 INFO: SetuptoolsInfo: initializing cached setuptools info...
+9225 INFO: Processing standard module hook 'hook-platform.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+9278 INFO: Processing standard module hook 'hook-difflib.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+9555 INFO: Processing standard module hook 'hook-pyproj.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+9582 WARNING: Datas for pyproj not found at:
+C:\sisrua_build\.venv-backend-build\Library\share\proj
+9596 INFO: Processing standard module hook 'hook-certifi.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+10813 INFO: Processing standard module hook 'hook-numpy.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+11157 INFO: Processing standard module hook 'hook-sysconfig.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+14004 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+14405 INFO: Processing standard module hook 'hook-pandas.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+16372 INFO: Processing standard module hook 'hook-pytz.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+22693 INFO: Processing standard module hook 'hook-pandas.io.formats.style.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+27563 INFO: Processing standard module hook 'hook-pandas.plotting.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+28659 INFO: Processing standard module hook 'hook-sqlite3.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+29028 INFO: Processing standard module hook 'hook-pandas.io.clipboard.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+29232 INFO: Processing standard module hook 'hook-dateutil.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+29346 INFO: Processing pre-safe-import-module hook 'hook-six.moves.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+29758 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+29771 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks'
+31632 INFO: Processing standard module hook 'hook-geopandas.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+31655 INFO: Processing standard module hook 'hook-shapely.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+31796 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+32126 INFO: Processing standard module hook 'hook-urllib3.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+32205 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+33035 INFO: Processing standard module hook 'hook-pydantic.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+33896 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+34641 INFO: Processing standard module hook 'hook-anyio.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+35809 INFO: Processing module hooks (post-graph stage)...
+36014 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+36105 WARNING: Hidden import "jinja2" not found!
+36111 INFO: Processing standard module hook 'hook-tzdata.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+36786 INFO: Performing binary vs. data reclassification (1316 entries)
+36924 INFO: Looking for ctypes DLLs
+36946 INFO: Analyzing run-time hooks ...
+36958 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+36958 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+36963 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+36963 INFO: Including run-time hook 'pyi_rth_pyproj.py' from 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+37028 INFO: Creating base_library.zip...
+37051 INFO: Looking for dynamic libraries
+39305 INFO: Extra DLL search directories (AddDllDirectory): ['C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\shapely.libs', 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\numpy.libs', 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\pandas.libs', 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\pyproj.libs', 'C:\\sisrua_build\\.venv-backend-build\\lib\\site-packages\\pyogrio.libs']
+39305 INFO: Extra DLL search directories (PATH): []
+41365 INFO: Warnings written to C:\sisrua_build\pyinstaller-work\sisrua_backend\warn-sisrua_backend.txt
+41582 INFO: Graph cross-reference written to C:\sisrua_build\pyinstaller-work\sisrua_backend\xref-sisrua_backend.html
+41681 INFO: checking PYZ
+41681 INFO: Building PYZ because PYZ-00.toc is non existent
+41681 INFO: Building PYZ (ZlibArchive) C:\sisrua_build\pyinstaller-work\sisrua_backend\PYZ-00.pyz
+42965 INFO: Building PYZ (ZlibArchive) C:\sisrua_build\pyinstaller-work\sisrua_backend\PYZ-00.pyz completed successfully.
+43030 INFO: checking PKG
+43030 INFO: Building PKG because PKG-00.toc is non existent
+43032 INFO: Building PKG (CArchive) sisrua_backend.pkg
+66700 INFO: Building PKG (CArchive) sisrua_backend.pkg completed successfully.
+66736 INFO: Bootloader C:\sisrua_build\.venv-backend-build\lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\run.exe
+66736 INFO: checking EXE
+66736 INFO: Building EXE because EXE-00.toc is non existent
+66736 INFO: Building EXE from EXE-00.toc
+66740 INFO: Copying bootloader EXE to C:\sisrua_build\pyinstaller-dist\sisrua_backend.exe
+66893 INFO: Copying icon to EXE
+67033 INFO: Copying 0 resources to EXE
+67033 INFO: Embedding manifest in EXE
+67162 INFO: Appending PKG archive to EXE
+67392 INFO: Fixing EXE headers
+68396 INFO: Building EXE from EXE-00.toc completed successfully.
+68432 INFO: Build complete! The results are available in: C:\sisrua_build\pyinstaller-dist
+OK: C:\plugin_autocad\tools\..\bundle-template\sisRUA.bundle\Contents\backend\\sisrua_backend.exe
+[1.5/3] Smoke test do backend EXE (sem OSM)...
+[smoke] Iniciando backend: C:\Users\JONATA~1\AppData\Local\Temp\sisrua_smoke_run_2494be60984b49eba3bb160c2c06f14a\sisrua_backend.exe --port 53464
+[smoke] Health OK: http://127.0.0.1:53464
+[smoke] prepare/geojson OK: 1 feature(s)
+[smoke] OK
+[2/3] Gerando bundle em release\\sisRUA.bundle...
+[1/6] Preparando pasta de saida (deploy)...
+INFO: Usando versao do projeto: 0.3.0
+[1.5/6] Atualizando AppVersion em PackageContents.xml...
+INFO: AppVersion em 'C:\plugin_autocad\bundle-template\sisRUA.bundle\PackageContents.xml' atualizado para '0.3.0'.
+[2/6] Copiando PackageContents.xml...
+[3/6] Copiando binarios .NET (Multi-Targeting)...
+  [net8.0-windows] Copiando...
+  [net48] Copiando...
+[4/6] Copiando backend Python...
+[5/6] Copiando frontend (dist)...
+[5.5/6] Copiando Blocos CAD...
+[6/6] Copiando Resources...
+
+======================================================
+ESTRUTURA ORGANIZADA COM SUCESSO
+Local: C:\plugin_autocad\release\sisRUA.bundle
+======================================================
+[2.5/3] Verificando integridade dos artefatos...
+
+>>> Verifying Bundle Integrity at: C:\plugin_autocad\release\sisRUA.bundle
+ [OK] PackageContents.xml exists.
+ [OK] net8.0-windows/sisRUA.dll           (109,5 KB)
+ [OK] net48/sisRUA.dll                    (106,5 KB)
+ [OK] Backend EXE exists.
+ [OK] WebView2 Runtimes exist.
+
+>>> VERIFICATION SUCCESS! All compatibility artifacts are present.
+[3/3] Gerando instalador...
+Inno Setup 6 Command-Line Compiler
+Copyright (C) 1997-2026 Jordan Russell. All rights reserved.
+Portions Copyright (C) 2000-2026 Martijn Laan. All rights reserved.
+Portions Copyright (C) 2001-2004 Alex Yackimoff. All rights reserved.
+https://www.innosetup.com
+
+Compiler engine version: Inno Setup 6.7.0
+Non-commercial use only
+
+Preprocessing
+   Reading file: C:\Program Files (x86)\Inno Setup 6\ISPPBuiltins.iss
+Parsing [Setup] section, line 9
+Parsing [Setup] section, line 10
+Parsing [Setup] section, line 11
+Parsing [Setup] section, line 12
+Parsing [Setup] section, line 13
+Parsing [Setup] section, line 14
+Parsing [Setup] section, line 15
+Parsing [Setup] section, line 16
+Parsing [Setup] section, line 17
+Parsing [Setup] section, line 18
+Parsing [Setup] section, line 19
+Parsing [Setup] section, line 20
+Reading file (WizardImageFile)
+Reading file (WizardSmallImageFile)
+Preparing Setup program executable
+   Verification successful
+   Updating icons (Setup.e32)
+   Updating version info (Setup.e32)
+Determining language code pages
+Parsing [Languages] section, line 23
+   Reading file: C:\Program Files (x86)\Inno Setup 6\Languages\BrazilianPortuguese.isl
+   Messages in script file
+Reading default messages from Default.isl
+Parsing [Languages] section, line 23
+   Reading file: C:\Program Files (x86)\Inno Setup 6\Languages\BrazilianPortuguese.isl
+Parsing [LangOptions], [Messages], and [CustomMessages] sections
+   Messages in script file
+Reading [Code] section
+Parsing [Files] section, line 27
+Parsing [Files] section, line 30
+Compiling [Code] section
+Creating setup files
+   Verification successful
+   Updating icons (Setup.exe)
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\PackageContents.xml
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\backend\sisrua_backend.exe
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Blocks\.placeholder
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Blocks\BANCO_GENERICO.dxf
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Blocks\CAIXA_GENERICA.dxf
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Blocks\MEDIDOR_GENERICO.dxf
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Blocks\POSTE_GENERICO.dxf
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\frontend\dist\index.html
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\frontend\dist\vite.svg
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\frontend\dist\assets\index-DHHZdSDk.css
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\frontend\dist\assets\index-tm7ZJOj4.js
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\AcCoreMgd.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\AcCui.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\AcDbMgd.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\acdbmgdbrep.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\AcDx.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\AcMgd.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\AcMr.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\AcSeamless.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\AcTcMgd.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\AcWindows.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\AdUIMgd.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\AdUiPalettes.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\AdWindows.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\Microsoft.Bcl.AsyncInterfaces.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\Microsoft.Web.WebView2.Core.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\Microsoft.Web.WebView2.WinForms.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\Microsoft.Web.WebView2.Wpf.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\sisRUA.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\sisRUA.pdb
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\sisRUA_NET48_ACAD2021.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\System.Buffers.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\System.Data.SQLite.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\System.Memory.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\System.Numerics.Vectors.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\System.Runtime.CompilerServices.Unsafe.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\System.Text.Encodings.Web.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\System.Text.Json.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\System.Threading.Tasks.Extensions.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\System.ValueTuple.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\2021\x64\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\2021\x86\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\2024\x64\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\2024\x86\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\runtimes\win-x64\native\WebView2Loader.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\x64\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net48\x86\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\AcCoreMgd.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\AcCui.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\AcDbMgd.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\acdbmgdbrep.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\AcDx.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\AcMgd.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\AcMr.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\AcSeamless.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\AcTcMgd.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\AcWindows.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\AdUIMgd.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\AdUiPalettes.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\AdWindows.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\Microsoft.Web.WebView2.Core.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\Microsoft.Web.WebView2.WinForms.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\Microsoft.Web.WebView2.Wpf.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\sisRUA.deps.json
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\sisRUA.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\sisRUA.pdb
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\sisRUA_NET8.dll--
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\System.Data.SQLite.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\runtimes\linux-x64\native\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\runtimes\osx-x64\native\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\runtimes\win-arm64\native\WebView2Loader.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\runtimes\win-x64\native\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\runtimes\win-x64\native\WebView2Loader.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\runtimes\win-x86\native\SQLite.Interop.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\net8.0-windows\runtimes\win-x86\native\WebView2Loader.dll
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Resources\blocks_mapping.json
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Resources\layers.json
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Resources\mapeamento.json
+   Compressing: C:\plugin_autocad\installer\..\release\sisRUA.bundle\Contents\Resources\prancha.dwg
+   Compressing Setup program executable
+   Updating version info (Setup.exe)
+   Updating manifest (Setup.exe)
+
+Warning: The [Setup] section directive "PrivilegesRequired" is set to "admin" but per-user areas (userappdata) are used by the script. Regardless of the version of Windows, if the installation is running in administrative install mode then you should be careful about making any per-user area changes: such changes may not achieve what you are intending. See the "UsedUserAreasWarning" topic in help file for more information.
+
+Successful compile (26,484 sec). Resulting Setup program filename is:
+C:\plugin_autocad\installer\out\sisRUA-Installer-0.3.0.exe
+OK: Instalador gerado em C:\plugin_autocad\installer\out
+OK: release\\sisRUA.bundle pronto.

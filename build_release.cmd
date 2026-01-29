@@ -9,9 +9,6 @@ REM ======================================================
 set CODE_SIGN_THUMBPRINT=
 REM Exemplo: set CODE_SIGN_THUMBPRINT=SEU_THUMBPRINT_AQUI
 
-REM Opcionalmente, o usuario pode configurar assinatura de codigo.
-REM Para evitar problemas de parsing com parenteses em caminhos, NENHUMA
-REM deteccao automatica de signtool.exe e feita aqui.
 set SIGNSERVER_PATH=%SIGNSERVER_PATH%
 
 if "%CODE_SIGN_THUMBPRINT%"=="" (
@@ -24,7 +21,7 @@ if "%CODE_SIGN_THUMBPRINT%"=="" (
 
 
 REM ======================================================
-REM  Build completo para distribuicao
+REM  Build completo para distribuicao (Multi-Targeting)
 REM  - (opcional) build do backend EXE
 REM  - bundle em release\
 REM ======================================================
@@ -33,42 +30,16 @@ set ROOT=%~dp0
 set CONFIG=Release
 set PLUGIN_CSPROJ=%ROOT%src\plugin\sisRUA.csproj
 
-dotnet build "%PLUGIN_CSPROJ%" -c Release -f net8.0-windows
+echo [0.1/3] Compilando Multi-Target (net48 + net8.0-windows)...
+dotnet build "%PLUGIN_CSPROJ%" -c Release -p:Platform=x64
 if errorlevel 1 (
-  echo ERRO: falha ao compilar o plugin net8.
+  echo ERRO: falha no dotnet build.
   exit /b 1
 )
-call :SIGN_FILE "%ROOT%src\plugin\bin\x64\%CONFIG%\net8.0-windows\sisRUA_NET8.dll"
 
-REM net48 (AutoCAD 2021) é opcional.
-if "%SISRUA_BUILD_NET48_ACAD2021%"=="1" (
-  echo Building net48 for AutoCAD 2021...
-  dotnet build "%PLUGIN_CSPROJ%" -c Release -f net48 -p:SISRUA_INCLUDE_NET48=true -p:TargetAcadVersion=2021 -p:OutputPath="%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2021"
-  if errorlevel 1 (
-    echo ERRO: falha ao compilar o plugin net48 para AutoCAD 2021. Verifique AutoCAD 2021 instalado e Acad2021Dir no csproj.
-    exit /b 1
-  )
-  copy /Y "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2021\sisRUA_NET48_ACAD2021.dll" "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2021.dll" >nul
-  if exist "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2021\System.ComponentModel.Primitives.dll" (
-      copy /Y "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2021\System.ComponentModel.Primitives.dll" "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\System.ComponentModel.Primitives.dll" >nul
-  )
-  call :SIGN_FILE "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2021.dll"
-)
-
-REM net48 (AutoCAD 2024) é opcional e depende das DLLs do AutoCAD 2024 instaladas.
-if "%SISRUA_BUILD_NET48_ACAD2024%"=="1" (
-  echo Building net48 for AutoCAD 2024...
-  dotnet build "%PLUGIN_CSPROJ%" -c Release -f net48 -p:SISRUA_INCLUDE_NET48=true -p:TargetAcadVersion=2024 -p:OutputPath="%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2024"
-  if errorlevel 1 (
-    echo ERRO: falha ao compilar o plugin net48 para AutoCAD 2024. Verifique AutoCAD 2024 instalado e Acad2024Dir no csproj.
-    exit /b 1
-  )
-  copy /Y "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2024\sisRUA_NET48_ACAD2024.dll" "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2024.dll" >nul
-  if exist "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2024\System.ComponentModel.Primitives.dll" (
-      copy /Y "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2024\System.ComponentModel.Primitives.dll" "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\System.ComponentModel.Primitives.dll" >nul
-  )
-  call :SIGN_FILE "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2024.dll"
-)
+REM Assinando os binaires gerados
+call :SIGN_FILE "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA.dll"
+call :SIGN_FILE "%ROOT%src\plugin\bin\x64\%CONFIG%\net8.0-windows\sisRUA.dll"
 
 
 echo [0.5/3] Build do frontend (Release)...

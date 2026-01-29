@@ -25,18 +25,20 @@ if (-not (Test-Path $xmlPath)) {
 Write-Host " [OK] PackageContents.xml exists." -ForegroundColor Green
 
 # 2. Check DLLs
-$requiredDlls = @("sisRUA_NET8.dll", "sisRUA_NET48_ACAD2021.dll", "sisRUA_NET48_ACAD2024.dll")
+# 2. Check DLLs
+$requiredDlls = @(
+  "net8.0-windows/sisRUA.dll", 
+  "net48/sisRUA.dll"
+)
 
-foreach ($dll in $requiredDlls) {
-  if ($CheckNet48Only -and $dll -match "NET8") { continue }
-    
-  $path = Join-Path $contentsPath $dll
+foreach ($dllRelPath in $requiredDlls) {
+  $path = Join-Path $contentsPath $dllRelPath
   if (Test-Path $path) {
     $size = (Get-Item $path).Length / 1KB
-    Write-Host (" [OK] {0,-30} ({1:N1} KB)" -f $dll, $size) -ForegroundColor Green
+    Write-Host (" [OK] {0,-35} ({1:N1} KB)" -f $dllRelPath, $size) -ForegroundColor Green
   }
   else {
-    Write-Host " [FAIL] $dll is MISSING from $contentsPath" -ForegroundColor Red
+    Write-Host " [FAIL] $dllRelPath is MISSING from $contentsPath" -ForegroundColor Red
     $failure = $true
   }
 }
@@ -52,7 +54,7 @@ else {
 }
 
 # 4. Check WebView2
-$runtime64 = Join-Path $contentsPath "runtimes/win-x64/native/WebView2Loader.dll"
+$runtime64 = Join-Path $contentsPath "net8.0-windows/runtimes/win-x64/native/WebView2Loader.dll"
 if (Test-Path $runtime64) {
   Write-Host " [OK] WebView2 Runtimes exist." -ForegroundColor Green
 }
