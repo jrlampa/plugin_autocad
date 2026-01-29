@@ -21,6 +21,8 @@ using System.Data.SQLite; // Add this using for ProjectRepository
 
 namespace sisRUA
 {
+    using sisRUA.UI; // Import UI namespace for ProcessingDialog
+
     /// <summary>
     /// Contém os comandos do AutoCAD e a lógica de negócio para interagir com o desenho e o backend.
     /// </summary>
@@ -87,7 +89,7 @@ namespace sisRUA
         }
 
         [CommandMethod("SISRUA_RELOAD_PROJECT", CommandFlags.Session)]
-        public static void SisRuaReloadProjectCommand()
+        public static async void SisRuaReloadProjectCommand()
         {
             Document doc = Application.DocumentManager.MdiActiveDocument;
             if (doc == null)
@@ -141,7 +143,7 @@ namespace sisRUA
                 // For simplicity, we will just draw over for now. User can clear manually if needed.
 
                 ed.WriteMessage($"\n[sisRUA] Carregando e redesenhando projeto '{projectName}' (ID: {selectedProjectId})...");
-                DrawCadFeatures(features);
+                await DrawCadFeatures(features);
                 
                 _lastDrawnFeatures = features;
                 _lastDrawnCrsOut = crsOut;
@@ -652,7 +654,7 @@ namespace sisRUA
                 }
 
                 ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
-                DrawCadFeatures(prepareResponse.Features);
+                await DrawCadFeatures(prepareResponse.Features);
 
                 // Store last drawn features for saving
                 _lastDrawnFeatures = prepareResponse.Features;
@@ -703,7 +705,7 @@ namespace sisRUA
                 }
 
                 ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
-                DrawCadFeatures(prepareResponse.Features);
+                await DrawCadFeatures(prepareResponse.Features);
                 EnsureOsmAttributionMText(prepareResponse.Features);
 
                 // Store last drawn features for saving
@@ -725,7 +727,7 @@ namespace sisRUA
             }
         }
 
-        private static void DrawCadFeatures(IEnumerable<CadFeature> features)
+        private static async Task DrawCadFeatures(IEnumerable<CadFeature> features)
         {
             Log("INFO: DrawCadFeatures started.");
             Document doc = Application.DocumentManager.MdiActiveDocument;
@@ -737,8 +739,87 @@ namespace sisRUA
 
             Database db = doc.Database;
             Editor ed = doc.Editor;
+            
+            // Phase 1: Read UI scalars
             double metersToDrawingUnits = GetMetersToDrawingUnitsScale(db);
+            
+            Log("INFO: Starting background geometry processing...");
+            ed.WriteMessage("\n[sisRUA] Processando geometria em background (interface liberada)...");
 
+            ed.WriteMessage("\n[sisRUA] Processando geometria em background (interface liberada)...");
+
+            var dlg = new ProcessingDialog();
+            Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
+
+            // Phase 2: Background Processing
+            // We capture the counts/stats to log them back on the UI thread later
+            object processingResultRaw = null; // Use object to hold anonymous type result
+
+            try
+            {
+                // We capture the task to await it, so the dialog stays open
+                var task = Task.Run(() =>
+                {
+                    var inputCount = features.Count();
+                    
+                    // Limpeza e Simplificação
+                    var cleaned = GeometryCleaner.RemoveDuplicatePolylines(features);
+                    var duplicatesRemoved = inputCount - cleaned.Count();
+                    
+                    var merged = GeometryCleaner.MergeContiguousPolylines(cleaned);
+                    var mergedCount = cleaned.Count() - merged.Count();
+                    
+                    double tolerance = 0.1 * metersToDrawingUnits;
+                    var simplified = GeometryCleaner.SimplifyPolylines(merged, tolerance);
+                    var finalCount = simplified.Count();
+
+                    return new 
+                    { 
+                        Features = simplified, 
+                        DuplicatesRemoved = duplicatesRemoved, 
+                        MergedCount = mergedCount,
+                        Tolerance = tolerance,
+                        FinalCount = finalCount
+                    };
+                });
+
+                processingResultRaw = await task;
+            }
+            finally
+            {
+                dlg.Close();
+                dlg.Dispose();
+            }
+
+            // Cast back to dynamic/anonymous (C# trickery or just use dynamic access)
+            dynamic processingResult = processingResultRaw; // simplified way to access properties of anonymous type
+            
+            // Extract typed values to avoid dynamic dispatch issues (CS8133)
+            IEnumerable<CadFeature> finalFeatures = (IEnumerable<CadFeature>)processingResult.Features;
+            int duplicatesRemoved = (int)processingResult.DuplicatesRemoved;
+            int mergedCount = (int)processingResult.MergedCount;
+            double finalTolerance = (double)processingResult.Tolerance;
+
+            Log("INFO: Background processing finished. Drawing entities...");
+            
+            // Log results on UI Thread
+            if (duplicatesRemoved > 0)
+            {
+                Log($"INFO: Removed {duplicatesRemoved} duplicate polylines.");
+                ed.WriteMessage($"\n[sisRUA] Aviso: {duplicatesRemoved} polylines duplicadas removidas.");
+            }
+            if (mergedCount > 0)
+            {
+                Log($"INFO: Merged {mergedCount} polylines.");
+                ed.WriteMessage($"\n[sisRUA] Aviso: {mergedCount} polylines foram fundidas.");
+            }
+            if (finalTolerance > 0) // Just to mention tolerance
+            {
+                Log($"INFO: Simplified polylines with {finalTolerance} tolerance.");
+                ed.WriteMessage($"\n[sisRUA] Aviso: Polylines simplificadas (tolerância: {finalTolerance:F2} unidades).");
+            }
+
+            // Phase 3: Drawing (UI Thread Transaction)
             using (doc.LockDocument())
             using (Transaction tr = db.TransactionManager.StartTransaction())
             {
@@ -750,36 +831,7 @@ namespace sisRUA
                 int createdPolylines = 0;
                 int createdBlocks = 0;
 
-                // --- FASE 1.5.2: Limpeza e Simplificação de Geometria OSM ---
-                // Aplica a remoção de duplicatas antes de desenhar.
-                // Outras operações de limpeza (fusão, simplificação) viriam aqui.
-                var cleanedFeatures = GeometryCleaner.RemoveDuplicatePolylines(features);
-                if (cleanedFeatures.Count() < features.Count())
-                {
-                    Log($"INFO: Removed {features.Count() - cleanedFeatures.Count()} duplicate polylines.");
-                    ed.WriteMessage($"\n[sisRUA] Aviso: {features.Count() - cleanedFeatures.Count()} polylines duplicadas removidas.");
-                }
-
-                // Aplica a fusão de polylines contíguas
-                var mergedFeatures = GeometryCleaner.MergeContiguousPolylines(cleanedFeatures);
-                if (mergedFeatures.Count() < cleanedFeatures.Count())
-                {
-                    Log($"INFO: Merged {cleanedFeatures.Count() - mergedFeatures.Count()} polylines.");
-                    ed.WriteMessage($"\n[sisRUA] Aviso: {cleanedFeatures.Count() - mergedFeatures.Count()} polylines foram fundidas.");
-                }
-                
-                // Aplica a simplificação de polylines
-                double polylineSimplificationTolerance = 0.1 * metersToDrawingUnits; // 0.1m tolerance in drawing units
-                var simplifiedFeatures = GeometryCleaner.SimplifyPolylines(mergedFeatures, polylineSimplificationTolerance);
-                if (simplifiedFeatures.Count() < mergedFeatures.Count()) // Check for actual simplification (reduced points)
-                {
-                    Log($"INFO: Simplified polylines with {polylineSimplificationTolerance} tolerance.");
-                    ed.WriteMessage($"\n[sisRUA] Aviso: Polylines simplificadas (tolerância: {polylineSimplificationTolerance:F2} unidades).");
-                }
-                
-                // --- FIM FASE 1.5.2 ---
-
-                foreach (var f in simplifiedFeatures)
+                foreach (var f in finalFeatures)
                 {
                     if (f == null) continue;
 

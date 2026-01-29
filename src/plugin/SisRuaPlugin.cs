@@ -68,63 +68,84 @@ namespace sisRUA
                     return;
                 }
 
-                lock (_backendLock)
+                // Mutex global para garantir que apenas um processo de inicialização ocorra por vez no SO.
+                using (var startupMutex = new Mutex(false, @"Global\sisRUA_Backend_Init"))
                 {
-                    // Se o backend já estiver rodando, não iniciamos um novo processo.
-                    // - Primeiro tenta reaproveitar a última porta salva (se existir).
-                    int previousPort = TryReadLastBackendPort();
-                    if (previousPort > 0)
-                    {
-                        BackendPort = previousPort;
-                    }
+                    // Tenta adquirir o mutex por até 10 segundos. Se falhar, assume que outro processo travou e prossegue com cuidado.
+                    bool hasHandle = false;
+                    try { hasHandle = startupMutex.WaitOne(10000, false); } catch (AbandonedMutexException) { hasHandle = true; }
 
-                    string previousToken = TryReadLastBackendToken();
-                    if (!string.IsNullOrWhiteSpace(previousToken))
+                    try
                     {
-                        BackendAuthToken = previousToken;
-                    }
-
-                    if (string.IsNullOrWhiteSpace(BackendAuthToken))
-                    {
-                        BackendAuthToken = Guid.NewGuid().ToString("N");
-                        PersistBackendToken(BackendAuthToken);
-                    }
-
-                    if (IsBackendHealthy() && IsBackendAuthorized())
-                    {
-                        // Se possível, anexa ao PID persistido para poder encerrar no Terminate().
-                        int previousPid = TryReadLastBackendPid();
-                        if (previousPid > 0)
+                        lock (_backendLock)
                         {
-                            try
+                            // Se o backend já estiver rodando, não iniciamos um novo processo.
+                            int previousPort = TryReadLastBackendPort();
+                            if (previousPort > 0) BackendPort = previousPort;
+
+                            string previousToken = TryReadLastBackendToken();
+                            if (!string.IsNullOrWhiteSpace(previousToken)) BackendAuthToken = previousToken;
+
+                            // Se não tiver token, gera um.
+                            if (string.IsNullOrWhiteSpace(BackendAuthToken))
                             {
-                                _pythonProcess = Process.GetProcessById(previousPid);
+                                BackendAuthToken = Guid.NewGuid().ToString("N");
+                                PersistBackendToken(BackendAuthToken);
                             }
-                            catch (System.Exception ex)
+
+                            // 1. Verifica se já está saudável e autorizado
+                            if (IsBackendHealthy() && IsBackendAuthorized())
                             {
-                                LogToEditor($"\n>>> Aviso: Não foi possível anexar ao processo PID {previousPid}: {ex.Message}");
-                                _pythonProcess = null;
+                                LogToEditor($"\n>>> Backend do sisRUA já está rodando (health/auth OK) em {BackendBaseUrl}.");
+                                // Tenta readquirir o objeto Process para o Terminate() funcionar depois
+                                AttachToExistingProcess();
+                                return;
                             }
+
+                            // 2. Se não está saudável, verifica se existe um PID rodando que pode estar "bootando"
+                            int previousPid = TryReadLastBackendPid();
+                            if (previousPid > 0)
+                            {
+                                try
+                                {
+                                    Process p = Process.GetProcessById(previousPid);
+                                    if (p != null && !p.HasExited)
+                                    {
+                                        LogToEditor($"\n>>> Backend (PID {previousPid}) detectado. Aguardando inicialização...");
+                                        // Aguarda até 15s para ele ficar saudável
+                                        if (WaitForBackendHealthy(TimeSpan.FromSeconds(15)))
+                                        {
+                                            if (IsBackendAuthorized())
+                                            {
+                                                LogToEditor($"\n>>> Backend (PID {previousPid}) inicializou com sucesso e foi reutilizado.");
+                                                _pythonProcess = p;
+                                                return;
+                                            }
+                                        }
+                                        
+                                        // Se chegou aqui, ou timeout ou não autorizado. Mata o processo antigo.
+                                        LogToEditor($"\n>>> Aviso: Backend (PID {previousPid}) não respondeu corretamente. Reiniciando...");
+                                        TryKillProcess(previousPid);
+                                    }
+                                }
+                                catch (ArgumentException) { /* Processo não existe mais */ }
+                                catch (System.Exception ex) { LogToEditor($"\n[Aviso] Erro ao verificar PID anterior: {ex.Message}"); }
+                            }
+
+                            // 3. Inicia novo processo
+                            // Porta dinâmica: escolhe uma porta livre para evitar conflito.
+                            BackendPort = ChooseFreePort();
+                            PersistBackendPort(BackendPort);
+
+                            // Novo token por sessão
+                            BackendAuthToken = Guid.NewGuid().ToString("N");
+                            PersistBackendToken(BackendAuthToken);
                         }
-
-                        LogToEditor($"\n>>> Backend do sisRUA já está rodando (health/auth OK) em {BackendBaseUrl}.");
-                        return;
                     }
-
-                    // Se estiver saudável, mas não autorizado (token diferente), tenta finalizar o processo anterior.
-                    if (IsBackendHealthy() && !IsBackendAuthorized())
+                    finally
                     {
-                        LogToEditor("\n>>> Aviso: Backend saudável, mas com token não autorizado. Tentando finalizar processo anterior.");
-                        TryKillPreviousBackendProcess();
+                        if (hasHandle) startupMutex.ReleaseMutex();
                     }
-
-                    // Porta dinâmica: escolhe uma porta livre para evitar conflito.
-                    BackendPort = ChooseFreePort();
-                    PersistBackendPort(BackendPort);
-
-                    // Novo token por sessão (persistido para reconexão no mesmo host).
-                    BackendAuthToken = Guid.NewGuid().ToString("N");
-                    PersistBackendToken(BackendAuthToken);
                 }
 
                 // Preferência: backend empacotado (EXE) — não depende de Python instalado no usuário.
@@ -774,6 +795,38 @@ namespace sisRUA
             catch (System.Exception ex)
             {
                 _logger?.WriteLine($"[ERROR] Exception in TryKillPreviousBackendProcess: {ex}");
+            }
+        }
+
+        private void AttachToExistingProcess()
+        {
+            int previousPid = TryReadLastBackendPid();
+            if (previousPid > 0)
+            {
+                try
+                {
+                    _pythonProcess = Process.GetProcessById(previousPid);
+                }
+                catch
+                {
+                    _pythonProcess = null;
+                }
+            }
+        }
+
+        private void TryKillProcess(int pid)
+        {
+            try
+            {
+                var killInfo = new ProcessStartInfo("taskkill", $"/F /T /PID {pid}")
+                {
+                    CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true
+                };
+                using (var p = Process.Start(killInfo)) { p?.WaitForExit(5000); }
+            }
+            catch (System.Exception ex)
+            {
+                _logger?.WriteLine($"[ERROR] Failed to kill PID {pid}: {ex.Message}");
             }
         }
 

@@ -49,6 +49,9 @@ if "%SISRUA_BUILD_NET48_ACAD2021%"=="1" (
     exit /b 1
   )
   copy /Y "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2021\sisRUA_NET48_ACAD2021.dll" "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2021.dll" >nul
+  if exist "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2021\System.ComponentModel.Primitives.dll" (
+      copy /Y "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2021\System.ComponentModel.Primitives.dll" "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\System.ComponentModel.Primitives.dll" >nul
+  )
   call :SIGN_FILE "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2021.dll"
 )
 
@@ -61,6 +64,9 @@ if "%SISRUA_BUILD_NET48_ACAD2024%"=="1" (
     exit /b 1
   )
   copy /Y "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2024\sisRUA_NET48_ACAD2024.dll" "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2024.dll" >nul
+  if exist "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2024\System.ComponentModel.Primitives.dll" (
+      copy /Y "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\2024\System.ComponentModel.Primitives.dll" "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\System.ComponentModel.Primitives.dll" >nul
+  )
   call :SIGN_FILE "%ROOT%src\plugin\bin\x64\%CONFIG%\net48\sisRUA_NET48_ACAD2024.dll"
 )
 
@@ -103,6 +109,22 @@ if errorlevel 1 (
   exit /b 1
 )
 
+echo [3/3] Gerando instalador...
+set "ISCC=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+
+set APP_VERSION=0.0.0
+if exist "%ROOT%VERSION.txt" (
+    for /f "usebackq delims=" %%v in ("%ROOT%VERSION.txt") do set APP_VERSION=%%v
+)
+if not exist "%ROOT%installer\out" mkdir "%ROOT%installer\out"
+"%ISCC%" "%ROOT%installer\sisRUA.iss" /DAppVersion=%APP_VERSION% /O"%ROOT%installer\out"
+if errorlevel 1 (
+    echo ERRO: falha ao compilar o instalador.
+    exit /b 1
+)
+echo OK: Instalador gerado em %ROOT%installer\out
+
+:END_ISCC
 echo OK: release\\sisRUA.bundle pronto.
 goto :EOF
 

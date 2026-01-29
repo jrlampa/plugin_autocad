@@ -90,14 +90,19 @@
     </Reference>
     <Reference Include="System.Net.Http" />
   </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)'=='net48'">
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2277.86" />
     <!-- Versão que suporta net48 e net8 -->
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
-    <PackageReference Include="System.ComponentModel.Primitives" Version="4.3.0" />
+
   </ItemGroup>
+
 
   <ItemGroup>
     <Compile Remove="history\**" />

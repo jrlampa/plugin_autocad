@@ -50,12 +50,24 @@ begin
     (RegQueryStringValue(HKCU, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\' + WEBVIEW2_GUID, 'pv', pv) and (pv <> '') and (pv <> '0.0.0.0'));
 end;
 
+
+procedure KillBackendProcess;
+var
+  ResultCode: Integer;
+begin
+  // Tenta matar qualquer instância do backend rodando
+  Exec('taskkill', '/F /IM sisrua_backend.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
 function InitializeSetup(): Boolean;
 var
   answer: Integer;
   ErrorCode: Integer;
 begin
   Result := True;
+  
+  // Mata processos antigos antes de qualquer verificação
+  KillBackendProcess();
 
   if not HasWebView2Runtime() then
   begin

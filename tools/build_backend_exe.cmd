@@ -29,6 +29,10 @@ if not exist "%BUILD_TMP%" mkdir "%BUILD_TMP%"
 set TEMP=%BUILD_TMP%
 set TMP=%BUILD_TMP%
 
+echo Matando processos sisrua_backend.exe antigos...
+taskkill /F /IM sisrua_backend.exe /T 2>nul
+
+
 if not exist "%BACKEND_SRC%\standalone.py" (
   echo ERRO: standalone.py nao encontrado em %BACKEND_SRC%
   exit /b 1
