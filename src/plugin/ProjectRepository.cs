@@ -4,10 +4,6 @@ using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using Autodesk.AutoCAD.ApplicationServices; // For LogToEditor
-using CadFeature = sisRUA.SisRuaCommands.CadFeature;
-using CadFeatureType = sisRUA.SisRuaCommands.CadFeatureType;
-
 namespace sisRUA
 {
     public class ProjectRepository
@@ -25,14 +21,9 @@ namespace sisRUA
         {
             if (!string.IsNullOrEmpty(_databasePath)) return;
 
-            string localSisRuaDir = SisRuaPlugin.GetLocalSisRuaDir(); // Reusing method from SisRuaPlugin
-            if (string.IsNullOrEmpty(localSisRuaDir))
-            {
-                // Fallback or throw error if local SisRua dir cannot be determined
-                throw new InvalidOperationException("Não foi possível determinar o diretório local para o banco de dados.");
-            }
+            string localSisRuaDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "sisRUA");
             _databasePath = Path.Combine(localSisRuaDir, "projects.db");
-            SisRuaCommands.Log($"INFO: SQLite Database path: {_databasePath}");
+            SisRuaLog.Info($"SQLite Database path: {_databasePath}");
         }
 
         private SQLiteConnection GetConnection()
@@ -57,7 +48,7 @@ namespace sisRUA
                             crs_out TEXT
                         );";
                     command.ExecuteNonQuery();
-                    SisRuaCommands.Log("DEBUG: 'Projects' table ensured.");
+                    SisRuaLog.Info("DEBUG: 'Projects' table ensured.");
 
                     // Tabela CadFeatures
                     command.CommandText = @"
@@ -79,7 +70,7 @@ namespace sisRUA
                             FOREIGN KEY (project_id) REFERENCES Projects (project_id)
                         );";
                     command.ExecuteNonQuery();
-                    SisRuaCommands.Log("DEBUG: 'CadFeatures' table ensured.");
+                    SisRuaLog.Info("DEBUG: 'CadFeatures' table ensured.");
                 }
             }
         }
@@ -87,7 +78,7 @@ namespace sisRUA
         // Placeholder for SaveProject
         public void SaveProject(string projectId, string projectName, string crsOut, IEnumerable<CadFeature> features)
         {
-            SisRuaCommands.Log($"INFO: Attempting to save project {projectId} - {projectName}.");
+            SisRuaLog.Info($"INFO: Attempting to save project {projectId} - {projectName}.");
             using (var connection = GetConnection())
             {
                 using (var transaction = connection.BeginTransaction())
@@ -110,7 +101,7 @@ namespace sisRUA
                             command.Parameters.AddWithValue("@creationDate", DateTime.UtcNow.ToString("o"));
                             command.Parameters.AddWithValue("@crsOut", crsOut);
                             command.ExecuteNonQuery();
-                            SisRuaCommands.Log($"DEBUG: Project '{projectId}' saved/updated.");
+                            SisRuaLog.Info($"DEBUG: Project '{projectId}' saved/updated.");
                         }
 
                         // Delete existing features for this project before re-inserting
@@ -119,7 +110,7 @@ namespace sisRUA
                             command.CommandText = "DELETE FROM CadFeatures WHERE project_id = @projectId;";
                             command.Parameters.AddWithValue("@projectId", projectId);
                             command.ExecuteNonQuery();
-                            SisRuaCommands.Log($"DEBUG: Existing features for project '{projectId}' cleared.");
+                            SisRuaLog.Info($"DEBUG: Existing features for project '{projectId}' cleared.");
                         }
 
                         // Insert CadFeatures
@@ -156,12 +147,12 @@ namespace sisRUA
                             }
                         }
                         transaction.Commit();
-                        SisRuaCommands.Log($"INFO: Project '{projectId}' saved successfully with {features.Count()} features.");
+                        SisRuaLog.Info($"INFO: Project '{projectId}' saved successfully with {features.Count()} features.");
                     }
                     catch (System.Exception ex)
                     {
                         transaction.Rollback();
-                        SisRuaCommands.Log($"ERROR: Failed to save project '{projectId}': {ex.Message}");
+                        SisRuaLog.Info($"ERROR: Failed to save project '{projectId}': {ex.Message}");
                         throw;
                     }
                 }
@@ -171,7 +162,7 @@ namespace sisRUA
         // Placeholder for LoadProject
         public (string projectName, string crsOut, List<CadFeature> features) LoadProject(string projectId)
         {
-            SisRuaCommands.Log($"INFO: Attempting to load project '{projectId}'.");
+            SisRuaLog.Info($"INFO: Attempting to load project '{projectId}'.");
             string projectName = null;
             string crsOut = null;
             List<CadFeature> features = new List<CadFeature>();
@@ -192,7 +183,7 @@ namespace sisRUA
                         }
                         else
                         {
-                            SisRuaCommands.Log($"WARN: Project '{projectId}' not found.");
+                            SisRuaLog.Info($"WARN: Project '{projectId}' not found.");
                             return (null, null, null);
                         }
                     }
@@ -230,14 +221,14 @@ namespace sisRUA
                     }
                 }
             }
-            SisRuaCommands.Log($"INFO: Project '{projectId}' loaded successfully with {features.Count} features.");
+            SisRuaLog.Info($"INFO: Project '{projectId}' loaded successfully with {features.Count} features.");
             return (projectName, crsOut, features);
         }
 
         // Placeholder for ListProjects
         public List<(string projectId, string projectName, string creationDate)> ListProjects()
         {
-            SisRuaCommands.Log("INFO: Listing all projects.");
+            SisRuaLog.Info("INFO: Listing all projects.");
             List<(string projectId, string projectName, string creationDate)> projects = new List<(string projectId, string projectName, string creationDate)>();
             using (var connection = GetConnection())
             {
@@ -257,7 +248,7 @@ namespace sisRUA
                     }
                 }
             }
-            SisRuaCommands.Log($"INFO: Found {projects.Count} projects.");
+            SisRuaLog.Info($"INFO: Found {projects.Count} projects.");
             return projects;
         }
     }

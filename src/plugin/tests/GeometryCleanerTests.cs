@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using sisRUA; // Contains GeometryCleaner
 
 namespace sisRUA.Tests
 {
@@ -47,7 +48,7 @@ namespace sisRUA.Tests
             var cleaned = GeometryCleaner.RemoveDuplicatePolylines(features);
 
             Assert.That(cleaned.Count(), Is.EqualTo(2));
-            CollectionAssert.AreEquivalent(features, cleaned);
+            Assert.That(cleaned, Is.EquivalentTo(features));
         }
 
         [Test]
@@ -109,7 +110,7 @@ namespace sisRUA.Tests
             var merged = GeometryCleaner.MergeContiguousPolylines(features);
 
             Assert.That(merged.Count(), Is.EqualTo(2));
-            CollectionAssert.AreEquivalent(features, merged);
+            Assert.That(merged, Is.EquivalentTo(features));
         }
 
         [Test]
@@ -192,7 +193,7 @@ namespace sisRUA.Tests
             var simplified = GeometryCleaner.SimplifyPolylines(features, 0.1);
 
             Assert.That(simplified.Count(), Is.EqualTo(2));
-            CollectionAssert.AreEquivalent(features, simplified); // For simple polylines, should be the same
+            Assert.That(simplified, Is.EquivalentTo(features)); // For simple polylines, should be the same
         }
 
         [Test]
@@ -203,7 +204,7 @@ namespace sisRUA.Tests
                 CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 0, 0 }, new List<double> { 0.5, 0.1 }, new List<double> { 1, 0 } })
             };
 
-            var simplified = GeometryCleaner.SimplifyPolylines(features, 0.05); // Tolerance that should remove 0.5,0.1
+            var simplified = GeometryCleaner.SimplifyPolylines(features, 0.15); // Tolerance that should remove 0.5,0.1
 
             Assert.That(simplified.Count(), Is.EqualTo(1));
             var resultPoly = simplified.First();

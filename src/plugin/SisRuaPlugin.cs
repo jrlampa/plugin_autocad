@@ -49,9 +49,10 @@ namespace sisRUA
         public void Initialize()
         {
             Instance = this;
+            SisRuaLog.OnMessageLogged += (msg) => LogToEditor(msg);
 
             SetupLogger();
-            LogToEditor("\n>>> sisRUA Plugin: Initialize() called.");
+            SisRuaLog.Info("\n>>> sisRUA Plugin: Initialize() called.");
 
             // Registra um evento para ajudar o AutoCAD a encontrar as DLLs vizinhas
             AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
@@ -288,6 +289,7 @@ namespace sisRUA
                 string logFilePath = Path.Combine(logDir, logFileName);
 
                 _logger = TextWriter.Synchronized(new StreamWriter(logFilePath, append: true, Encoding.UTF8) { AutoFlush = true });
+                SisRuaLog.SetFileLogger(_logger);
                 _logger.WriteLine($"--- sisRUA Plugin Log Started: {DateTime.Now} ---");
                 _logger.WriteLine($"Plugin Assembly: {Assembly.GetExecutingAssembly().Location}");
                 _logger.WriteLine($"AutoCAD Process Id: {Process.GetCurrentProcess().Id}");

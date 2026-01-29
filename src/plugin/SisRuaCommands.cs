@@ -274,18 +274,9 @@ namespace sisRUA
 
         public static void Log(string message)
         {
-            // Use the logger from SisRuaPlugin
-            if (SisRuaPlugin.Instance != null)
-            {
-                // Accessing internal LogToEditor method via reflection for now
-                // Ideally, SisRuaPlugin should expose a public static log method
-                MethodInfo logMethod = typeof(SisRuaPlugin).GetMethod("LogToEditor", BindingFlags.NonPublic | BindingFlags.Instance);
-                if (logMethod != null)
-                {
-                    logMethod.Invoke(SisRuaPlugin.Instance, new object[] { $"[SisRuaCommands] {message}" });
-                }
-            }
-            Debug.WriteLine($"[SisRuaCommands] {message}");
+            if (message.StartsWith("ERROR")) SisRuaLog.Error(message.Replace("ERROR: ", ""));
+            else if (message.StartsWith("WARN")) SisRuaLog.Warn(message.Replace("WARN: ", ""));
+            else SisRuaLog.Info(message);
         }
 
         private static string GetBackendBaseUrlOrAlert(Editor ed)
@@ -388,50 +379,7 @@ namespace sisRUA
             public string Error { get; set; }
         }
 
-        public sealed class CadFeature
-        {
-            [JsonPropertyName("feature_type")]
-            public CadFeatureType FeatureType { get; set; } = CadFeatureType.Polyline; // Default to Polyline
 
-            [JsonPropertyName("layer")]
-            public string Layer { get; set; }
-
-            [JsonPropertyName("name")]
-            public string Name { get; set; }
-
-            [JsonPropertyName("highway")]
-            public string Highway { get; set; }
-
-            // Largura estimada da via (metros). Se presente, podemos desenhar como polyline com largura constante.
-            [JsonPropertyName("width_m")]
-            public double? WidthMeters { get; set; }
-
-            // Para feições do tipo Polyline
-            [JsonPropertyName("coords_xy")]
-            public List<List<double>> CoordsXy { get; set; }
-
-            // Para feições do tipo Point (blocos)
-            [JsonPropertyName("insertion_point_xy")]
-            public List<double> InsertionPointXy { get; set; }
-
-            [JsonPropertyName("block_name")]
-            public string BlockName { get; set; }
-
-            [JsonPropertyName("block_filepath")]
-            public string BlockFilePath { get; set; } // Path to the DXF/DWG file for this block
-
-            [JsonPropertyName("rotation")]
-            public double? Rotation { get; set; }
-
-            [JsonPropertyName("scale")]
-            public double? Scale { get; set; }
-        }
-
-        public enum CadFeatureType
-        {
-            Polyline,
-            Point
-        }
 
 
         private sealed class LayerStyle

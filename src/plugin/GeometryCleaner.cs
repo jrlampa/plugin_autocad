@@ -12,7 +12,7 @@ namespace sisRUA
     /// </summary>
     public static class GeometryCleaner
     {
-        private static string GetPolylineHash(SisRuaCommands.CadFeature polylineFeature)
+        private static string GetPolylineHash(CadFeature polylineFeature)
         {
             if (polylineFeature?.CoordsXy == null || !polylineFeature.CoordsXy.Any())
             {
@@ -42,20 +42,20 @@ namespace sisRUA
         /// </summary>
         /// <param name="features">Lista de CadFeatures a serem processados.</param>
         /// <returns>Uma nova lista de CadFeatures sem duplicatas de Polyline.</returns>
-        public static IEnumerable<SisRuaCommands.CadFeature> RemoveDuplicatePolylines(IEnumerable<SisRuaCommands.CadFeature> features)
+        public static IEnumerable<CadFeature> RemoveDuplicatePolylines(IEnumerable<CadFeature> features)
         {
             if (features == null || !features.Any())
             {
-                return Enumerable.Empty<SisRuaCommands.CadFeature>();
+                return Enumerable.Empty<CadFeature>();
             }
 
             // Usamos um HashSet para rastrear hashes de polylines já adicionadas
             HashSet<string> seenHashes = new HashSet<string>();
-            List<SisRuaCommands.CadFeature> uniqueFeatures = new List<SisRuaCommands.CadFeature>();
+            List<CadFeature> uniqueFeatures = new List<CadFeature>();
 
             foreach (var feature in features)
             {
-                if (feature.FeatureType == SisRuaCommands.CadFeatureType.Polyline)
+                if (feature.FeatureType == CadFeatureType.Polyline)
                 {
                     string polylineHash = GetPolylineHash(feature);
                     if (polylineHash != null && !seenHashes.Contains(polylineHash))
@@ -83,33 +83,33 @@ namespace sisRUA
         }
 
         // Métodos placeholder para MergeContiguousPolylines e SimplifyPolyline
-        public static IEnumerable<SisRuaCommands.CadFeature> MergeContiguousPolylines(IEnumerable<SisRuaCommands.CadFeature> features)
+        public static IEnumerable<CadFeature> MergeContiguousPolylines(IEnumerable<CadFeature> features)
         {
             if (features == null || !features.Any())
             {
-                return Enumerable.Empty<SisRuaCommands.CadFeature>();
+                return Enumerable.Empty<CadFeature>();
             }
 
-            var polylineFeatures = features.Where(f => f.FeatureType == SisRuaCommands.CadFeatureType.Polyline).ToList();
-            var otherFeatures = features.Where(f => f.FeatureType != SisRuaCommands.CadFeatureType.Polyline).ToList();
+            var polylineFeatures = features.Where(f => f.FeatureType == CadFeatureType.Polyline).ToList();
+            var otherFeatures = features.Where(f => f.FeatureType != CadFeatureType.Polyline).ToList();
 
             // Group polylines by key attributes to only merge similar ones
             var groupedPolylines = polylineFeatures
                 .GroupBy(f => $"{f.Layer}|{f.Name}|{f.Highway}|{f.WidthMeters}")
                 .ToDictionary(g => g.Key, g => g.ToList());
 
-            List<SisRuaCommands.CadFeature> mergedPolylines = new List<SisRuaCommands.CadFeature>();
+            List<CadFeature> mergedPolylines = new List<CadFeature>();
 
             foreach (var group in groupedPolylines.Values)
             {
                 // Build a new list of merged polylines instead of modifying the collection during iteration
-                var workingList = new List<SisRuaCommands.CadFeature>(group);
+                var workingList = new List<CadFeature>(group);
                 bool mergedSomething;
 
                 do
                 {
                     mergedSomething = false;
-                    var newList = new List<SisRuaCommands.CadFeature>();
+                    var newList = new List<CadFeature>();
                     var processed = new HashSet<int>();
 
                     for (int i = 0; i < workingList.Count; i++)
@@ -161,9 +161,9 @@ namespace sisRUA
                             if (newCoords != null)
                             {
                                 // Create a new merged CadFeature
-                                var mergedPoly = new SisRuaCommands.CadFeature
+                                var mergedPoly = new CadFeature
                                 {
-                                    FeatureType = SisRuaCommands.CadFeatureType.Polyline,
+                                    FeatureType = CadFeatureType.Polyline,
                                     Layer = poly1.Layer,
                                     Name = poly1.Name,
                                     Highway = poly1.Highway,
@@ -289,26 +289,26 @@ namespace sisRUA
         /// <param name="features">Lista de CadFeatures a serem processados.</param>
         /// <param name="tolerance">A tolerância para a simplificação (distância máxima permitida de um vértice à linha simplificada).</param>
         /// <returns>Uma nova lista de CadFeatures com polylines simplificadas.</returns>
-        public static IEnumerable<SisRuaCommands.CadFeature> SimplifyPolylines(IEnumerable<SisRuaCommands.CadFeature> features, double tolerance)
+        public static IEnumerable<CadFeature> SimplifyPolylines(IEnumerable<CadFeature> features, double tolerance)
         {
             if (features == null || !features.Any())
             {
-                return Enumerable.Empty<SisRuaCommands.CadFeature>();
+                return Enumerable.Empty<CadFeature>();
             }
 
-            List<SisRuaCommands.CadFeature> simplifiedFeatures = new List<SisRuaCommands.CadFeature>();
+            List<CadFeature> simplifiedFeatures = new List<CadFeature>();
 
             foreach (var feature in features)
             {
-                if (feature.FeatureType == SisRuaCommands.CadFeatureType.Polyline && feature.CoordsXy != null && feature.CoordsXy.Count > 2)
+                if (feature.FeatureType == CadFeatureType.Polyline && feature.CoordsXy != null && feature.CoordsXy.Count > 2)
                 {
                     // Convert original points to a simplified list
                     var simplifiedCoords = SimplifyPolyline(feature.CoordsXy, tolerance);
 
                     // Create a new CadFeature for the simplified polyline
-                    var simplifiedPolyline = new SisRuaCommands.CadFeature
+                    var simplifiedPolyline = new CadFeature
                     {
-                        FeatureType = SisRuaCommands.CadFeatureType.Polyline,
+                        FeatureType = CadFeatureType.Polyline,
                         Layer = feature.Layer,
                         Name = feature.Name,
                         Highway = feature.Highway,

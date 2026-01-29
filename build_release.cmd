@@ -96,6 +96,13 @@ if errorlevel 1 (
   exit /b 1
 )
 
+echo [2.5/3] Verificando integridade dos artefatos...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%tools\verify_release_artifacts.ps1"
+if errorlevel 1 (
+  echo ERRO: falha na verificacao de integridade dos artefatos.
+  exit /b 1
+)
+
 echo OK: release\\sisRUA.bundle pronto.
 goto :EOF
 

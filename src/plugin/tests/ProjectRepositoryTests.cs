@@ -4,6 +4,8 @@ using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using NUnit.Framework; // Using NUnit as a common C# testing framework
+using sisRUA;
+
 
 // Assuming CadFeature, CadFeatureType, ProjectRepository are in sisRUA namespace
 // For a proper test project setup, these would be referenced or included.
@@ -20,14 +22,12 @@ namespace sisRUA.Tests
         [SetUp]
         public void Setup()
         {
-            // Create a temporary, in-memory database for each test
-            // This is ideal for unit tests as it ensures isolation
-            _testDbPath = ":memory:"; // In-memory database
-            // If using file-based for debugging, use: Path.Combine(TestContext.CurrentContext.TestDirectory, $"test_{Guid.NewGuid().ToString()}.db");
+            // Create a temporary, file-based database for each test
+            // We use file-based because the current ProjectRepository implementation
+            // opens and closes connections for each operation, which wipes :memory: databases.
+            _testDbPath = Path.Combine(Path.GetTempPath(), $"sisrua_test_{Guid.NewGuid():N}.db");
 
             // Mock or setup SisRuaPlugin.GetLocalSisRuaDir() for test context
-            // In a real setup, this would be dependency injected or mocked.
-            // For now, we'll override the static _databasePath in ProjectRepository directly for testing.
             typeof(ProjectRepository)
                 .GetField("_databasePath", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
                 .SetValue(null, _testDbPath);
