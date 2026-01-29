@@ -25,7 +25,7 @@ if (-not (Test-Path $xmlPath)) {
 Write-Host " [OK] PackageContents.xml exists." -ForegroundColor Green
 
 # 2. Check DLLs
-$requiredDlls = @("sisRUA_NET8.dll", "sisRUA_NET48_ACAD2021.dll", "sisRUA_NET48_ACAD2024.dll")
+$requiredDlls = @("sisRUA_NET8.dll", "sisRUA_NET48_ACAD2021.dll", "sisRUA_NET48_ACAD2024.dll", "System.ComponentModel.Primitives.dll")
 
 foreach ($dll in $requiredDlls) {
   if ($CheckNet48Only -and $dll -match "NET8") { continue }

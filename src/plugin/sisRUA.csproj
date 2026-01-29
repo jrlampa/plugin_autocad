@@ -96,6 +96,7 @@
     <!-- Versão que suporta net48 e net8 -->
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
     <PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
+    <PackageReference Include="System.ComponentModel.Primitives" Version="4.3.0" />
   </ItemGroup>
 
   <ItemGroup>
