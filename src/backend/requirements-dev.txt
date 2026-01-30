@@ -3,4 +3,4 @@ pytest-cov
 pytest-timeout
 pytest-html
 httpx
-
+faker

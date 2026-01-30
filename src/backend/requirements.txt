@@ -4,3 +4,7 @@ osmnx
 pyproj
 shapely
 geopandas
+rasterio
+numpy
+requests
+matplotlib

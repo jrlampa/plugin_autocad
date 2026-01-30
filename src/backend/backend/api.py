@@ -119,6 +119,12 @@ def _update_job(job_id: str, *, status: str | None = None, progress: float | Non
             job["error"] = error
 
 
+def _check_cancellation(job_id: str):
+    if cancellation_tokens.get(job_id):
+        raise  RuntimeError("CANCELLED")
+
+
+
 def _cache_dir() -> Path:
     base = Path(os.environ.get("LOCALAPPDATA") or Path.home())
     d = base / "sisRUA" / "cache"
@@ -132,6 +138,41 @@ def _cache_key(parts: list[str]) -> str:
         h.update(p.encode("utf-8", errors="ignore"))
         h.update(b"|")
     return h.hexdigest()
+
+def _norm_optional_str(val: Any) -> str | None:
+    if val is None:
+        return None
+    s = str(val).strip()
+    return s if s else None
+
+def _get_color_from_elevation(z: float, z_min: float, z_max: float) -> str:
+    """
+    Returns an AutoCAD Color Index (ACI) or RGB string based on elevation.
+    Simple heatmap: Blue (low) -> Green -> Yellow -> Red (high).
+    AutoCAD ACI:
+    1 = Red
+    2 = Yellow
+    3 = Green
+    4 = Cyan
+    5 = Blue
+    6 = Magenta
+    """
+    if z_max == z_min:
+        return "255,255,255" # White
+    
+    ratio = (z - z_min) / (z_max - z_min)
+    
+    # Simple mapping to ACI for now (approximate)
+    # Low (0.0) -> Blue (5)
+    # Mid (0.5) -> Green (3)
+    # High (1.0) -> Red (1)
+    
+    if ratio < 0.25: return "5" # Blue
+    if ratio < 0.5: return "4" # Cyan
+    if ratio < 0.75: return "3" # Green
+    if ratio < 0.9: return "2" # Yellow
+    return "1" # Red
+
 
 def _read_cache(key: str) -> Optional[dict]:
     try:
@@ -167,40 +208,41 @@ def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest) -> None:
     try:
         _update_job(job_id, status="processing", progress=0.05, message="Iniciando...")
 
-        if cancellation_tokens.get(job_id):
-            _update_job(job_id, status="failed", progress=1.0, message="Cancelado pelo usuário.", error="CANCELLED")
-            return
+        def check_cancel():
+            _check_cancellation(job_id)
+
+        check_cancel()
 
         if payload.kind == "osm":
             if payload.latitude is None or payload.longitude is None or payload.radius is None:
                 raise ValueError("latitude/longitude/radius são obrigatórios para kind=osm")
             _update_job(job_id, progress=0.15, message="Baixando dados do OSM...")
             
-            # For OSM, we'd ideally pass the job_id down to check cancellation inside long compute
-            # But for now, we check before and after major steps.
-            result = _prepare_osm_compute(payload.latitude, payload.longitude, payload.radius)
+            result = _prepare_osm_compute(payload.latitude, payload.longitude, payload.radius, check_cancel)
             
-            if cancellation_tokens.get(job_id):
-                _update_job(job_id, status="failed", progress=1.0, message="Cancelado pelo usuário.", error="CANCELLED")
-                return
-                
+            check_cancel()
             _update_job(job_id, progress=0.95, message="Finalizando...")
+
         elif payload.kind == "geojson":
             if payload.geojson is None:
                 raise ValueError("geojson é obrigatório para kind=geojson")
             _update_job(job_id, progress=0.2, message="Processando GeoJSON...")
-            result = _prepare_geojson_compute(payload.geojson)
             
-            if cancellation_tokens.get(job_id):
-                _update_job(job_id, status="failed", progress=1.0, message="Cancelado pelo usuário.", error="CANCELLED")
-                return
-
+            result = _prepare_geojson_compute(payload.geojson, check_cancel)
+            
+            check_cancel()
             _update_job(job_id, progress=0.95, message="Finalizando...")
+
         else:
             raise ValueError("kind inválido. Use 'osm' ou 'geojson'.")
 
-        safe_result = PrepareResponse(**_sanitize_jsonable(result)) # Ensure it's a PrepareResponse object
-        _update_job(job_id, status="completed", progress=1.0, message="Concluído.", result=safe_result.model_dump()) # Use model_dump
+        safe_result = PrepareResponse(**_sanitize_jsonable(result))
+        _update_job(job_id, status="completed", progress=1.0, message="Concluído.", result=safe_result.model_dump())
+    except RuntimeError as e:
+        if str(e) == "CANCELLED":
+            _update_job(job_id, status="failed", progress=1.0, message="Cancelado pelo usuário.", error="CANCELLED")
+        else:
+            _update_job(job_id, status="failed", progress=1.0, message="Falhou.", error=str(e))
     except Exception as e:
         _update_job(job_id, status="failed", progress=1.0, message="Falhou.", error=str(e))
 
@@ -247,6 +289,37 @@ async def cancel_job(job_id: str, x_sisrua_token: str | None = Header(default=No
 
 
 from backend.services.crs import sirgas2000_utm_epsg
+from backend.services.elevation import ElevationService
+
+elevation_service = ElevationService()
+
+class ElevationQueryRequest(BaseModel):
+    latitude: float
+    longitude: float
+
+class ElevationProfileRequest(BaseModel):
+    path: List[List[float]] # [[lat, lon], [lat, lon], ...]
+
+@app.post("/api/v1/tools/elevation/query")
+async def query_elevation(req: ElevationQueryRequest, x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
+    _require_token(x_sisrua_token)
+    try:
+        z = elevation_service.get_elevation_at_point(req.latitude, req.longitude)
+        return {"latitude": req.latitude, "longitude": req.longitude, "elevation": z}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/tools/elevation/profile")
+async def query_profile(req: ElevationProfileRequest, x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
+    _require_token(x_sisrua_token)
+    try:
+        # Convert list of lists to list of tuples for the service
+        coords = [(p[0], p[1]) for p in req.path]
+        elevations = elevation_service.get_elevation_profile(coords)
+        return {"elevations": elevations}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 def _to_linestrings(geom) -> List[Any]:
     # Import local para evitar puxar stack GIS pesada na importação do módulo (melhor para CI e startup).
@@ -353,10 +426,13 @@ def _sanitize_jsonable(obj: Any) -> Any:
     except Exception:
         return None
 
-def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> dict:
+def _prepare_osm_compute(latitude: float, longitude: float, radius: float, check_cancel: callable = None) -> dict:
+    if check_cancel: check_cancel()
+    
     # Import local: OSMnx/GeoPandas podem ser pesados; só precisamos disso ao executar OSM.
     import osmnx as ox  # type: ignore
-    from pyproj import Transformer  # type: ignore
+
+    if check_cancel: check_cancel()
 
     key = _cache_key(["prepare_osm", f"{latitude:.6f}", f"{longitude:.6f}", str(int(radius))])
     cached = _read_cache(key)
@@ -366,11 +442,15 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
         return cached
 
     epsg_out = sirgas2000_utm_epsg(latitude, longitude)
-    transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_out}", always_xy=True)
-
+    
     try:
+        if check_cancel: check_cancel()
         graph = ox.graph_from_point((latitude, longitude), dist=radius, network_type="all")
-        nodes, edges = ox.graph_to_gdfs(graph) # Get nodes as well
+        if check_cancel: check_cancel()
+        
+        # Optimization: Project graph using OSMnx (vectorized) directly to SIRGAS 2000
+        graph = ox.project_graph(graph, to_crs=f"EPSG:{epsg_out}")
+        nodes, edges = ox.graph_to_gdfs(graph) 
         edges = edges[edges.geometry.notna()]
     except Exception as e:
         # Tenta usar cache como fallback em caso de erro
@@ -379,80 +459,204 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
             cached["cache_hit"] = True
             cached["cache_fallback_reason"] = str(e)
             return cached
-        raise HTTPException(status_code=503, detail=f"Falha ao obter dados do OSM (sem cache local disponível). Detalhes: {e}")
+        raise HTTPException(status_code=503, detail=f"Falha ao obter dados do OSM (sem cache local disponível). Detalhes: {str(e)}")
 
+    if check_cancel: check_cancel()
+    
     features: List[CadFeature] = [] # Changed type to CadFeature
 
-    # Process Edges (Polylines) - existing logic
-    for _, row in edges.iterrows():
+    # Process Edges (Polylines) - optimized with itertuples
+    # We create a simple dictionary of standard columns to avoid AttributeError if they are missing
+    
+    for row in edges.itertuples(index=False):
+        # Periodic cancel check
+        if len(features) % 100 == 0 and check_cancel:
+            check_cancel()
+
         geom = row.geometry
-        highway = row.get("highway")
+        # Handle tags safely
+        highway = getattr(row, "highway", None)
         if isinstance(highway, list) and highway:
             highway = highway[0]
-        name = row.get("name") if row.get("name") is not None else None
+        name = getattr(row, "name", None)
+        
         highway = _norm_optional_str(highway)
         name = _norm_optional_str(name)
-        width_m = _estimate_width_m(row, highway)
+        
+        width_m = _estimate_width_m(None, highway)
 
         lines = _to_linestrings(geom)
-        for coords_xy in _project_lines_to_xy(lines, transformer):
-            features.append(
-                CadFeature(
-                    feature_type="Polyline",
-                    layer="SISRUA_OSM_VIAS",
-                    name=name,
-                    highway=highway,
-                    width_m=width_m,
-                    coords_xy=coords_xy,
+        for line in lines:
+            # Geometries are already projected in meters!
+            coords_xy = []
+            for x, y in line.coords:
+                if math.isfinite(x) and math.isfinite(y):
+                    coords_xy.append([float(x), float(y)])
+            
+            if len(coords_xy) >= 2:
+                features.append(
+                    CadFeature(
+                        feature_type="Polyline",
+                        layer="SISRUA_OSM_VIAS",
+                        name=name,
+                        highway=highway,
+                        width_m=width_m,
+                        coords_xy=coords_xy,
+                    )
                 )
-            )
 
     # Process Nodes (Points / Blocks) - new logic for FASE 1.5
-    point_features_query = {
-        "highway": ["street_light", "traffic_signals"],
-        "power": ["pole", "tower"],
-        "amenity": ["bench", "parking", "bus_stop"]
-    }
-    
-    # Filter nodes based on tags that usually represent point features
-    # Convert node geometries (points) to projected coordinates
-    for _, node_row in nodes.iterrows():
-        point_geom = node_row.geometry
+    for row in nodes.itertuples(index=False):
+        if len(features) % 100 == 0 and check_cancel:
+             check_cancel()
+
+        point_geom = row.geometry
         
         # Ensure it's a point and valid
         if point_geom is None or point_geom.geom_type != "Point":
             continue
 
-        tags = node_row.to_dict() # Get all tags from the node
-        
+        # Extract tags from namedtuple attributes
+        # getattr(row, "key", None)
+        highway_tag = getattr(row, "highway", None)
+        power_tag = getattr(row, "power", None)
+        amenity_tag = getattr(row, "amenity", None)
+        name_tag = getattr(row, "name", None)
+
         block_name = None
         # Basic mapping logic from OSM tags to block types
-        if tags.get("highway") == "street_light":
+        if highway_tag == "street_light":
             block_name = "POSTE"
-        elif tags.get("power") == "pole":
+        elif power_tag == "pole":
             block_name = "POSTE"
-        elif tags.get("amenity") == "bench":
-            block_name = "BANCO" # Example, would need BANCO_GENERICO.dxf
-        # Add more mappings as needed for FASE 1.5
-
+        elif amenity_tag == "bench":
+            block_name = "BANCO"
+        
         if block_name:
-            # Project the point coordinates
-            x_proj, y_proj = transformer.transform(point_geom.x, point_geom.y)
-            if math.isfinite(x_proj) and math.isfinite(y_proj):
+            # Point is already projected in meters
+            x, y = point_geom.x, point_geom.y
+            if math.isfinite(x) and math.isfinite(y):
                 features.append(
                     CadFeature(
                         feature_type="Point",
-                        layer="SISRUA_OSM_PONTOS", # Specific layer for OSM points/blocks
-                        name=_norm_optional_str(tags.get("name")),
+                        layer="SISRUA_OSM_PONTOS",
+                        name=_norm_optional_str(name_tag),
                         block_name=block_name,
-                        # block_filepath will be resolved by C# plugin using blocks_mapping.json
-                        insertion_point_xy=[x_proj, y_proj],
-                        rotation=0.0, # Default rotation
-                        scale=1.0 # Default scale
+                        insertion_point_xy=[float(x), float(y)],
+                        rotation=0.0, 
+                        scale=1.0 
                     )
                 )
 
-    epsg_out = sirgas2000_utm_epsg(latitude, longitude)
+    # INJECT ELEVATION DATA (Phase 2)
+    try:
+        if check_cancel: check_cancel()
+        
+        # Filter for features that need elevation (Polylines and Points)
+        # Note: elevation service needs lat/lon. 
+        # But features are currently in UTM/SIRGAS 2000 (projected).
+        # We need to reproject minimal points back to lat/lon for SRTM query?
+        # OR: query SRTM using bounds before projection?
+        # Better: use the transformer to reverse project sample points.
+        
+        from pyproj import Transformer
+        # Back to LatLon for elevation query
+        reverse_transformer = Transformer.from_crs(f"EPSG:{epsg_out}", "EPSG:4326", always_xy=True)
+        
+        # collect sample points
+        query_points_xy = []
+        feature_indices = []
+        
+        for i, f in enumerate(features):
+            if f.FeatureType == "Polyline" and f.coords_xy and len(f.coords_xy) > 0:
+                # Use first point for basic 2.5D elevation
+                query_points_xy.append(f.coords_xy[0])
+                feature_indices.append(i)
+            elif f.FeatureType == "Point" and f.insertion_point_xy:
+                query_points_xy.append(f.insertion_point_xy)
+                feature_indices.append(i)
+
+        if query_points_xy:
+            # Reproject to lat/lon
+            lonlat_points = list(reverse_transformer.itransform(query_points_xy))
+            # Format as (lat, lon) for elevation service
+            latlon_query = [(p[1], p[0]) for p in lonlat_points]
+            
+            # Batch query
+            elevations = elevation_service.get_elevation_profile(latlon_query)
+            
+            # Assign back
+            z_values = []
+            for idx, elev in zip(feature_indices, elevations):
+                if elev is not None:
+                     features[idx].elevation = elev
+                     z_values.append(elev)
+            
+            # Calculate Slope & Color
+            if z_values:
+                z_min, z_max = min(z_values), max(z_values)
+                
+                for f in features:
+                    if f.elevation is not None:
+                        f.color = _get_color_from_elevation(f.elevation, z_min, z_max)
+                        
+                    if f.FeatureType == "Polyline" and f.coords_xy and len(f.coords_xy) >= 2 and f.elevation is not None:
+                        # Simple slope: (Z_end - Z_start) / Length? 
+                        # Or just slope of the terrain at that point?
+                        # Let's use the single Z for the whole feature (flat 2.5D) for now as defined in Models.
+                        # If we want 3D polylines (varying Z), we need Z per vertex.
+                        # Current implementation sets one Z for the object. 
+                        # So slope is 0 for the object itself unless it's a 3D Polyline.
+                        # For Phase 2, let's keep it simple: Color is more important.
+                        pass
+
+        # GENERATE CONTOURS
+        if check_cancel: check_cancel()
+        
+        # Determine bounds (lat/lon)
+        # s, n, w, e were inputs. We can reuse them.
+        contours = elevation_service.get_contours(latitude - 0.02, longitude - 0.02, latitude + 0.02, longitude + 0.02)
+        
+        # Project contours to UTM
+        # Transformer is reusable? We need LatLon -> UTM
+        # epsg_out is defined earlier.
+        from pyproj import Transformer
+        forward_transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_out}", always_xy=True)
+        
+        for c in contours:
+            geom_latlon = c['geometry']
+            elev = c['elevation']
+            
+            # Reproject list of (lat, lon) -> (x, y)
+            # Note: geometry is (lat, lon). Transformer needs (lon, lat) usually for x, y
+            lonlat_list = [(p[1], p[0]) for p in geom_latlon]
+            
+            x_out, y_out = [], []
+            for lon, lat in lonlat_list:
+                xx, yy = forward_transformer.transform(lon, lat)
+                x_out.append(xx)
+                y_out.append(yy)
+            
+            coords_utm = [[x, y] for x, y in zip(x_out, y_out)]
+            
+            if len(coords_utm) >= 2:
+                features.append(
+                    CadFeature(
+                        feature_type="Polyline",
+                        layer="SISRUA_CURVAS_NIVEL",
+                        name=f"Curva {int(elev)}m",
+                        coords_xy=coords_utm,
+                        elevation=elev,
+                        color=_get_color_from_elevation(elev, z_min if 'z_min' in locals() else elev, z_max if 'z_max' in locals() else elev)
+                    )
+                )
+
+    except Exception as e:
+        print(f"Error injecting elevation data: {e}")
+        # Non-critical, continue without elevation
+        pass
+
+
     payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features)
     
     # Cache por conteúdo
@@ -475,7 +679,8 @@ async def prepare_osm(req: PrepareOsmRequest, x_sisrua_token: str | None = Heade
     _require_token(x_sisrua_token)
     return _prepare_osm_compute(req.latitude, req.longitude, req.radius)
 
-def _prepare_geojson_compute(geo: Any) -> dict:
+def _prepare_geojson_compute(geo: Any, check_cancel: callable = None) -> dict:
+    if check_cancel: check_cancel()
     from pyproj import Transformer  # type: ignore
     from shapely.geometry import LineString  # type: ignore
 
@@ -554,7 +759,9 @@ def _prepare_geojson_compute(geo: Any) -> dict:
                     lon, lat = point_lonlat[0], point_lonlat[1]
                     # Project point
                     x_proj, y_proj = transformer.transform(lon, lat)
+                    x_proj, y_proj = transformer.transform(lon, lat)
                     if math.isfinite(x_proj) and math.isfinite(y_proj):
+                        if len(features) % 50 == 0 and check_cancel: check_cancel()
                         block_name = props.get("block_name") or props.get("BlockName")
                         block_filepath = props.get("block_filepath") or props.get("BlockFilePath")
                         features.append(
@@ -604,7 +811,52 @@ def _prepare_geojson_compute(geo: Any) -> dict:
                             rotation=props.get("rotation"),
                             scale=props.get("scale"),
                         )
+                        )
                     )
+                    
+    # INJECT ELEVATION DATA (Phase 2)
+    # Similar logic to OSM but points are already in lat/lon here? 
+    # NO: features are in UTM now (projected above).
+    # But we have original coords in 'coords' or 'point_lonlat' in the loop.
+    # Re-using the reverse projection approach is cleaner than passing data around.
+    
+    try:
+        if check_cancel: check_cancel()
+        
+        # We need to reverse calculate or if we can access the original lat/lon?
+        # For uniformity, let's reverse project from features.
+        from pyproj import Transformer
+        reverse_transformer = Transformer.from_crs(f"EPSG:{epsg_out}", "EPSG:4326", always_xy=True)
+        
+        query_points_xy = []
+        feature_indices = []
+        
+        for i, f in enumerate(features):
+            if f.FeatureType == "Polyline" and f.coords_xy and len(f.coords_xy) > 0:
+                query_points_xy.append(f.coords_xy[0])
+                feature_indices.append(i)
+            elif f.FeatureType == "Point" and f.insertion_point_xy:
+                query_points_xy.append(f.insertion_point_xy)
+                feature_indices.append(i)
+
+        if query_points_xy:
+            if check_cancel: check_cancel()
+            lonlat_points = list(reverse_transformer.itransform(query_points_xy))
+            latlon_query = [(p[1], p[0]) for p in lonlat_points]
+            
+            # Batch query
+            elevations = elevation_service.get_elevation_profile(latlon_query)
+            
+            for idx, elev in zip(feature_indices, elevations):
+                if elev is not None:
+                     features[idx].elevation = elev
+
+    except Exception as e:
+        print(f"Error injecting elevation data for GeoJSON: {e}")
+        pass
+    
+    if check_cancel: check_cancel()
+
     else:
         raise HTTPException(status_code=400, detail="GeoJSON não suportado. Use Feature/FeatureCollection com LineString/MultiLineString/Point.")
 
@@ -629,7 +881,10 @@ async def prepare_geojson(req: PrepareGeoJsonRequest, x_sisrua_token: str | None
     e devolve linhas prontas para o C# desenhar como Polyline.
     """
     _require_token(x_sisrua_token)
+    """
+    _require_token(x_sisrua_token)
     return _prepare_geojson_compute(req.geojson)
+
 
 def _maybe_mount_frontend():
     """

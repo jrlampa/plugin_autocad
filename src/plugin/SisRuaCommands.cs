@@ -251,7 +251,7 @@ namespace sisRUA
         /// <param name="rotation">Rotação do bloco em radianos.</param>
         /// <param name="scale">Fator de escala do bloco.</param>
         /// <param name="layerName">Nome da camada onde o bloco será inserido.</param>
-        private static void InsertBlock(Transaction tr, Database db, BlockTableRecord ms, string blockName, string blockFilePath, Autodesk.AutoCAD.Geometry.Point3d insertionPoint, double rotation, double scale, string layerName)
+        private static void InsertBlock(Transaction tr, Database db, BlockTableRecord ms, string blockName, string blockFilePath, Autodesk.AutoCAD.Geometry.Point3d insertionPoint, double rotation, double scale, string layerName, string colorStr = null)
         {
             Log($"INFO: Inserting block '{blockName}' at {insertionPoint.X},{insertionPoint.Y},{insertionPoint.Z}.");
             try
@@ -263,7 +263,14 @@ namespace sisRUA
                 br.Rotation = rotation;
                 br.ScaleFactors = new Autodesk.AutoCAD.Geometry.Scale3d(scale);
                 br.Layer = layerName;
-                br.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256); // Sempre ByLayer
+                if (!string.IsNullOrWhiteSpace(colorStr))
+                {
+                    br.Color = ParseColor(colorStr);
+                }
+                else
+                {
+                    br.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256); // Sempre ByLayer
+                }
 
                 ms.AppendEntity(br);
                 tr.AddNewlyCreatedDBObject(br, true);
@@ -936,7 +943,17 @@ namespace sisRUA
                             }
                             
                             centerPolyline.Layer = layerName;
-                            centerPolyline.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
+                            
+                            // Apply Color if present
+                            if (!string.IsNullOrWhiteSpace(f.Color))
+                            {
+                                centerPolyline.Color = ParseColor(f.Color);
+                            }
+                            else
+                            {
+                                centerPolyline.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
+                            }
+
                             ms.AppendEntity(centerPolyline);
                             tr.AddNewlyCreatedDBObject(centerPolyline, true);
                             createdPolylines++;
@@ -962,7 +979,10 @@ namespace sisRUA
                                 insertionPt,
                                 f.Rotation ?? 0.0,
                                 f.Scale ?? 1.0,
-                                layerName
+                                f.Rotation ?? 0.0,
+                                f.Scale ?? 1.0,
+                                layerName,
+                                f.Color // Pass color to InsertBlock
                             );
                             createdBlocks++;
                             break;
@@ -1267,6 +1287,37 @@ namespace sisRUA
         private static bool IsFinite(double x)
         {
             return !(double.IsNaN(x) || double.IsInfinity(x));
+        }
+
+        }
+
+        private static Autodesk.AutoCAD.Colors.Color ParseColor(string colorStr)
+        {
+            if (string.IsNullOrWhiteSpace(colorStr)) return Color.FromColorIndex(ColorMethod.ByLayer, 256);
+
+            try
+            {
+                // Try ACI (short)
+                if (short.TryParse(colorStr, out short aci))
+                {
+                    return Color.FromColorIndex(ColorMethod.ByAci, aci);
+                }
+
+                // Try RGB (r,g,b)
+                var parts = colorStr.Split(',');
+                if (parts.Length == 3)
+                {
+                    if (byte.TryParse(parts[0], out byte r) && byte.TryParse(parts[1], out byte g) && byte.TryParse(parts[2], out byte b))
+                    {
+                        return Color.FromRgb(r, g, b);
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback
+            }
+            return Color.FromColorIndex(ColorMethod.ByLayer, 256);
         }
 
         private static void EnsureLayer(Transaction tr, Database db, LayerTable lt, string layerName, short? aci = null)

@@ -1,0 +1,22 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: src/backend/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src/backend:/app/backend
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=/api

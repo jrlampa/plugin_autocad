@@ -155,6 +155,47 @@ Redução de erros em operações CAD subsequentes
 
 Experiência de usuário aprimorada
 
+FASE 1.5.7 — IMPORTAÇÃO DE EDIFICAÇÕES DO OSM
+Objetivo
+
+Adicionar a capacidade de importar e desenhar os contornos das edificações adjacentes à malha viária a partir do OpenStreetMap.
+
+Entregas
+
+Opção na UI para "Incluir Edificações"
+
+Backend processa tags `building=yes`
+
+Layer dedicada no AutoCAD (SISRUA_OSM_EDIFICIOS)
+
+FASE 1.5.8 — DESENHO DE BLOCOS A PARTIR DE PONTOS INSERIDOS NA UI
+Objetivo
+
+Converter marcadores inseridos manualmente pelo usuário no mapa da interface em blocos do AutoCAD.
+
+Entregas
+
+Coleta de marcadores da UI (Postes, Árvores)
+
+Botão "Desenhar Pontos no CAD"
+
+Envio de GeoJSON para o plugin C#
+
+Inserção de blocos nas coordenadas corretas
+
+FASE 1.6 — APERFEIÇOAMENTO DA EXPERIÊNCIA DE INSTALAÇÃO E PRIMEIRO USO (UX)
+Objetivo
+
+Refinar o processo de instalação e a inicialização do plugin para que seja completamente transparente e profissional.
+
+Entregas
+
+Execução silenciosa do backend (sem janela de console)
+
+Instalador com identidade visual (ícones, imagens)
+
+Tela de carregamento (Splash Screen) no frontend durante a inicialização
+
 FASE 2 — ELEVAÇÃO E RELEVO (OFFLINE)
 Objetivo
 

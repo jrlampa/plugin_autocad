@@ -81,16 +81,10 @@ if errorlevel 1 (
 )
 
 echo [3/3] Gerando instalador...
-set "ISCC=C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-
-set APP_VERSION=0.0.0
-if exist "%ROOT%VERSION.txt" (
-    for /f "usebackq delims=" %%v in ("%ROOT%VERSION.txt") do set APP_VERSION=%%v
-)
-if not exist "%ROOT%installer\out" mkdir "%ROOT%installer\out"
-"%ISCC%" "%ROOT%installer\sisRUA.iss" /DAppVersion=%APP_VERSION% /O"%ROOT%installer\out"
+echo [3/3] Gerando instalador...
+call "%ROOT%tools\build_installer.cmd"
 if errorlevel 1 (
-    echo ERRO: falha ao compilar o instalador.
+    echo ERRO: falha no script de instalador.
     exit /b 1
 )
 echo OK: Instalador gerado em %ROOT%installer\out
