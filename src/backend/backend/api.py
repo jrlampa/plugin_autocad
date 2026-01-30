@@ -811,9 +811,11 @@ def _prepare_geojson_compute(geo: Any, check_cancel: callable = None) -> dict:
                             rotation=props.get("rotation"),
                             scale=props.get("scale"),
                         )
-                        )
                     )
                     
+    else:
+        raise HTTPException(status_code=400, detail="GeoJSON não suportado. Use Feature/FeatureCollection com LineString/MultiLineString/Point.")
+
     # INJECT ELEVATION DATA (Phase 2)
     # Similar logic to OSM but points are already in lat/lon here? 
     # NO: features are in UTM now (projected above).
@@ -857,8 +859,7 @@ def _prepare_geojson_compute(geo: Any, check_cancel: callable = None) -> dict:
     
     if check_cancel: check_cancel()
 
-    else:
-        raise HTTPException(status_code=400, detail="GeoJSON não suportado. Use Feature/FeatureCollection com LineString/MultiLineString/Point.")
+
 
     payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features)
 
@@ -879,8 +880,6 @@ async def prepare_geojson(req: PrepareGeoJsonRequest, x_sisrua_token: str | None
     """
     MVP (Fase 1): recebe GeoJSON (EPSG:4326), projeta para SIRGAS2000/UTM (zona automática)
     e devolve linhas prontas para o C# desenhar como Polyline.
-    """
-    _require_token(x_sisrua_token)
     """
     _require_token(x_sisrua_token)
     return _prepare_geojson_compute(req.geojson)

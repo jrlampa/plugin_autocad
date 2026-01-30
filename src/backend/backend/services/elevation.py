@@ -136,53 +136,24 @@ class ElevationService:
             if len(levels) < 2:
                  return []
 
-            # Generate contours using matplotlib
-            # We need to flip the data because matplotlib origin is bottom-left, rasterio image is top-left usually
-            # Actually rasterio reads as array (row, col). 
-            # Row 0 is North. Row N is South. 
-            
-            contours_obj = plt.contour(data, levels=levels)
-            
             results = []
-            
-            # Transform from pixel coordinates to lat/lon
             transform = src.window_transform(window)
-            
-            for i, collection in enumerate(contours_obj.collections):
-                level_elev = levels[i]
-                for path in collection.get_paths():
-                    # path.vertices contains (col, row) in array coordinates?
-                    # Matplotlib contour (x, y) corresponds to (col, row) index usually?
-                    # Let's verify: plt.contour(Z) treats Z as Z[y, x]. 
-                    # So x corresponds to column index, y to row index.
-                    # HOWEVER, generic array plotting in mpl puts [0,0] at bottom-left or top-left depending on origin.
-                    # Default origin=None -> usually 'upper' for images? No, contour defaults to origin=None which usually means [0,0] is bottom-left.
-                    # BUT rasterio reads image with row 0 at top.
-                    
-                    # To be safe, we should use origin='upper' in contour if we treat it as image rows.
-                    # Let's re-run contour with origin='upper' to match matrix index convention (row 0 = top).
-                    pass
 
-            # Rerunning logic cleanly
-            plt.close() # Clean state
-            
             # Use origin='upper' so that y-coordinate 0 matches row 0 (North).
             contours_obj = plt.contour(data, levels=levels, origin='upper')
             
-            for i, collection in enumerate(contours_obj.collections):
+            # Use allsegs to get simplified access to vertices
+            # allsegs is a list of segments for each level
+            # allsegs[i] -> list of polygons/lines
+            for i, segs in enumerate(contours_obj.allsegs):
+                if i >= len(levels): break
                 level_elev = float(levels[i])
-                for path in collection.get_paths():
-                    verts = path.vertices # (x, y) -> (col, row)
-                    
+                
+                for verts in segs:
+                    # verts is numpy array of (x, y) -> (col, row) pixels
                     coords_latlon = []
                     for x_px, y_px in verts:
-                        # Rasterio pixel to geographic: xy(row, col)
-                        # Note: transform * (col, row) -> (x, y) [lon, lat]
-                        # Verts are (x, y) in plot space. 
-                        # With origin='upper', y=0 is top row. y increases downwards.
-                        # So y_px corresponds to row index. x_px corresponds to col index.
-                        
-                        # Apply transform: transform * (col, row)
+                        # Apply transform: transform * (col, row) -> (lon, lat)
                         lon, lat = transform * (x_px, y_px)
                         coords_latlon.append((lat, lon))
                     

@@ -1,0 +1,21 @@
+test_color_logic (__main__.TestBackendPhase2) ... ok
+test_contours_generation (__main__.TestBackendPhase2) ... ERROR
+test_elevation_point_query (__main__.TestBackendPhase2) ... ok
+
+======================================================================
+ERROR: test_contours_generation (__main__.TestBackendPhase2)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\lib\unittest\mock.py", line 1379, in patched
+    return func(*newargs, **newkeywargs)
+  File "C:\plugin_autocad\tests\test_backend_features.py", line 114, in test_contours_generation
+    contours = self.service.get_contours(min_lat, min_lon, max_lat, max_lon, interval=100.0)
+  File "C:\plugin_autocad\src\backend\backend\services\elevation.py", line 151, in get_contours
+    for i, collection in enumerate(contours_obj.collections):
+AttributeError: 'QuadContourSet' object has no attribute 'collections'
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.504s
+
+FAILED (errors=1)
+Sampled Z: 499.8979797363281
