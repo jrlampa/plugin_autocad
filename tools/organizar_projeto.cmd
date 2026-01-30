@@ -75,6 +75,10 @@ echo   [net48] Copiando...
 xcopy /Y /I /E "%BIN_NET48%\*" "%OUT_CONTENTS%\net48\" >nul
 if errorlevel 1 goto :SISRUA_FAIL
 
+echo   [Cleanup] Limpando DLLs conflitantes...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\cleanup_bundle.ps1" -TargetDir "%OUT_CONTENTS%\net48"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\cleanup_bundle.ps1" -TargetDir "%OUT_CONTENTS%\net8.0-windows"
+
 
 echo [4/6] Copiando backend Python...
 if not exist "%SRC_BUNDLE%\Contents\backend" (
