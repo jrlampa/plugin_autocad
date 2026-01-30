@@ -71,13 +71,28 @@ namespace sisRUA.UI
             _progressBar = new ProgressBar();
             _progressBar.Style = ProgressBarStyle.Marquee; // Indeterminado
             _progressBar.MarqueeAnimationSpeed = 30;
-            _progressBar.Dock = DockStyle.Bottom;
+            _progressBar.Dock = DockStyle.Top; // Mudar para Top para caber o botão embaixo
             _progressBar.Height = 30;
             this.Controls.Add(_progressBar);
+
+            var btnCancel = new Button();
+            btnCancel.Text = "CANCELAR";
+            btnCancel.Dock = DockStyle.Bottom;
+            btnCancel.Height = 30;
+            btnCancel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            btnCancel.Click += (s, e) => {
+                WasCancelled = true;
+                btnCancel.Enabled = false;
+                btnCancel.Text = "Cancelando...";
+                _lblMessage.Text = "Interrompendo processos...";
+            };
+            this.Controls.Add(btnCancel);
 
             // Padding para não ficar colado nas bordas
             this.Padding = new Padding(20);
         }
+
+        public bool WasCancelled { get; private set; }
 
         private void InitializeTimer()
         {

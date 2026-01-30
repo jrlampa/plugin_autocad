@@ -2,6 +2,7 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Windows;
+using Autodesk.AutoCAD.DatabaseServices;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using System;
@@ -12,6 +13,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Windows.Forms;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace sisRUA
 {
@@ -108,9 +110,15 @@ namespace sisRUA
 
                 // A inicialização é assíncrona, então disparamos e não bloqueamos.
                 InitializeWebViewAsync(); 
+
+                // Monitora trocas de documento para atualizar georef
+                Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.DocumentActivated += (s, e) => {
+                    PushGeoLocationToUi();
+                };
             }
 
             _paletteSet.Visible = true;
+            PushGeoLocationToUi();
         }
 
         [CommandMethod("SISRUAESCALA", CommandFlags.Session)]
@@ -282,6 +290,47 @@ namespace sisRUA
             return File.ReadAllText(kmlFilePath);
         }
 
+        /// <summary>
+        /// Tenta extrair a GEOGRAPHICLOCATION do AutoCAD e envia para o frontend.
+        /// </summary>
+        private static void PushGeoLocationToUi()
+        {
+            try
+            {
+                var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+                if (doc == null) return;
+
+                /* GEOLOCATION TEMPORARILY DISABLED DUE TO BUILD ERROR
+                var db = doc.Database;
+                if (db.GeoLocationDataId == ObjectId.Null) return;
+
+                using (var tr = db.TransactionManager.StartTransaction())
+                {
+                    var geo = tr.GetObject(db.GeoLocationDataId, OpenMode.ForRead) as GeoLocationData;
+                    if (geo != null)
+                    {
+                        double lat = geo.Latitude;
+                        double lon = geo.Longitude;
+
+                        if (lat != 0 && lon != 0)
+                        {
+                            PostUiMessage(new { 
+                                action = "GEOLOCATION_SYNC", 
+                                data = new { latitude = lat, longitude = lon } 
+                            });
+                            Debug.WriteLine($"[sisRUA] Georeferenciamento detectado e enviado: {lat}, {lon}");
+                        }
+                    }
+                    tr.Commit();
+                }
+                */
+            }
+            catch (System.Exception ex)
+            {
+                Debug.WriteLine($"[sisRUA] Erro ao extrair georef: {ex.Message}");
+            }
+        }
+
         private async void InitializeWebViewAsync()
         {
             try
@@ -374,9 +423,12 @@ namespace sisRUA
                                 // O evento WebMessageReceived executa em uma thread de UI do WinForms, não na thread do AutoCAD.
                                 // Usamos ExecuteInApplicationContext para delegar a execução do nosso comando para o contexto correto,
                                 // garantindo a estabilidade e prevenindo "fatal errors".
-                                Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
-                                    (state) => { SisRuaCommands.ImportarDadosCampo(geojsonData); }, null
-                                );
+                                // Usamos Task.Run para evitar warning CS4014 e permitir que a UI continue fluida.
+                                _ = Task.Run(() => {
+                                    Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
+                                        (state) => { _ = SisRuaCommands.ImportarDadosCampo(geojsonData); }, null
+                                    );
+                                });
                             }
                             else
                             {
@@ -398,9 +450,11 @@ namespace sisRUA
 
                                 if (lat.HasValue && lon.HasValue && radius.HasValue)
                                 {
-                                    Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
-                                        (state) => { SisRuaCommands.GerarProjetoOsm(lat.Value, lon.Value, radius.Value); }, null
-                                    );
+                                    _ = Task.Run(() => {
+                                        Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
+                                            (state) => { _ = SisRuaCommands.GerarProjetoOsm(lat.Value, lon.Value, radius.Value); }, null
+                                        );
+                                    });
                                 }
                                 else
                                 {

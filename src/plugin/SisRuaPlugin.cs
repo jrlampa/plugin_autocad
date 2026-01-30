@@ -11,6 +11,7 @@ using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
 [assembly: ExtensionApplication(typeof(sisRUA.SisRuaPlugin))]
 [assembly: CommandClass(typeof(sisRUA.SisRuaPalette))]
@@ -29,6 +30,8 @@ namespace sisRUA
         private static readonly HttpClient _healthClient = new HttpClient { Timeout = TimeSpan.FromSeconds(1.5) };
         private static readonly object _backendLock = new object();
         private static TextWriter _logger;
+        private static System.Windows.Forms.Timer _watchdogTimer;
+        private int _healthFailCount = 0;
 
         public static int BackendPort { get; private set; }
         public static string BackendBaseUrl => BackendPort > 0 ? $"http://127.0.0.1:{BackendPort}" : null;
@@ -159,6 +162,7 @@ namespace sisRUA
                         WorkingDirectory = projectRoot,
                         UseShellExecute = false,
                         CreateNoWindow = true,
+                        WindowStyle = ProcessWindowStyle.Hidden,
                         Arguments = $"--host 127.0.0.1 --port {BackendPort} --log-level warning"
                     };
                     exeStart.EnvironmentVariables[BackendAuthEnvVarName] = BackendAuthToken ?? string.Empty;
@@ -235,6 +239,7 @@ namespace sisRUA
 
                 LogToEditor("\n>>> Backend do sisRUA (Python) iniciado com sucesso.");
 #endif
+                StartWatchdog();
             }
             catch (System.Exception ex)
             {
@@ -249,6 +254,7 @@ namespace sisRUA
         /// </summary>
         public void Terminate()
         {
+            StopWatchdog();
             LogToEditor("\n>>> sisRUA Plugin: Terminate() called.");
             try
             {
@@ -293,6 +299,51 @@ namespace sisRUA
             {
                 _logger?.Close();
                 _logger = null;
+            }
+        }
+
+        private void StartWatchdog()
+        {
+            if (_watchdogTimer != null) return;
+            
+            _watchdogTimer = new System.Windows.Forms.Timer();
+            _watchdogTimer.Interval = 30000; // 30 segundos
+            _watchdogTimer.Tick += (s, e) => {
+                _ = Task.Run(() => {
+                    if (!IsBackendHealthy())
+                    {
+                        Interlocked.Increment(ref _healthFailCount);
+                        LogToEditor($"\n[sisRUA] Aviso: Backend não respondeu (falha {_healthFailCount}/3).");
+                        
+                        if (_healthFailCount >= 3)
+                        {
+                            LogToEditor("\n[sisRUA] ERRO: Backend instável. Tentando reiniciar...");
+                            _healthFailCount = 0;
+                            
+                            // Chama o Initialize novamente (lock garante segurança)
+                            // Note: Initialize() re-checks if it's already running.
+                            Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
+                                (state) => { Initialize(); }, null
+                            );
+                        }
+                    }
+                    else
+                    {
+                        _healthFailCount = 0;
+                    }
+                });
+            };
+            _watchdogTimer.Start();
+            LogToEditor("\n>>> Watchdog do sisRUA ativado.");
+        }
+
+        private void StopWatchdog()
+        {
+            if (_watchdogTimer != null)
+            {
+                _watchdogTimer.Stop();
+                _watchdogTimer.Dispose();
+                _watchdogTimer = null;
             }
         }
 

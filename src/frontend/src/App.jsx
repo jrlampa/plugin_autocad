@@ -15,6 +15,7 @@ import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import { useMapLogic } from './hooks/useMapLogic';
 import { api } from './api';
+import LoadingScreen from './components/LoadingScreen';
 
 // Configuração do Ícone Padrão do Leaflet
 let DefaultIcon = L.icon({
@@ -76,6 +77,24 @@ function MapController({ coords }) {
 export default function App() {
   const mapLogic = useMapLogic();
 
+  // ** Estado de Carregamento Inicial (Backend Health Check) **
+  const [isBackendReady, setIsBackendReady] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkBackend = async () => {
+      const isHealthy = await api.checkHealth();
+      if (isHealthy && isMounted) {
+        // Pequeno delay artificial para garantir que a transição não seja brusca demais se for instantâneo
+        setTimeout(() => setIsBackendReady(true), 500);
+      } else if (isMounted) {
+        setTimeout(checkBackend, 500); // Tenta novamente em 500ms
+      }
+    };
+    checkBackend();
+    return () => { isMounted = false; };
+  }, []);
+
   const [coords, setCoords] = useState({ lat: -21.7634, lng: -41.3235 });
   const [inputText, setInputText] = useState("-21.763400, -41.323500");
   const [inputLoading, setInputLoading] = useState(false);
@@ -128,14 +147,14 @@ export default function App() {
             }
           }
           // Handle standard GeoJSON files from C# plugin
-          else if (message.action === 'FILE_DROPPED' && message.data.content) {
+          else if (message.action === 'FILE_DROPPED_GEOJSON' && message.data.content) {
             console.log("GeoJSON content received from C# host via drag-drop.");
-            
+
             // Limpa o preview anterior
             setPreviewGeoJson(null);
 
             const parsedJson = JSON.parse(message.data.content);
-            
+
             // Validação básica de GeoJSON
             if (parsedJson && parsedJson.type && (parsedJson.features || parsedJson.geometry)) {
               setPreviewGeoJson(parsedJson);
@@ -145,6 +164,11 @@ export default function App() {
           }
           if (message.action === 'JOB_PROGRESS' && message.data) {
             setHostJob(message.data);
+          }
+          if (message.action === 'GEOLOCATION_SYNC' && message.data) {
+            console.log("Geolocation sync received from C#:", message.data);
+            setCoords({ lat: message.data.latitude, lng: message.data.longitude });
+            setInputText(`${message.data.latitude.toFixed(6)}, ${message.data.longitude.toFixed(6)}`);
           }
         } catch (error) {
           alert(`Erro ao processar o arquivo recebido: ${error.message}`);
@@ -187,7 +211,7 @@ export default function App() {
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      
+
       // Limpa o preview anterior
       setPreviewGeoJson(null);
 
@@ -247,17 +271,17 @@ export default function App() {
     };
 
     setPreviewGeoJson(prev => {
-        const base = prev || { type: "FeatureCollection", features: [] };
-        const existingFeatures = base.type === "FeatureCollection" ? base.features : [base];
-        
-        // Evita adicionar features duplicadas se o usuário clicar duas vezes
-        const isDuplicate = existingFeatures.some(f => JSON.stringify(f.geometry.coordinates) === JSON.stringify(newFeature.geometry.coordinates));
-        if (isDuplicate) return base;
+      const base = prev || { type: "FeatureCollection", features: [] };
+      const existingFeatures = base.type === "FeatureCollection" ? base.features : [base];
 
-        return {
-            type: "FeatureCollection",
-            features: [...existingFeatures, newFeature]
-        };
+      // Evita adicionar features duplicadas se o usuário clicar duas vezes
+      const isDuplicate = existingFeatures.some(f => JSON.stringify(f.geometry.coordinates) === JSON.stringify(newFeature.geometry.coordinates));
+      if (isDuplicate) return base;
+
+      return {
+        type: "FeatureCollection",
+        features: [...existingFeatures, newFeature]
+      };
     });
 
     setIsDrawing(false);
@@ -265,12 +289,12 @@ export default function App() {
   };
 
   const handleToggleDrawing = () => {
-      const newIsDrawing = !isDrawing;
-      setIsDrawing(newIsDrawing);
-      // Se estava desenhando e cancelou, limpa os pontos
-      if (!newIsDrawing) {
-          setDrawingPoints([]);
-      }
+    const newIsDrawing = !isDrawing;
+    setIsDrawing(newIsDrawing);
+    // Se estava desenhando e cancelou, limpa os pontos
+    if (!newIsDrawing) {
+      setDrawingPoints([]);
+    }
   }
 
   const handleGenerate = () => {
@@ -300,24 +324,31 @@ export default function App() {
     }
   };
 
+  if (!isBackendReady) {
+    return <LoadingScreen />;
+  }
+
   return (
     <div
-      data-testid="app-root"
-      className={`relative w-full h-full overflow-hidden bg-slate-900 font-sans flex ${isDrawing ? 'cursor-crosshair' : ''}`}
+      data- testid="app-root"
+      className={`relative w-full h-full overflow-hidden bg-slate-900 font-sans flex ${isDrawing ? 'cursor-crosshair' : ''}`
+      }
       onDragOver={(e) => { e.preventDefault(); if (e.dataTransfer.types.includes("Files")) setIsDraggingFile(true); }}
       onDragLeave={() => setIsDraggingFile(false)}
       onDrop={handleGlobalDrop}
     >
 
       {/* OVERLAY DE UPLOAD ATUALIZADO */}
-      {isDraggingFile && (
-        <div className="absolute inset-0 z-[3000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center m-4 rounded-3xl border-4 border-dashed border-blue-400/50 pointer-events-none animate-pulse">
-          <div className="flex flex-col items-center p-8 bg-white/10 rounded-3xl backdrop-blur-xl border border-white/20">
-            <UploadCloud size={64} className="text-white mb-4" />
-            <span className="text-2xl font-bold text-white tracking-wide">Solte o arquivo GeoJSON aqui</span>
+      {
+        isDraggingFile && (
+          <div className="absolute inset-0 z-[3000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center m-4 rounded-3xl border-4 border-dashed border-blue-400/50 pointer-events-none animate-pulse">
+            <div className="flex flex-col items-center p-8 bg-white/10 rounded-3xl backdrop-blur-xl border border-white/20">
+              <UploadCloud size={64} className="text-white mb-4" />
+              <span className="text-2xl font-bold text-white tracking-wide">Solte o arquivo GeoJSON aqui</span>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* 1. SIDEBAR DE FERRAMENTAS */}
       <div className="absolute left-4 top-4 bottom-4 w-20 z-[1000] flex flex-col items-center py-6 gap-5 bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl transition-all hover:bg-white/20 hover:scale-[1.01]">
@@ -325,19 +356,19 @@ export default function App() {
         <div className="w-10 border-t border-white/20 my-1"></div>
         <DraggableTool icon={<Lightbulb size={24} className="text-amber-400 fill-amber-400/20" />} label="Poste" type="POSTE" onDragStart={mapLogic.handleDragStart} description="Rede Elétrica" />
         <DraggableTool icon={<TreePine size={24} className="text-emerald-400 fill-emerald-400/20" />} label="Árvore" type="ARVORE" onDragStart={mapLogic.handleDragStart} description="Paisagismo" />
-        
+
         <div className="w-10 border-t border-white/20 my-1"></div>
-        
+
         <button onClick={handleToggleDrawing} className={`p-4 rounded-2xl shadow-xl transition-all active:scale-95 group relative ${isDrawing ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}`}>
-            <Spline size={24} className="text-white" />
-            <span className="absolute left-full ml-4 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">{isDrawing ? 'Cancelar Desenho' : 'Desenhar Rua'}</span>
+          <Spline size={24} className="text-white" />
+          <span className="absolute left-full ml-4 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">{isDrawing ? 'Cancelar Desenho' : 'Desenhar Rua'}</span>
         </button>
-        
+
         {isDrawing && drawingPoints.length > 1 && (
-            <button onClick={handleFinishDrawing} className="p-4 rounded-2xl shadow-xl transition-all active:scale-95 group relative bg-blue-600 hover:bg-blue-500">
-                <CheckCircle2 size={24} className="text-white" />
-                <span className="absolute left-full ml-4 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Finalizar Rua</span>
-            </button>
+          <button onClick={handleFinishDrawing} className="p-4 rounded-2xl shadow-xl transition-all active:scale-95 group relative bg-blue-600 hover:bg-blue-500">
+            <CheckCircle2 size={24} className="text-white" />
+            <span className="absolute left-full ml-4 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">Finalizar Rua</span>
+          </button>
         )}
 
         <div className="flex-1"></div>
@@ -354,12 +385,12 @@ export default function App() {
           <MapController coords={coords} />
           <MapDropHandler onSymbolDrop={mapLogic.handleSymbolDrop} />
           <MapClickHandler onMapClick={handleMapClick} />
-          
+
           {previewGeoJson && <GeoJSON data={previewGeoJson} pathOptions={{ color: '#ff7800', weight: 5, opacity: 0.8 }} />}
 
           {isDrawing && drawingPoints.length > 0 && (
             <Polyline
-              positions={drawingPoints.map(p => [p[1], p[0]])} 
+              positions={drawingPoints.map(p => [p[1], p[0]])}
               pathOptions={{ color: 'lime', weight: 4, opacity: 0.7, dashArray: '10, 10' }}
             />
           )}
@@ -375,30 +406,30 @@ export default function App() {
       <div className="absolute top-6 right-6 z-[1000] w-[400px] animate-enter">
         <div className="relative bg-white/85 backdrop-blur-2xl shadow-2xl rounded-[32px] border border-white/50 overflow-hidden ring-1 ring-black/5">
           <div className="px-8 py-6 border-b border-white/50 flex justify-between items-center bg-gradient-to-r from-white/60 to-transparent">
-            <div className="flex flex-col gap-0.5"><span className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">sisRUA <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">v3.5</span></span><p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Generative Urban Design</p></div>
+            <div className="flex flex-col gap-0.5"><span className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">sisRUA <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">v0.5.0</span></span><p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">Generative Urban Design</p></div>
             <button onClick={() => !loading && setShowSettings(!showSettings)} className="p-3 rounded-full hover:bg-white/60 transition-colors border border-transparent hover:border-white/50">{showSettings ? <ArrowLeft size={20} className="text-slate-600" /> : <Settings size={20} className="text-slate-600" />}</button>
           </div>
           <div className="p-8 pb-8">
             {!showSettings ? (
               <div className="space-y-7">
-                
+
                 {/* ** PAINEL DE IMPORTAÇÃO GEOJSON (NOVO) ** */}
                 {previewGeoJson && (
-                    <div className="bg-amber-50/80 rounded-3xl border-2 border-amber-200/50 p-6 flex flex-col gap-4 shadow-lg animate-enter ring-1 ring-amber-500/10">
-                         <div className="flex items-center gap-3">
-                            <div className='p-2 rounded-xl bg-amber-100 text-amber-600'><FileJson size={20}/></div>
-                            <div className="flex flex-col">
-                                <span className="text-xs font-black uppercase tracking-wide text-amber-800">Preview de Campo</span>
-                                <span className="text-[10px] text-amber-700/80 font-medium">GeoJSON carregado no mapa.</span>
-                            </div>
-                         </div>
-                         <button data-testid="btn-import-geojson" onClick={handleImportGeoJson} className="mt-1 w-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-4 rounded-2xl text-center transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 group">
-                             <Download size={16} className="group-hover:animate-bounce" /> IMPORTAR PARA O AUTOCAD
-                         </button>
-                         <button onClick={() => setPreviewGeoJson(null)} className="text-center text-[10px] text-slate-500 hover:text-red-500 font-bold transition-colors">Cancelar</button>
+                  <div className="bg-amber-50/80 rounded-3xl border-2 border-amber-200/50 p-6 flex flex-col gap-4 shadow-lg animate-enter ring-1 ring-amber-500/10">
+                    <div className="flex items-center gap-3">
+                      <div className='p-2 rounded-xl bg-amber-100 text-amber-600'><FileJson size={20} /></div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-black uppercase tracking-wide text-amber-800">Preview de Campo</span>
+                        <span className="text-[10px] text-amber-700/80 font-medium">GeoJSON carregado no mapa.</span>
+                      </div>
                     </div>
+                    <button data-testid="btn-import-geojson" onClick={handleImportGeoJson} className="mt-1 w-full bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-4 rounded-2xl text-center transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 group">
+                      <Download size={16} className="group-hover:animate-bounce" /> IMPORTAR PARA O AUTOCAD
+                    </button>
+                    <button onClick={() => setPreviewGeoJson(null)} className="text-center text-[10px] text-slate-500 hover:text-red-500 font-bold transition-colors">Cancelar</button>
+                  </div>
                 )}
-                
+
                 <div className="space-y-2.5">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1"><MapPin size={10} /> Localização do Projeto</label>
                   <div className={`flex items-center gap-3 bg-white/60 border rounded-2xl px-4 py-4 shadow-sm transition-all focus-within:ring-2 focus-within:ring-blue-400/30 ${inputLoading ? 'border-blue-400' : 'border-white/60 hover:border-blue-200'}`}>{inputLoading ? <Loader2 className="animate-spin text-blue-500" size={20} /> : <Search className="text-slate-400" size={20} />}<input value={inputText} onChange={(e) => setInputText(e.target.value)} onBlur={handleGeocode} onKeyDown={(e) => e.key === 'Enter' && handleGeocode()} className="flex-1 bg-transparent outline-none text-sm font-semibold text-slate-700 placeholder:text-slate-400" placeholder="Buscar endereço, Lat/Lon..." /></div>
@@ -449,7 +480,7 @@ export default function App() {
       </div>
 
       {mapLogic.isModalOpen && (<div className="absolute inset-0 z-[2000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in zoom-in duration-200"><div className="modal-glass p-8 w-96"><div className="flex justify-between items-center mb-6"><h3 className="font-black text-slate-800 flex items-center gap-3 text-lg"><span className="bg-blue-100 p-2 rounded-xl text-blue-600"><PenTool size={18} /></span>Novo {mapLogic.currentDrop?.type}</h3><button onClick={mapLogic.cancelMarker}><X size={20} className="text-slate-400 hover:text-red-500 transition-colors" /></button></div><div className="space-y-5"><div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Descrição Técnica</label><input className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-700" autoFocus placeholder="Ex: Poste Bifásico com Transformador" value={mapLogic.metaInput.desc} onChange={e => mapLogic.setMetaInput({ ...mapLogic.metaInput, desc: e.target.value })} /></div><div className="space-y-1.5"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Altura / Especificação</label><input className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-700" placeholder="Ex: 12m" value={mapLogic.metaInput.altura} onChange={e => mapLogic.setMetaInput({ ...mapLogic.metaInput, altura: e.target.value })} /></div><button onClick={mapLogic.confirmMarker} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-sm flex justify-center gap-2 transition-all shadow-lg shadow-blue-500/30 mt-2 hover:-translate-y-0.5"><Save size={18} /> SALVAR PONTO</button></div></div></div>)}
-    </div>
+    </div >
   );
 }
 

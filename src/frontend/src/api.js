@@ -11,5 +11,14 @@ export const api = {
             params: { query: text }
         });
         return response.data;
+    },
+
+    checkHealth: async () => {
+        try {
+            const response = await axios.get(`${API_BASE}/health`, { timeout: 2000 });
+            return response.data && response.data.status === 'ok';
+        } catch (error) {
+            return false;
+        }
     }
 };

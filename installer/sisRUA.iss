@@ -18,6 +18,9 @@ SolidCompression=yes
 PrivilegesRequired=admin
 UninstallDisplayName=sisRUA (AutoCAD Plugin)
 VersionInfoVersion={#AppVersion}
+SetupIconFile=assets\sisrua_installer.ico
+WizardImageFile=assets\wizard_large.bmp
+WizardSmallImageFile=assets\wizard_small.bmp
 
 [Languages]
 Name: "ptbr"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"

@@ -1,31 +1,31 @@
 {
-  "default_block_path": ".\\Blocks\\",
+  "default_block_path": "../Blocks",
   "mappings": {
     "POSTE": {
       "block_name": "POSTE_GENERICO",
       "block_filepath": "POSTE_GENERICO.dxf",
-      "layer": "SISRUA_INFRA_POSTE",
-      "scale": 1.0,
-      "rotation": 0.0
-    },
-    "MEDIDOR": {
-      "block_name": "MEDIDOR_GENERICO",
-      "block_filepath": "MEDIDOR_GENERICO.dxf",
-      "layer": "SISRUA_INFRA_MEDIDOR",
+      "layer": "SISRUA_OSM_POSTE",
       "scale": 1.0,
       "rotation": 0.0
     },
     "CAIXA": {
       "block_name": "CAIXA_GENERICA",
       "block_filepath": "CAIXA_GENERICA.dxf",
-      "layer": "SISRUA_INFRA_CAIXA",
+      "layer": "SISRUA_OSM_CAIXA",
+      "scale": 1.0,
+      "rotation": 0.0
+    },
+    "MEDIDOR": {
+      "block_name": "MEDIDOR_GENERICO",
+      "block_filepath": "MEDIDOR_GENERICO.dxf",
+      "layer": "SISRUA_OSM_MEDIDOR",
       "scale": 1.0,
       "rotation": 0.0
     },
     "BANCO": {
       "block_name": "BANCO_GENERICO",
       "block_filepath": "BANCO_GENERICO.dxf",
-      "layer": "SISRUA_MOBILIARIO_URBANO",
+      "layer": "SISRUA_OSM_MOBILIARIO",
       "scale": 1.0,
       "rotation": 0.0
     }

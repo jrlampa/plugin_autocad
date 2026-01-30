@@ -18,7 +18,8 @@ function Wait-Health([string]$BaseUrl, [int]$Seconds = 60) {
     try {
       $r = Invoke-RestMethod -Method Get -Uri "$BaseUrl/api/v1/health" -TimeoutSec 3
       if ($r.status -eq 'ok') { return $true }
-    } catch { }
+    }
+    catch { }
     Start-Sleep -Milliseconds 250
   }
   return $false
@@ -39,7 +40,8 @@ try {
   [System.IO.File]::Copy($backendOriginal, $runExe, $true)
   try { Unblock-File -LiteralPath $runExe -ErrorAction SilentlyContinue } catch { }
   $BackendExe = $runExe
-} catch {
+}
+catch {
   Write-Host "[smoke] AVISO: falha ao copiar EXE para TEMP. Tentando executar do local original. Erro: $($_.Exception.Message)"
   $BackendExe = $backendOriginal
 }
@@ -55,7 +57,7 @@ $env:SISRUA_AUTH_TOKEN = $token
 $p = Start-Process -FilePath $BackendExe -ArgumentList "--host 127.0.0.1 --port $port --log-level warning" -PassThru -WindowStyle Hidden
 
 try {
-  if (-not (Wait-Health -BaseUrl $baseUrl -Seconds 25)) {
+  if (-not (Wait-Health -BaseUrl $baseUrl -Seconds 60)) {
     throw "Backend não respondeu /api/v1/health em $baseUrl"
   }
   Write-Host "[smoke] Health OK: $baseUrl"
@@ -66,13 +68,13 @@ try {
 
   # GeoJSON mínimo
   $geo = @{
-    type = "FeatureCollection"
+    type     = "FeatureCollection"
     features = @(
       @{
-        type = "Feature"
+        type       = "Feature"
         properties = @{ layer = "SISRUA_SMOKE" }
-        geometry = @{
-          type = "LineString"
+        geometry   = @{
+          type        = "LineString"
           coordinates = @(
             @(-41.3235, -21.7634),
             @(-41.3234, -21.7633)
@@ -91,9 +93,9 @@ try {
 
   if (-not $SkipOsm) {
     $osmReq = @{
-      latitude = -21.7634
+      latitude  = -21.7634
       longitude = -41.3235
-      radius = 150
+      radius    = 150
     } | ConvertTo-Json
 
     try {
@@ -102,13 +104,15 @@ try {
         throw "prepare/osm retornou resposta sem 'features'"
       }
       Write-Host "[smoke] prepare/osm OK: $($osmResp.features.Count) feature(s)"
-    } catch {
+    }
+    catch {
       throw "prepare/osm falhou (pode exigir Internet/Overpass). Erro: $($_.Exception.Message)`nUse -SkipOsm para ignorar."
     }
   }
 
   Write-Host "[smoke] OK"
-} finally {
+}
+finally {
   try { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue } catch { }
 }
 

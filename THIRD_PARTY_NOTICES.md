@@ -1,6 +1,6 @@
 # THIRD PARTY NOTICES - sisRUA
 
-Last updated: 2026-01-29
+Last updated: 2026-01-30
 
 This file is **auto-generated** during release build for compliance (Autodesk App Store).
 

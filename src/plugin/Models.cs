@@ -44,5 +44,7 @@ namespace sisRUA
 
         [JsonPropertyName("scale")]
         public double? Scale { get; set; }
+        [JsonPropertyName("elevation")]
+        public double? Elevation { get; set; }
     }
 }

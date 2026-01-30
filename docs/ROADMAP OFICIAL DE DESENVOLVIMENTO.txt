@@ -1,0 +1,358 @@
+ROADMAP OFICIAL DE DESENVOLVIMENTO — sisRUA
+
+Visão: Pipeline técnico Campo → GIS → CAD, offline-first, custo zero inicial, preparado para nuvem sem depender dela.
+
+PRINCÍPIOS ARQUITETURAIS (IMUTÁVEIS)
+
+Offline-first (campo e projeto)
+
+CRS tratado no início do fluxo
+
+Frontend: EPSG:4326 (Lat/Long)
+
+Backend/CAD: SIRGAS 2000 / UTM (zona automática)
+
+Formato aberto e padrão: GeoJSON enriquecido
+
+Separação clara de responsabilidades
+
+JS → visualização
+
+C# → orquestração AutoCAD
+
+Python → GIS + conversão CAD
+
+Nenhuma dependência de nuvem até provar valor
+
+FASE 0 — FUNDAÇÃO TÉCNICA (BASE DO PROJETO)
+Objetivo
+
+Garantir que todas as fases futuras evoluam sem retrabalho estrutural.
+
+Entregas
+
+Definição do modelo de dados oficial (GeoJSON enriquecido)
+
+Função de:
+
+Detecção automática de zona UTM
+
+Conversão CRS (4326 → SIRGAS 2000)
+
+Padronização de:
+
+Camadas CAD
+
+Nomes lógicos de entidades
+
+Criação da pasta:
+
+sisRUA.bundle/
+ ├── Blocks/
+ ├── Scripts/
+ ├── Resources/
+
+FASE 1 — MVP: PLUGIN DE DESENHO DE RUAS
+Objetivo
+
+Permitir a criação manual e importada de ruas com medidas corretas no CAD.
+
+Funcionalidades
+
+Mapa base (Leaflet)
+
+Desenho manual de ruas
+
+Importação inicial via OSM (osmnx)
+
+Preview no mapa
+
+Exportação GeoJSON
+
+Backend (Python)
+
+Conversão imediata para UTM
+
+Geração de:
+
+Polylines CAD
+
+Layers corretos
+
+Critério de sucesso
+
+✔️ Rua desenhada/importada → distância correta no AutoCAD
+
+FASE 1.5 — BIBLIOTECA DE SÍMBOLOS (BLOCOS CAD)
+Objetivo
+
+Garantir padronização gráfica desde o início.
+
+Entregas
+
+Catálogo inicial de blocos:
+
+Postes
+
+Medidores
+
+Caixas
+
+Associação lógica:
+
+"tipo": "POSTE",
+"modelo": "DT_200"
+
+
+⬇
+Blocks/POSTE_DT_200.dwg
+
+Benefício
+
+Evita retrabalho futuro
+
+Base para cadastro técnico
+
+FASE 1.5.1 — PERSISTÊNCIA DE DADOS COM SQLITE
+Objetivo
+
+Permitir salvar e recuperar projetos desenhados para redesenho rápido.
+
+Entregas
+
+Integração SQLite local (projects.db)
+
+Comando `SISRUA_SAVE_PROJECT` (salvar projeto atual)
+
+Comando `SISRUA_RELOAD_PROJECT` (listar e redesenhar projetos salvos)
+
+Benefício
+
+Recuperação de trabalho
+
+Reutilização de projetos
+
+Base para auditoria/gestão de histórico
+
+FASE 1.5.2 — LIMPEZA E SIMPLIFICAÇÃO DE GEOMETRIA OSM
+Objetivo
+
+Melhorar a qualidade dos desenhos CAD gerados a partir de OSM, reduzindo linhas duplicadas, sobrepostas ou complexas.
+
+Entregas
+
+Remoção de Polylines Duplicadas Exatas
+
+Fusão de Polylines Colineares/Contíguas
+
+Simplificação de Polylines (Douglas-Peucker)
+
+Benefício
+
+Desenhos mais limpos e performáticos
+
+Redução de erros em operações CAD subsequentes
+
+Experiência de usuário aprimorada
+
+FASE 2 — ELEVAÇÃO E RELEVO (OFFLINE)
+Objetivo
+
+Adicionar inteligência física ao projeto.
+
+Tecnologias
+
+SRTM (NASA)
+
+rasterio / elevation
+
+Funcionalidades
+
+Download e cache local de tiles
+
+Cálculo:
+
+Altitude inicial/final
+
+Declividade
+
+Geração no CAD:
+
+Curvas de nível (polylines)
+
+Cores por altitude (index color)
+
+Layer dedicada
+
+Critério de sucesso
+
+✔️ Projetista entende o relevo direto no CAD
+
+FASE 3 — DADOS OSM AVANÇADOS
+Objetivo
+
+Reduzir trabalho manual usando dados públicos.
+
+Funcionalidades
+
+Importação de:
+
+Ruas
+
+Infraestrutura disponível
+
+Filtros por tipo (highway, service)
+
+Conversão OSM → GeoJSON enriquecido
+
+Cache local
+
+Critério de sucesso
+
+✔️ Área carregada já vem “pré-desenhada”
+
+FASE 4 — APP OFFLINE DE CAMPO
+Objetivo
+
+Substituir papel e permitir levantamento técnico em campo.
+
+Características
+
+100% offline
+
+Mobile / PWA / Electron
+
+GPS local
+
+Funcionalidades
+
+Marcação de:
+
+Postes
+
+Medidores
+
+Caixas
+
+Anotações técnicas
+
+Fotos (referência local)
+
+Exportação:
+
+GeoJSON enriquecido
+
+Critério de sucesso
+
+✔️ Técnico volta do campo com um arquivo completo
+
+FASE 5 — DRAG & DROP CAMPO → CAD
+Objetivo
+
+Integração fluida e segura.
+
+Fluxo Oficial
+
+Usuário arrasta GeoJSON para WebView
+
+App.jsx:
+
+Lê arquivo
+
+Mostra preview no mapa
+
+Confirmação do usuário
+
+SISRUA_IMPORTAR (C#)
+
+Backend Python:
+
+Converte CRS
+
+Insere entidades no CAD
+
+Aplica blocos
+
+Critério de sucesso
+
+✔️ Arquivo de campo vira projeto CAD em segundos
+
+FASE 5.5 — ATRIBUTOS NÃO-GRÁFICOS (CADASTRO TÉCNICO)
+Objetivo
+
+Transformar o desenho em banco de dados técnico.
+
+Implementação
+
+Uso de:
+
+XData
+
+Extension Dictionaries
+
+Armazenar:
+
+Nº de série
+
+Código do ativo
+
+Caminho da foto
+
+Data de coleta
+
+Benefício
+
+As-built
+
+Manutenção
+
+Base para SaaS futuro
+
+FASE 6 — PREPARAÇÃO PARA NUVEM (SEM IMPLEMENTAÇÃO)
+Objetivo
+
+Estar pronto sem gastar dinheiro agora.
+
+Entregas
+
+Interfaces desacopladas
+
+Repositórios plugáveis
+
+Logs estruturados
+
+Auth abstraído
+
+Uso futuro
+
+Backup
+
+Compartilhamento
+
+Processamento pesado
+
+IA
+
+ORDEM DE EXECUÇÃO IMEDIATA (MÃO NA MASSA)
+
+Refinar SisRuaPalette.cs (Drag & Drop JSON/KML)
+
+Adaptar App.jsx (preview GeoJSON)
+
+Ajustar backend.py (processar pacote de campo)
+
+Consolidar CRS + UTM automático
+
+Criar biblioteca inicial de blocos
+
+CONCLUSÃO
+
+Este roadmap:
+
+É executável
+
+Respeita custo zero inicial
+
+Já nasce com visão de produto
+
+Não depende de promessas futuras

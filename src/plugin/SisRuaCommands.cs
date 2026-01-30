@@ -16,7 +16,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Globalization;
 using System.Data.SQLite; // Add this using for ProjectRepository
 
 namespace sisRUA
@@ -143,7 +142,11 @@ namespace sisRUA
                 // For simplicity, we will just draw over for now. User can clear manually if needed.
 
                 ed.WriteMessage($"\n[sisRUA] Carregando e redesenhando projeto '{projectName}' (ID: {selectedProjectId})...");
-                await DrawCadFeatures(features);
+                using (var dlg = new ProcessingDialog())
+                {
+                    Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
+                    await DrawCadFeatures(features, dlg);
+                }
                 
                 _lastDrawnFeatures = features;
                 _lastDrawnCrsOut = crsOut;
@@ -436,7 +439,19 @@ namespace sisRUA
                 string asmDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 if (!string.IsNullOrWhiteSpace(asmDir))
                 {
+                    // 1. Tenta "Resources/blocks_mapping.json" (estrutura Debug local)
                     string cfgPath = Path.Combine(asmDir, "Resources", "blocks_mapping.json");
+                    
+                    // 2. Tenta "../Resources/blocks_mapping.json" (estrutura Bundle: Contents/net8.0/.. -> Contents/Resources)
+                    if (!File.Exists(cfgPath))
+                    {
+                        string bundleResources = Path.Combine(Directory.GetParent(asmDir).FullName, "Resources", "blocks_mapping.json");
+                        if (File.Exists(bundleResources))
+                        {
+                            cfgPath = bundleResources;
+                        }
+                    }
+
                     if (File.Exists(cfgPath))
                     {
                         string text = File.ReadAllText(cfgPath);
@@ -447,6 +462,8 @@ namespace sisRUA
                             {
                                 if (string.IsNullOrWhiteSpace(kv.Key) || kv.Value == null) continue;
                                 // Resolve block_filepath relative to the bundle's Blocks/ folder
+                                // Se DefaultBlockPath for "../Blocks", e estamos em "Contents/net8.0",
+                                // Combine(asmDir, "../Blocks") -> "Contents/Blocks".
                                 if (!string.IsNullOrWhiteSpace(cfg.DefaultBlockPath) && !Path.IsPathRooted(kv.Value.BlockFilePath))
                                 {
                                     kv.Value.BlockFilePath = Path.Combine(asmDir, cfg.DefaultBlockPath, kv.Value.BlockFilePath);
@@ -556,13 +573,13 @@ namespace sisRUA
             }
         }
 
-        private static async Task<PrepareResponse> RunPrepareJobAsync(Editor ed, string baseUrl, PrepareJobRequest payload, CancellationToken ct)
+        private static async Task<PrepareResponse> RunPrepareJobAsync(Editor ed, string baseUrl, PrepareJobRequest payload, ProcessingDialog dlg)
         {
             Log($"INFO: Running prepare job for kind: {payload.Kind}");
             string createJson = JsonSerializer.Serialize(payload, _jsonOptions);
             using (var createReq = CreateAuthedJsonRequest(HttpMethod.Post, $"{baseUrl}/api/v1/jobs/prepare", createJson))
             {
-                var createResp = await _httpClient.SendAsync(createReq, ct);
+                var createResp = await _httpClient.SendAsync(createReq);
                 createResp.EnsureSuccessStatusCode();
                 string createText = await createResp.Content.ReadAsStringAsync();
                 var job = JsonSerializer.Deserialize<JobStatusResponse>(createText, _jsonOptions);
@@ -580,11 +597,19 @@ namespace sisRUA
 
                 while (sw.Elapsed < TimeSpan.FromMinutes(10))
                 {
-                    ct.ThrowIfCancellationRequested();
+                    if (dlg != null && dlg.WasCancelled)
+                    {
+                        Log($"INFO: Cancellation requested by user for job {job.JobId}. Sending DELETE request.");
+                        using (var cancelReq = CreateAuthedJsonRequest(HttpMethod.Delete, $"{baseUrl}/api/v1/jobs/{job.JobId}", null))
+                        {
+                            await _httpClient.SendAsync(cancelReq);
+                        }
+                        throw new OperationCanceledException("Cancelado pelo usuário.");
+                    }
 
                     using (var pollReq = CreateAuthedJsonRequest(HttpMethod.Get, $"{baseUrl}/api/v1/jobs/{job.JobId}", jsonBody: null))
                     {
-                        var pollResp = await _httpClient.SendAsync(pollReq, ct);
+                        var pollResp = await _httpClient.SendAsync(pollReq);
                         pollResp.EnsureSuccessStatusCode();
                         string pollText = await pollResp.Content.ReadAsStringAsync();
                         job = JsonSerializer.Deserialize<JobStatusResponse>(pollText, _jsonOptions);
@@ -618,12 +643,14 @@ namespace sisRUA
 
                         if (string.Equals(job.Status, "failed", StringComparison.OrdinalIgnoreCase))
                         {
-                            Log($"ERROR: Job {job.JobId} failed. Error: {job.Error ?? job.Message}");
+                            Log($"ERROR: Job {job.JobId} failed. Status: {job.Status}. Error: {job.Error ?? job.Message}");
+                            if (job.Error == "CANCELLED")
+                                throw new OperationCanceledException("Job cancelado pelo usuário no backend.");
                             throw new InvalidOperationException(job.Error ?? job.Message ?? "Job falhou no backend.");
                         }
                     }
 
-                    await Task.Delay(500, ct);
+                    await Task.Delay(500);
                 }
 
                 Log($"ERROR: Job {job.JobId} timed out after {sw.Elapsed.TotalMinutes} minutes.");
@@ -644,21 +671,25 @@ namespace sisRUA
 
                 ed.WriteMessage("\n[sisRUA] Criando job de importação (GeoJSON) no backend...");
                 var jobPayload = new PrepareJobRequest { Kind = "geojson", GeoJson = geojsonData };
-                var prepareResponse = await RunPrepareJobAsync(ed, baseUrl, jobPayload, CancellationToken.None);
-
-                if (prepareResponse?.Features == null || prepareResponse.Features.Count == 0)
+                
+                using (var dlg = new ProcessingDialog())
                 {
-                    ed.WriteMessage("\n[sisRUA] Aviso: backend retornou 0 features para desenhar.");
-                    Log("WARN: Backend returned 0 features to draw.");
-                    return;
+                    Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
+                    var prepareResponse = await RunPrepareJobAsync(ed, baseUrl, jobPayload, dlg);
+                    if (prepareResponse?.Features == null || prepareResponse.Features.Count == 0)
+                    {
+                        ed.WriteMessage("\n[sisRUA] Aviso: backend retornou 0 features para desenhar.");
+                        Log("WARN: Backend returned 0 features to draw.");
+                        return;
+                    }
+
+                    ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
+                    await DrawCadFeatures(prepareResponse.Features, dlg);
+
+                    // Store last drawn features for saving
+                    _lastDrawnFeatures = prepareResponse.Features;
+                    _lastDrawnCrsOut = prepareResponse.CrsOut;
                 }
-
-                ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
-                await DrawCadFeatures(prepareResponse.Features);
-
-                // Store last drawn features for saving
-                _lastDrawnFeatures = prepareResponse.Features;
-                _lastDrawnCrsOut = prepareResponse.CrsOut;
             }
             catch (HttpRequestException httpEx)
             {
@@ -695,22 +726,27 @@ namespace sisRUA
                     Longitude = longitude,
                     Radius = radius
                 };
-                var prepareResponse = await RunPrepareJobAsync(ed, baseUrl, jobPayload, CancellationToken.None);
-
-                if (prepareResponse?.Features == null || prepareResponse.Features.Count == 0)
+                
+                using (var dlg = new ProcessingDialog())
                 {
-                    ed.WriteMessage("\n[sisRUA] Aviso: backend retornou 0 features para desenhar.");
-                    Log("WARN: Backend returned 0 features to draw.");
-                    return;
+                    Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
+                    var prepareResponse = await RunPrepareJobAsync(ed, baseUrl, jobPayload, dlg);
+
+                    if (prepareResponse?.Features == null || prepareResponse.Features.Count == 0)
+                    {
+                        ed.WriteMessage("\n[sisRUA] Aviso: backend retornou 0 features para desenhar.");
+                        Log("WARN: Backend returned 0 features to draw.");
+                        return;
+                    }
+
+                    ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
+                    await DrawCadFeatures(prepareResponse.Features, dlg);
+                    EnsureOsmAttributionMText(prepareResponse.Features);
+
+                    // Store last drawn features for saving
+                    _lastDrawnFeatures = prepareResponse.Features;
+                    _lastDrawnCrsOut = prepareResponse.CrsOut;
                 }
-
-                ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
-                await DrawCadFeatures(prepareResponse.Features);
-                EnsureOsmAttributionMText(prepareResponse.Features);
-
-                // Store last drawn features for saving
-                _lastDrawnFeatures = prepareResponse.Features;
-                _lastDrawnCrsOut = prepareResponse.CrsOut;
             }
             catch (HttpRequestException httpEx)
             {
@@ -727,7 +763,7 @@ namespace sisRUA
             }
         }
 
-        private static async Task DrawCadFeatures(IEnumerable<CadFeature> features)
+        private static async Task DrawCadFeatures(IEnumerable<CadFeature> features, ProcessingDialog dlg)
         {
             Log("INFO: DrawCadFeatures started.");
             Document doc = Application.DocumentManager.MdiActiveDocument;
@@ -746,10 +782,8 @@ namespace sisRUA
             Log("INFO: Starting background geometry processing...");
             ed.WriteMessage("\n[sisRUA] Processando geometria em background (interface liberada)...");
 
-            ed.WriteMessage("\n[sisRUA] Processando geometria em background (interface liberada)...");
 
-            var dlg = new ProcessingDialog();
-            Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
+            // Phase 2: Background Processing
 
             // Phase 2: Background Processing
             // We capture the counts/stats to log them back on the UI thread later
@@ -758,10 +792,13 @@ namespace sisRUA
             try
             {
                 // We capture the task to await it, so the dialog stays open
-                var task = Task.Run(() =>
+                var task = Task.Run(async () =>
                 {
                     var inputCount = features.Count();
                     
+                    // Se o usuário já cancelou no início
+                    if (dlg.WasCancelled) return null;
+
                     // Limpeza e Simplificação
                     var cleaned = GeometryCleaner.RemoveDuplicatePolylines(features);
                     var duplicatesRemoved = inputCount - cleaned.Count();
@@ -783,12 +820,22 @@ namespace sisRUA
                     };
                 });
 
+                // Polling do diálogo para cancelamento local (UI lock preventer)
+                while (!task.IsCompleted)
+                {
+                    if (dlg.WasCancelled)
+                    {
+                        ed.WriteMessage("\n[sisRUA] Operação cancelada pelo usuário.");
+                        return; // Interrompe o desenho
+                    }
+                    await Task.Delay(100);
+                }
+
                 processingResultRaw = await task;
             }
             finally
             {
-                dlg.Close();
-                dlg.Dispose();
+                // Note: we don't close/dispose dlg here anymore because it's handled in the using() block of the caller
             }
 
             // Cast back to dynamic/anonymous (C# trickery or just use dynamic access)
@@ -878,11 +925,16 @@ namespace sisRUA
                                 }
                             }
 
-                            // Fallback: desenha o eixo (e, se houver largura, tenta como polyline com largura constante).
                             if (widthUnits.HasValue && widthUnits.Value > 0.05 && IsFinite(widthUnits.Value))
                             {
                                 centerPolyline.ConstantWidth = widthUnits.Value;
                             }
+                            
+                            if (f.Elevation.HasValue)
+                            {
+                                centerPolyline.Elevation = f.Elevation.Value * metersToDrawingUnits;
+                            }
+                            
                             centerPolyline.Layer = layerName;
                             centerPolyline.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
                             ms.AppendEntity(centerPolyline);
@@ -901,7 +953,7 @@ namespace sisRUA
                             Autodesk.AutoCAD.Geometry.Point3d insertionPt = new Autodesk.AutoCAD.Geometry.Point3d(
                                 f.InsertionPointXy[0] * metersToDrawingUnits,
                                 f.InsertionPointXy[1] * metersToDrawingUnits,
-                                f.InsertionPointXy.Count > 2 ? f.InsertionPointXy[2] * metersToDrawingUnits : 0.0
+                                f.Elevation.HasValue ? f.Elevation.Value * metersToDrawingUnits : 0.0
                             );
 
                             InsertBlock(

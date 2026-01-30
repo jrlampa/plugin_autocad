@@ -40,8 +40,10 @@ class PrepareGeoJsonRequest(BaseModel):
 
 app = FastAPI()
 
-# In-memory storage for job statuses and results. In a real application, this would be a database.
+# In-memory storage for job statuses and results.
 job_store: Dict[str, Dict[str, Any]] = {}
+# Track which jobs have been requested to cancel
+cancellation_tokens: Dict[str, bool] = {}
 
 
 class PrepareJobRequest(BaseModel):
@@ -165,17 +167,34 @@ def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest) -> None:
     try:
         _update_job(job_id, status="processing", progress=0.05, message="Iniciando...")
 
+        if cancellation_tokens.get(job_id):
+            _update_job(job_id, status="failed", progress=1.0, message="Cancelado pelo usuário.", error="CANCELLED")
+            return
+
         if payload.kind == "osm":
             if payload.latitude is None or payload.longitude is None or payload.radius is None:
                 raise ValueError("latitude/longitude/radius são obrigatórios para kind=osm")
             _update_job(job_id, progress=0.15, message="Baixando dados do OSM...")
+            
+            # For OSM, we'd ideally pass the job_id down to check cancellation inside long compute
+            # But for now, we check before and after major steps.
             result = _prepare_osm_compute(payload.latitude, payload.longitude, payload.radius)
+            
+            if cancellation_tokens.get(job_id):
+                _update_job(job_id, status="failed", progress=1.0, message="Cancelado pelo usuário.", error="CANCELLED")
+                return
+                
             _update_job(job_id, progress=0.95, message="Finalizando...")
         elif payload.kind == "geojson":
             if payload.geojson is None:
                 raise ValueError("geojson é obrigatório para kind=geojson")
             _update_job(job_id, progress=0.2, message="Processando GeoJSON...")
             result = _prepare_geojson_compute(payload.geojson)
+            
+            if cancellation_tokens.get(job_id):
+                _update_job(job_id, status="failed", progress=1.0, message="Cancelado pelo usuário.", error="CANCELLED")
+                return
+
             _update_job(job_id, progress=0.95, message="Finalizando...")
         else:
             raise ValueError("kind inválido. Use 'osm' ou 'geojson'.")
@@ -205,24 +224,29 @@ async def get_job(job_id: str, x_sisrua_token: str | None = Header(default=None,
         raise HTTPException(status_code=404, detail="Job not found")
     return job
 
+@app.delete("/api/v1/jobs/{job_id}")
+async def cancel_job(job_id: str, x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
+    _require_token(x_sisrua_token)
+    with _job_store_lock:
+        job = job_store.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        # If already finished, do nothing
+        if job["status"] in ("completed", "failed"):
+            return {"status": "ok", "message": "Job already finished"}
+            
+        cancellation_tokens[job_id] = True
+        job["status"] = "failed"
+        job["message"] = "Cancelamento solicitado..."
+        job["error"] = "CANCELLED"
+    return {"status": "ok"}
 
-def _utm_zone(longitude: float) -> int:
-    """
-    UTM zone: 1..60
-    """
-    zone = int((longitude + 180) // 6) + 1
-    return max(1, min(60, zone))
 
 
-def _sirgas2000_utm_epsg(latitude: float, longitude: float) -> int:
-    """
-    Para o Brasil (hemisfério sul), SIRGAS 2000 / UTM zona S segue a família EPSG:31960 + zona.
-    Ex.: zona 24S → 31984.
-    """
-    zone = _utm_zone(longitude)
-    # Roadmap do projeto assume SIRGAS 2000 / UTM.
-    # Fórmula conhecida para zonas Sul: 31960 + zone.
-    return 31960 + zone
+
+
+from backend.services.crs import sirgas2000_utm_epsg
 
 def _to_linestrings(geom) -> List[Any]:
     # Import local para evitar puxar stack GIS pesada na importação do módulo (melhor para CI e startup).
@@ -341,7 +365,7 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
         cached["cache_hit"] = True
         return cached
 
-    epsg_out = _sirgas2000_utm_epsg(latitude, longitude)
+    epsg_out = sirgas2000_utm_epsg(latitude, longitude)
     transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_out}", always_xy=True)
 
     try:
@@ -428,7 +452,7 @@ def _prepare_osm_compute(latitude: float, longitude: float, radius: float) -> di
                     )
                 )
 
-    epsg_out = _sirgas2000_utm_epsg(latitude, longitude)
+    epsg_out = sirgas2000_utm_epsg(latitude, longitude)
     payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features)
     
     # Cache por conteúdo
@@ -487,7 +511,7 @@ def _prepare_geojson_compute(geo: Any) -> dict:
     if lon0 == 0.0 and lat0 == 0.0:
         raise HTTPException(status_code=400, detail="GeoJSON inválido: não foi possível extrair coordenadas.")
 
-    epsg_out = _sirgas2000_utm_epsg(lat0, lon0)
+    epsg_out = sirgas2000_utm_epsg(lat0, lon0)
     transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_out}", always_xy=True)
 
     features: List[CadFeature] = [] # Changed type to CadFeature
@@ -718,9 +742,9 @@ def _maybe_mount_frontend():
                           try {
                             if (typeof event.data === "string") {
                               const msg = JSON.parse(event.data);
-                              if (msg.action === "FILE_DROPPED" && msg.data && msg.data.content) {
+                              if (msg.action === "FILE_DROPPED_GEOJSON" && msg.data && msg.data.content) {
                                 geojsonText = msg.data.content;
-                                log("FILE_DROPPED recebido do AutoCAD: " + (msg.data.fileName || "(sem nome)"));
+                                log("FILE_DROPPED_GEOJSON recebido do AutoCAD: " + (msg.data.fileName || "(sem nome)"));
                               }
                             }
                           } catch (err) {

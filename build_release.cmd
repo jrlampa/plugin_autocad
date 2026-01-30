@@ -67,7 +67,7 @@ echo [2/3] Gerando bundle em release\\sisRUA.bundle...
 set SISRUA_OUT_ROOT=%ROOT%release
 set SISRUA_CONFIGURATION=Release
 set SISRUA_NOPAUSE=1
-call "%ROOT%organizar_projeto.cmd" <nul
+call "%ROOT%tools\organizar_projeto.cmd" <nul
 if errorlevel 1 (
   echo ERRO: falha ao empacotar o bundle via organizar_projeto.cmd.
   exit /b 1
