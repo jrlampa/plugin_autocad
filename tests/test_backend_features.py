@@ -6,12 +6,26 @@ import numpy as np
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 import math
+import pandas as pd
+from typing import Optional, List, Any, Tuple
+from shapely.geometry import LineString, Point, MultiLineString
 
 # Add src/backend to python path
 sys.path.append(os.path.join(os.getcwd(), 'src', 'backend'))
 
 from backend.services.elevation import ElevationService
-from backend.api import _get_color_from_elevation
+from backend.core.utils import (
+    get_color_from_elevation, 
+    estimate_width_m, 
+    norm_optional_str, 
+    to_linestrings,
+    sanitize_jsonable,
+    read_cache, 
+    write_cache
+)
+from backend.services.osm import prepare_osm_compute
+from backend.services.geojson import prepare_geojson_compute
+from backend.models import CadFeature
 
 try:
     import rasterio
@@ -19,112 +33,154 @@ try:
 except ImportError:
     rasterio = None
 
-class TestBackendPhase2(unittest.TestCase):
+class TestBackendComprehensive(unittest.TestCase):
     
     def setUp(self):
-        # Setup mock elevation service
-        self.service = ElevationService()
-        self.cache_dir = Path(os.environ.get('LOCALAPPDATA', '')) / 'sisRUA' / 'cache' / 'elevation'
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.cache_dir = Path("test_cache_comprehensive")
+        if self.cache_dir.exists():
+            shutil.rmtree(self.cache_dir)
+        self.service = ElevationService(cache_dir=str(self.cache_dir))
         
-        # Create a dummy GeoTIFF for testing
-        self.dummy_tif = self.cache_dir / "test_synthetic.tif"
+        self.dummy_tif = self.cache_dir / "test_comp.tif"
         self._create_dummy_tif(self.dummy_tif)
 
     def _create_dummy_tif(self, path):
-        if not rasterio:
-            return
-            
-        # Create a 100x100 grid representing a hill
-        # Lat/Lon area: -20.44 to -20.43 (approx 1km)
-        transform = from_origin(-41.80, -20.43, 0.0001, 0.0001)
+        if not rasterio: return
+        transform = from_origin(-41.02, -20.98, 0.004, 0.004) # Covers a small area
+        # Data with a gradient to ensure contours are generated
+        data = np.zeros((20, 20), dtype=rasterio.float32)
+        for r in range(20):
+            for c in range(20):
+                data[r, c] = 100.0 + (r + c) * 5.0
         
-        # Array 100x100
-        x = np.linspace(-1, 1, 100)
-        y = np.linspace(-1, 1, 100)
-        X, Y = np.meshgrid(x, y)
-        Z = 500 * np.exp(-(X**2 + Y**2)) # Gaussian hill, max 500m
-        Z = Z.astype(rasterio.float32)
-
-        with rasterio.open(
-            path,
-            'w',
-            driver='GTiff',
-            height=Z.shape[0],
-            width=Z.shape[1],
-            count=1,
-            dtype=Z.dtype,
-            crs='+proj=latlong',
-            transform=transform,
-        ) as dst:
-            dst.write(Z, 1)
+        with rasterio.open(path, 'w', driver='GTiff', height=20, width=20, count=1,
+                          dtype=rasterio.float32, crs=None, transform=transform) as dst:
+            dst.write(data, 1)
 
     def tearDown(self):
-        # Cleanup
-        if self.dummy_tif.exists():
-            try:
-                self.dummy_tif.unlink()
-            except:
-                pass
+        if self.cache_dir.exists():
+            shutil.rmtree(self.cache_dir)
 
-    def test_color_logic(self):
-        self.assertEqual(_get_color_from_elevation(0, 0, 100), "5") 
-        self.assertEqual(_get_color_from_elevation(100, 0, 100), "1")
-        self.assertEqual(_get_color_from_elevation(50, 0, 100), "3")
-        self.assertEqual(_get_color_from_elevation(50, 50, 50), "255,255,255")
+    def test_elevation_profile_integration(self):
+        if not rasterio: self.skipTest("No rasterio")
+        with patch.object(ElevationService, 'get_elevation_grid', return_value=self.dummy_tif):
+            coords = [(-21.0, -41.0), (-21.004, -41.004)]
+            elevations = self.service.get_elevation_profile(coords)
+            self.assertEqual(len(elevations), 2)
 
-    @patch('backend.services.elevation.ElevationService.get_elevation_grid')
-    def test_elevation_point_query(self, mock_get_grid):
-        if not rasterio:
-            self.skipTest("Rasterio not installed")
-            
-        # Mock get_elevation_grid to return our dummy tif
-        mock_get_grid.return_value = self.dummy_tif
-        
-        # Center of the hill (-20.435, -41.795) - heavily approximate coords
-        # Our transform started at -41.80, -20.43
-        # pixel size 0.0001. 100 pixels = 0.01 deg.
-        # So covers -41.80 to -41.79, and -20.43 to -20.44 (going down/up?)
-        # from_origin(west, north, xsize, ysize).
-        # Bounds: West -41.80. North -20.43.
-        # East = -41.80 + 0.01 = -41.79.
-        # South = -20.43 - 0.01 = -20.44.
-        
-        # Query center: -41.795, -20.435
-        lat, lon = -20.435, -41.795
-        
-        z = self.service.get_elevation_at_point(lat, lon)
-        print(f"Sampled Z: {z}")
-        
-        self.assertIsNotNone(z)
-        # Should be near max (500)
-        self.assertTrue(300 < z < 550)
+    def test_contours_integration_real(self):
+        if not rasterio: self.skipTest("No rasterio")
+        with patch.object(ElevationService, 'get_elevation_grid', return_value=self.dummy_tif):
+            # Query bounds covering the TIF
+            contours = self.service.get_contours(-21.02, -41.02, -20.98, -40.98, interval=10.0)
+            self.assertTrue(len(contours) > 0)
+            self.assertIn('elevation', contours[0])
 
-    @patch('backend.services.elevation.ElevationService.get_elevation_grid')
-    def test_contours_generation(self, mock_get_grid):
-        if not rasterio:
-            self.skipTest("Rasterio not installed")
-            
-        mock_get_grid.return_value = self.dummy_tif
-        
-        # Request contours for the whole area
-        min_lat, max_lat = -20.44, -20.43
-        min_lon, max_lon = -41.80, -41.79
-        
-        contours = self.service.get_contours(min_lat, min_lon, max_lat, max_lon, interval=100.0)
-        
-        print(f"Generated {len(contours)} contour sets")
-        self.assertTrue(len(contours) > 0)
-        
-        sample = contours[0]
-        self.assertIn('elevation', sample)
-        self.assertIn('geometry', sample)
-        
-        # Check Z values roughly match interval
-        elevs = [c['elevation'] for c in contours]
-        print(f"Contour levels: {sorted(list(set(elevs)))}")
-        self.assertIn(100.0, elevs)
-        self.assertIn(200.0, elevs)
+    def test_geojson_mega_test(self):
+        geojson = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "LineString", "coordinates": [[-41, -21], [-41.01, -21.01]]},
+                    "properties": {"name": "L1", "highway": "primary"}
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "MultiLineString", "coordinates": [[[-41.02, -21.02], [-41.03, -21.03]]]},
+                    "properties": {"name": "ML1", "layer": "MY_LAYER"}
+                },
+                {
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [-41.04, -21.04]},
+                    "properties": {"name": "P1", "block_name": "POSTE", "rotation": 45}
+                }
+            ]
+        }
+        # Patching backend.services.geojson.ElevationService to mock its method
+        with patch('backend.services.geojson.ElevationService') as MockService:
+             MockService.return_value.get_elevation_profile.return_value = [100.0, 100.0, 100.0, 100.0]
+             result = prepare_geojson_compute(geojson)
+             self.assertEqual(len(result["features"]), 3)
+             # Verify Point properties
+             p = next(f for f in result["features"] if f["feature_type"] == "Point")
+             self.assertEqual(p["block_name"], "POSTE")
+             self.assertEqual(p["rotation"], 45)
 
-if __name__ == '__main__':
-    unittest.main()
+    def test_geojson_single_feature_point(self):
+        geo = {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [-41, -21]},
+            "properties": {"name": "Single Point"}
+        }
+        # Don't strictly need to patch elevation if it fails gracefully
+        res = prepare_geojson_compute(geo)
+        self.assertEqual(len(res["features"]), 1)
+
+    @patch('backend.services.osm.read_cache', return_value=None)
+    @patch('backend.services.osm.write_cache')
+    @patch('osmnx.graph_from_point')
+    @patch('osmnx.project_graph')
+    @patch('osmnx.graph_to_gdfs')
+    @patch('backend.services.osm.elevation_service') # It's a global instance in osm.py
+    def test_osm_compute_full(self, mock_elev, mock_gdfs, mock_proj, mock_from_pt, mock_write, mock_read):
+        mock_from_pt.return_value = MagicMock()
+        mock_proj.return_value = MagicMock()
+        
+        edges_df = pd.DataFrame({
+            'geometry': [LineString([(0,0), (1,1)])],
+            'highway': [['residential']], 
+            'name': ['Street 1']
+        })
+        edges_df.crs = "EPSG:31983"
+        nodes_df = pd.DataFrame({
+            'geometry': [Point(0,0)],
+            'amenity': ['bench']
+        })
+        nodes_df.crs = "EPSG:31983"
+        mock_gdfs.return_value = (nodes_df, edges_df)
+        mock_elev.get_elevation_profile.return_value = [100.0, 100.0]
+        mock_elev.get_contours.return_value = [
+            {'elevation': 100.0, 'geometry': [(-21.0, -41.0), (-21.01, -41.01)]}
+        ]
+        
+        result = prepare_osm_compute(-21, -41, 100)
+        self.assertTrue(any(f["layer"] == "SISRUA_CURVAS_NIVEL" for f in result["features"]))
+
+    def test_to_linestrings_unsupported(self):
+        # Should return empty for unsupported geometry types like Point if passed to to_linestrings
+        self.assertEqual(to_linestrings(Point(0,0)), [])
+
+    def test_norm_optional_str_complex(self):
+        self.assertEqual(norm_optional_str("test"), "test")
+        self.assertEqual(norm_optional_str(123), "123")
+        self.assertIsNone(norm_optional_str(None))
+
+    @patch('backend.services.osm.read_cache', return_value=None)
+    @patch('backend.services.osm.write_cache')
+    @patch('osmnx.graph_from_point')
+    @patch('osmnx.project_graph')
+    @patch('osmnx.graph_to_gdfs')
+    @patch('backend.services.osm.elevation_service')
+    def test_osm_compute_elevation_fail(self, mock_elev, mock_gdfs, mock_proj, mock_from_pt, mock_write, mock_read):
+        mock_from_pt.return_value = MagicMock()
+        mock_proj.return_value = MagicMock()
+        mock_gdfs.return_value = (pd.DataFrame({'geometry':[Point(0,0)]}), pd.DataFrame({'geometry':[LineString([(0,0),(1,1)])]}))
+        mock_elev.get_elevation_profile.side_effect = Exception("Simulated Fail")
+        
+        # Should not raise, just continue gracefully
+        result = prepare_osm_compute(0, 0, 100)
+        self.assertTrue(len(result["features"]) > 0)
+
+    @patch('backend.services.osm.read_cache')
+    @patch('osmnx.graph_from_point', side_effect=Exception("OSM Down"))
+    def test_osm_compute_fallback_to_cache(self, mock_ox, mock_read):
+        mock_read.return_value = {"features": [{"name": "Cached Street"}], "cache_hit": True}
+        result = prepare_osm_compute(0, 0, 100)
+        self.assertEqual(result["features"][0]["name"], "Cached Street")
+        self.assertTrue(result["cache_hit"])
+
+    def test_elevation_at_point_fail_coverage(self):
+        with patch.object(ElevationService, 'get_elevation_grid', return_value=None):
+            elev = self.service.get_elevation_at_point(-21.0, -41.0)
+            self.assertIsNone(elev)

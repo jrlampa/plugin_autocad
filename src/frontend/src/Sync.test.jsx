@@ -1,6 +1,6 @@
-import { render, screen, act } from '@testing-library/react'
-import App from './App'
-import { vi, describe, it, expect, beforeAll } from 'vitest'
+import { render, screen, act } from '@testing-library/react';
+import App from './App';
+import { vi, describe, it, expect, beforeAll } from 'vitest';
 
 describe('Geolocation Sync integration', () => {
   beforeAll(() => {
@@ -10,20 +10,23 @@ describe('Geolocation Sync integration', () => {
       window.chrome.webview = {
         addEventListener: vi.fn(),
         removeEventListener: vi.fn(),
-        postMessage: vi.fn()
+        postMessage: vi.fn(),
       };
     }
   });
 
   it('updates coordinates when GEOLOCATION_SYNC is received', async () => {
-    render(<App />)
+    render(<App />);
+    await screen.findByText(/sisRUA/i, {}, { timeout: 3000 });
 
     // Simular o recebimento de mensagem da WebView
     // O App.jsx usa window.chrome.webview.addEventListener('message', ...)
     // Precisamos disparar o evento no objeto mockado.
 
     // Pega a função de callback registrada
-    const [[eventName, callback]] = window.chrome.webview.addEventListener.mock.calls.filter(call => call[0] === 'message');
+    const [[eventName, callback]] = window.chrome.webview.addEventListener.mock.calls.filter(
+      (call) => call[0] === 'message'
+    );
 
     expect(eventName).toBe('message');
 
@@ -31,8 +34,8 @@ describe('Geolocation Sync integration', () => {
       callback({
         data: JSON.stringify({
           action: 'GEOLOCATION_SYNC',
-          data: { latitude: -23.5505, longitude: -46.6333 }
-        })
+          data: { latitude: -23.5505, longitude: -46.6333 },
+        }),
       });
     });
 

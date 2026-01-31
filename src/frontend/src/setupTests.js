@@ -2,6 +2,13 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
+vi.mock('axios', () => ({
+  default: {
+    get: vi.fn(() => Promise.resolve({ data: { status: 'ok' } })),
+    post: vi.fn(() => Promise.resolve({ data: {} })),
+  },
+}));
+
 // --- Mocks para evitar dependências pesadas no JSDOM (Leaflet/WebGL/tiles) ---
 
 vi.mock('leaflet/dist/leaflet.css', () => ({}));
@@ -12,7 +19,7 @@ vi.mock('leaflet', async () => {
   // Mock mínimo para não quebrar import do App.
   const L = {
     icon: () => ({}),
-    Marker: function Marker() {},
+    Marker: function Marker() { },
   };
   L.Marker.prototype = { options: {} };
   return { default: L };
@@ -31,11 +38,18 @@ vi.mock('react-leaflet', async () => {
     GeoJSON: () => null,
     Polyline: () => null,
     useMap: () => ({
-      getContainer: () => ({ addEventListener: () => {}, removeEventListener: () => {} }),
-      on: () => {},
-      flyTo: () => {},
+      getContainer: () => ({ addEventListener: () => { }, removeEventListener: () => { } }),
+      on: () => { },
+      flyTo: () => { },
       mouseEventToLatLng: () => ({ lat: 0, lng: 0 }),
     }),
   };
 });
 
+// Mock da API para evitar bloqueio no Health Check durante os testes
+vi.mock('./api', () => ({
+  api: {
+    checkHealth: vi.fn(() => Promise.resolve(true)),
+    smartGeocode: vi.fn(),
+  },
+}));

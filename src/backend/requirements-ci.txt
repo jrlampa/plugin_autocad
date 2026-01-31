@@ -4,4 +4,7 @@ fastapi
 uvicorn
 pyproj
 shapely
+rasterio
+numpy
+requests
 

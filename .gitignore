@@ -8,6 +8,11 @@ obj/
 *.pdb
 *.cache
 
+# ===== Secrets / Environment =====
+.env
+.env.*
+!.env.example
+
 # ===== Python =====
 __pycache__/
 **/__pycache__/
@@ -35,6 +40,8 @@ Output/
 # ===== QA / evidências (gerado) =====
 qa/out/
 .pytest_cache/
+*.log
+.coverage
 
 # ===== IDE / ferramentas =====
 .cursor/

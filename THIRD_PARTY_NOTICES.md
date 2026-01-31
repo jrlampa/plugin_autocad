@@ -1,6 +1,6 @@
 # THIRD PARTY NOTICES - sisRUA
 
-Last updated: 2026-01-30
+Last updated: 2026-01-31
 
 This file is **auto-generated** during release build for compliance (Autodesk App Store).
 
@@ -14,29 +14,41 @@ This file is **auto-generated** during release build for compliance (Autodesk Ap
 
 |Name|Version|License|URL|
 |---|---:|---|---|
+|affine|2.4.0|BSD License|https://github.com/rasterio/affine|
 |annotated-doc|0.0.4|MIT|https://github.com/fastapi/annotated-doc|
 |annotated-types|0.7.0|MIT License|https://github.com/annotated-types/annotated-types|
 |anyio|4.12.1|MIT|https://anyio.readthedocs.io/en/stable/versionhistory.html|
+|attrs|25.4.0|MIT|https://www.attrs.org/en/stable/changelog.html|
 |certifi|2026.1.4|Mozilla Public License 2.0 (MPL 2.0)|https://github.com/certifi/python-certifi|
 |charset-normalizer|3.4.4|MIT|https://github.com/jawah/charset_normalizer/blob/master/CHANGELOG.md|
 |click|8.3.1|BSD-3-Clause|https://github.com/pallets/click/|
+|click-plugins|1.1.1.2|BSD License|https://github.com/click-contrib/click-plugins|
+|cligj|0.7.2|BSD|https://github.com/mapbox/cligj|
 |colorama|0.4.6|BSD License|https://github.com/tartley/colorama|
+|contourpy|1.3.2|BSD License|https://github.com/contourpy/contourpy|
+|cycler|0.12.1|BSD License|https://matplotlib.org/cycler/|
 |exceptiongroup|1.3.1|MIT License|https://github.com/agronholm/exceptiongroup/blob/main/CHANGES.rst|
 |fastapi|0.128.0|MIT|https://github.com/fastapi/fastapi|
+|fonttools|4.61.1|MIT|http://github.com/fonttools/fonttools|
 |geopandas|1.1.2|BSD License|https://github.com/geopandas/geopandas|
 |h11|0.16.0|MIT License|https://github.com/python-hyper/h11|
 |idna|3.11|BSD-3-Clause|https://github.com/kjd/idna|
+|kiwisolver|1.4.9|BSD License|https://github.com/nucleic/kiwi|
+|matplotlib|3.10.8|Python Software Foundation License|https://matplotlib.org|
 |networkx|3.4.2|BSD License|https://networkx.org/|
 |numpy|2.2.6|BSD License|https://numpy.org|
 |osmnx|2.0.7|MIT|UNKNOWN|
 |packaging|26.0|Apache-2.0 OR BSD-2-Clause|https://github.com/pypa/packaging|
 |pandas|2.3.3|BSD License|https://pandas.pydata.org|
+|pillow|12.1.0|MIT-CMU|https://python-pillow.github.io|
 |pydantic|2.12.5|MIT|https://github.com/pydantic/pydantic|
 |pydantic_core|2.41.5|MIT|https://github.com/pydantic/pydantic-core|
 |pyogrio|0.12.1|MIT License|https://github.com/geopandas/pyogrio|
+|pyparsing|3.3.2|MIT|https://github.com/pyparsing/pyparsing/|
 |pyproj|3.7.1|MIT License|https://github.com/pyproj4/pyproj|
 |python-dateutil|2.9.0.post0|Apache Software License; BSD License|https://github.com/dateutil/dateutil|
 |pytz|2025.2|MIT License|http://pythonhosted.org/pytz|
+|rasterio|1.4.4|BSD License|https://github.com/rasterio/rasterio|
 |requests|2.32.5|Apache Software License|https://requests.readthedocs.io|
 |shapely|2.1.2|BSD License|https://github.com/shapely/shapely|
 |six|1.17.0|MIT License|https://github.com/benjaminp/six|
@@ -50,6 +62,20 @@ This file is **auto-generated** during release build for compliance (Autodesk Ap
 ## Python backend (pip) - license texts
 
 > Note: some packages may not expose a single license file via metadata. In such cases, the text may be empty.
+
+### affine (2.4.0)
+
+- Declared license: BSD License
+
+```
+C:\sisrua_build\.venv-backend-build\lib\site-packages\affine-2.4.0.dist-info\LICENSE.txt
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
 
 ### annotated-doc (0.0.4)
 
@@ -85,6 +111,20 @@ UNKNOWN
 
 ```
 C:\sisrua_build\.venv-backend-build\lib\site-packages\anyio-4.12.1.dist-info\licenses\LICENSE
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
+
+### attrs (25.4.0)
+
+- Declared license: MIT
+
+```
+C:\sisrua_build\.venv-backend-build\lib\site-packages\attrs-25.4.0.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -135,12 +175,68 @@ C:\sisrua_build\.venv-backend-build\lib\site-packages\click-8.3.1.dist-info\lice
 UNKNOWN
 ```
 
+### click-plugins (1.1.1.2)
+
+- Declared license: BSD License
+
+```
+C:\sisrua_build\.venv-backend-build\lib\site-packages\click_plugins-1.1.1.2.dist-info\licenses\LICENSE.txt
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
+
+### cligj (0.7.2)
+
+- Declared license: BSD
+
+```
+C:\sisrua_build\.venv-backend-build\lib\site-packages\cligj-0.7.2.dist-info\LICENSE
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
+
 ### colorama (0.4.6)
 
 - Declared license: BSD License
 
 ```
 C:\sisrua_build\.venv-backend-build\lib\site-packages\colorama-0.4.6.dist-info\licenses\LICENSE.txt
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
+
+### contourpy (1.3.2)
+
+- Declared license: BSD License
+
+```
+C:\sisrua_build\.venv-backend-build\lib\site-packages\contourpy-1.3.2.dist-info\LICENSE
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
+
+### cycler (0.12.1)
+
+- Declared license: BSD License
+
+```
+C:\sisrua_build\.venv-backend-build\lib\site-packages\cycler-0.12.1.dist-info\LICENSE
 ```
 
 #### NOTICE
@@ -169,6 +265,20 @@ UNKNOWN
 
 ```
 C:\sisrua_build\.venv-backend-build\lib\site-packages\fastapi-0.128.0.dist-info\licenses\LICENSE
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
+
+### fonttools (4.61.1)
+
+- Declared license: MIT
+
+```
+C:\sisrua_build\.venv-backend-build\lib\site-packages\fonttools-4.61.1.dist-info\licenses\LICENSE
 ```
 
 #### NOTICE
@@ -211,6 +321,34 @@ UNKNOWN
 
 ```
 C:\sisrua_build\.venv-backend-build\lib\site-packages\idna-3.11.dist-info\licenses\LICENSE.md
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
+
+### kiwisolver (1.4.9)
+
+- Declared license: BSD License
+
+```
+C:\sisrua_build\.venv-backend-build\lib\site-packages\kiwisolver-1.4.9.dist-info\licenses\LICENSE
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
+
+### matplotlib (3.10.8)
+
+- Declared license: Python Software Foundation License
+
+```
+C:\sisrua_build\.venv-backend-build\lib\site-packages\matplotlib-3.10.8.dist-info\LICENSE
 ```
 
 #### NOTICE
@@ -289,6 +427,20 @@ C:\sisrua_build\.venv-backend-build\lib\site-packages\pandas-2.3.3.dist-info\LIC
 UNKNOWN
 ```
 
+### pillow (12.1.0)
+
+- Declared license: MIT-CMU
+
+```
+C:\sisrua_build\.venv-backend-build\lib\site-packages\pillow-12.1.0.dist-info\licenses\LICENSE
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
+
 ### pydantic (2.12.5)
 
 - Declared license: MIT
@@ -331,6 +483,20 @@ C:\sisrua_build\.venv-backend-build\lib\site-packages\pyogrio-0.12.1.dist-info\l
 UNKNOWN
 ```
 
+### pyparsing (3.3.2)
+
+- Declared license: MIT
+
+```
+C:\sisrua_build\.venv-backend-build\lib\site-packages\pyparsing-3.3.2.dist-info\licenses\LICENSE
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
+
 ### pyproj (3.7.1)
 
 - Declared license: MIT License
@@ -365,6 +531,20 @@ UNKNOWN
 
 ```
 C:\sisrua_build\.venv-backend-build\lib\site-packages\pytz-2025.2.dist-info\LICENSE.txt
+```
+
+#### NOTICE
+
+```
+UNKNOWN
+```
+
+### rasterio (1.4.4)
+
+- Declared license: BSD License
+
+```
+C:\sisrua_build\.venv-backend-build\lib\site-packages\rasterio-1.4.4.dist-info\licenses\LICENSE.txt
 ```
 
 #### NOTICE

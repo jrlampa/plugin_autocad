@@ -4,25 +4,27 @@ import rasterio
 import numpy as np
 from pathlib import Path
 import hashlib
+from typing import Optional, List, Any, Tuple
 import matplotlib.pyplot as plt
 from shapely.geometry import LineString, mapping
 import math
 
 
-CACHE_DIR = Path(os.environ.get('LOCALAPPDATA', '')) / 'sisRUA' / 'cache' / 'elevation'
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
+CACHE_DIR_DEFAULT = Path(os.environ.get('LOCALAPPDATA', '')) / 'sisRUA' / 'cache' / 'elevation'
 
 class ElevationService:
-    def __init__(self):
+    def __init__(self, cache_dir: Optional[str] = None):
         # OpenTopography API base URL for SRTMGL3 (90m resolution) or SRTMGL1 (30m)
         # Using SRTMGL3 (90m) for speed and smaller file sizes initially.
         self.base_url = "https://portal.opentopography.org/API/globaldem"
+        self.cache_dir = Path(cache_dir) if cache_dir else CACHE_DIR_DEFAULT
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
         
     def _get_cache_path(self, bounds):
         """Generates a cache filename based on bounds."""
         bounds_str = f"{bounds[0]}_{bounds[1]}_{bounds[2]}_{bounds[3]}"
         hash_digest = hashlib.md5(bounds_str.encode()).hexdigest()
-        return CACHE_DIR / f"srtm_{hash_digest}.tif"
+        return self.cache_dir / f"srtm_{hash_digest}.tif"
 
     def get_elevation_grid(self, min_lat, min_lon, max_lat, max_lon):
         """
@@ -67,13 +69,15 @@ class ElevationService:
             # Clean up partial file
             if cache_path.exists():
                 cache_path.unlink()
-            raise
+            return None
 
     def get_elevation_at_point(self, lat, lon):
         """Returns the elevation (Z) at a specific point."""
         # Define a small bounding box
         tif_path = self.get_elevation_grid(lat, lon, lat, lon)
-        
+        if not tif_path:
+            return None
+            
         with rasterio.open(tif_path) as src:
             vals = list(src.sample([(lon, lat)]))
             if vals and len(vals) > 0:

@@ -7,10 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
     "preview": "vite preview",
     "test": "vitest --config vitest.config.js"
   },
   "dependencies": {
+    "@mapbox/togeojson": "^0.16.0",
     "axios": "^1.13.2",
     "clsx": "^2.1.1",
     "leaflet": "^1.9.4",
@@ -18,8 +21,7 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-leaflet": "^5.0.0",
-    "tailwind-merge": "^3.4.0",
-    "@mapbox/togeojson": "^0.16.0"
+    "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
@@ -31,11 +33,14 @@
     "@vitest/ui": "^2.0.4",
     "autoprefixer": "^10.4.23",
     "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "jsdom": "^24.1.1",
     "postcss": "^8.5.6",
+    "prettier": "^3.8.1",
     "tailwindcss": "^3.4.17",
     "vite": "^7.2.4",
     "vitest": "^2.0.4"

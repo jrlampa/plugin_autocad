@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { vi } from 'vitest';
 import App from './App';
 import React from 'react';
@@ -17,12 +17,12 @@ vi.mock('react-leaflet', () => {
       off: vi.fn(),
       getContainer: () => ({
         addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
+        removeEventListener: vi.fn(),
       }),
-      mouseEventToLatLng: () => ({ lat: 0, lng: 0 })
+      mouseEventToLatLng: () => ({ lat: 0, lng: 0 }),
     }),
     GeoJSON: () => <div data-testid="geojson-layer" />,
-    Polyline: () => <div data-testid="polyline" />
+    Polyline: () => <div data-testid="polyline" />,
   };
 });
 
@@ -36,8 +36,16 @@ vi.mock('./hooks/useMapLogic', () => ({
     metaInput: {},
     setMetaInput: vi.fn(),
     confirmMarker: vi.fn(),
-    cancelMarker: vi.fn()
-  })
+    cancelMarker: vi.fn(),
+  }),
+}));
+
+// Mock do api.js
+vi.mock('./api', () => ({
+  api: {
+    checkHealth: vi.fn(() => Promise.resolve(true)),
+    smartGeocode: vi.fn(),
+  },
 }));
 
 describe('App Integration (Rigorous)', () => {
@@ -60,10 +68,10 @@ describe('App Integration (Rigorous)', () => {
         },
         removeEventListener: (event, handler) => {
           if (event === 'message') {
-            messageListeners = messageListeners.filter(h => h !== handler);
+            messageListeners = messageListeners.filter((h) => h !== handler);
           }
-        }
-      }
+        },
+      },
     };
   });
 
@@ -76,12 +84,13 @@ describe('App Integration (Rigorous)', () => {
   const simulateHostMessage = (data) => {
     const event = { data: JSON.stringify(data) };
     act(() => {
-      messageListeners.forEach(handler => handler(event));
+      messageListeners.forEach((handler) => handler(event));
     });
   };
 
-  it('deve enviar mensagem GENERATE_OSM ao clicar no botão gerar', () => {
+  it('deve enviar mensagem GENERATE_OSM ao clicar no botão gerar', async () => {
     render(<App />);
+    await screen.findByText(/sisRUA/i, {}, { timeout: 3000 });
 
     const btn = screen.getByTestId('btn-generate-osm');
     fireEvent.click(btn);
@@ -97,11 +106,12 @@ describe('App Integration (Rigorous)', () => {
 
   it('deve atualizar UI ao receber JOB_PROGRESS (Processing -> Completed)', async () => {
     render(<App />);
+    await screen.findByText(/sisRUA/i, {}, { timeout: 3000 });
 
     // 1. Iniciar processamento
     simulateHostMessage({
       action: 'JOB_PROGRESS',
-      data: { status: 'processing', progress: 0.5, message: 'Baixando OSM...' }
+      data: { status: 'processing', progress: 0.5, message: 'Baixando OSM...' },
     });
 
     // Validar visualização do progresso
@@ -111,7 +121,7 @@ describe('App Integration (Rigorous)', () => {
     // 2. Concluir processamento
     simulateHostMessage({
       action: 'JOB_PROGRESS',
-      data: { status: 'completed', progress: 1.0, message: 'Sucesso' }
+      data: { status: 'completed', progress: 1.0, message: 'Sucesso' },
     });
 
     expect(await screen.findByText(/Concluído/i)).toBeInTheDocument();
@@ -119,18 +129,19 @@ describe('App Integration (Rigorous)', () => {
 
   it('deve mostrar preview e botão importar ao receber FILE_DROPPED do Host', async () => {
     render(<App />);
+    await screen.findByText(/sisRUA/i, {}, { timeout: 3000 });
 
     const fakeGeoJson = {
       type: 'FeatureCollection',
       features: [
-        { type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] }, properties: {} }
-      ]
+        { type: 'Feature', geometry: { type: 'Point', coordinates: [0, 0] }, properties: {} },
+      ],
     };
 
     // Simular o C# enviando o conteúdo do arquivo que foi solto na Palette
     simulateHostMessage({
-      action: 'FILE_DROPPED',
-      data: { content: JSON.stringify(fakeGeoJson) }
+      action: 'FILE_DROPPED_GEOJSON',
+      data: { content: JSON.stringify(fakeGeoJson) },
     });
 
     // Deve aparecer o botão de "Importar para o AutoCAD"

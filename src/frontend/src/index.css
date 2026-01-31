@@ -49,7 +49,6 @@ body,
 
 /* Fallback Glassmorphism */
 @supports not (backdrop-filter: blur(12px)) {
-
   .backdrop-blur-xl,
   .backdrop-blur-md {
     background-color: rgba(255, 255, 255, 0.95) !important;
@@ -57,7 +56,7 @@ body,
 }
 
 /* Range Slider Limpo (SEM aninhamento) */
-input[type=range] {
+input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
@@ -65,11 +64,11 @@ input[type=range] {
   cursor: pointer;
 }
 
-input[type=range]:focus {
+input[type='range']:focus {
   outline: none;
 }
 
-input[type=range]::-webkit-slider-thumb {
+input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   height: 16px;
   width: 16px;
@@ -80,7 +79,7 @@ input[type=range]::-webkit-slider-thumb {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-input[type=range]::-webkit-slider-runnable-track {
+input[type='range']::-webkit-slider-runnable-track {
   width: 100%;
   height: 4px;
   cursor: pointer;

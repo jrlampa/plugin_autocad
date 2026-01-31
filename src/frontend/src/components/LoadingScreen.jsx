@@ -16,13 +16,19 @@ export default function LoadingScreen() {
 
         <h1 className="text-3xl font-black text-white tracking-tight mb-2 flex items-center gap-3">
           sisRUA
-          <span className="bg-white/10 px-2 py-0.5 rounded text-xs text-blue-300 font-bold border border-white/5 uppercase tracking-wider">Loading</span>
+          <span className="bg-white/10 px-2 py-0.5 rounded text-xs text-blue-300 font-bold border border-white/5 uppercase tracking-wider">
+            Loading
+          </span>
         </h1>
-        <p className="text-slate-400 text-sm font-medium tracking-wide uppercase mb-12">Generative Urban Design System</p>
+        <p className="text-slate-400 text-sm font-medium tracking-wide uppercase mb-12">
+          Generative Urban Design System
+        </p>
 
         <div className="flex items-center gap-3 bg-white/5 px-6 py-3 rounded-2xl border border-white/5 backdrop-blur-sm">
           <Loader2 className="animate-spin text-blue-400" size={20} />
-          <span className="text-slate-300 text-xs font-bold animate-pulse">Inicializando motor de renderização...</span>
+          <span className="text-slate-300 text-xs font-bold animate-pulse">
+            Inicializando motor de renderização...
+          </span>
         </div>
       </div>
 
