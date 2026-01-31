@@ -45,7 +45,8 @@ from backend.models import (
     PrepareOsmRequest, PrepareGeoJsonRequest, PrepareJobRequest,
     PrepareResponse, JobStatusResponse, ElevationQueryRequest, 
     ElevationProfileRequest, CadFeature, HealthResponse,
-    ElevationPointResponse, ElevationProfileResponse, WebhookRegistrationRequest
+    ElevationPointResponse, ElevationProfileResponse, WebhookRegistrationRequest,
+    InternalEvent
 )
 from backend.services.jobs import (
     job_store, cancellation_tokens, init_job, update_job, check_cancellation, 
@@ -323,6 +324,19 @@ async def register_webhook(
     """Register a new URL to receive system events via webhook."""
     _require_token(x_sisrua_token)
     webhook_service.register_url(req.url)
+    return HealthResponse(status="ok")
+
+@app.post("/api/v1/events/emit", tags=["Webhooks"], response_model=HealthResponse)
+async def emit_event(
+    req: InternalEvent,
+    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
+):
+    """
+    Internal endpoint for the AutoCAD plugin to emit events for webhook broadcasting.
+    e.g. project_saved, project_loaded.
+    """
+    _require_token(x_sisrua_token)
+    webhook_service.broadcast(req.event_type, req.payload)
     return HealthResponse(status="ok")
 
 

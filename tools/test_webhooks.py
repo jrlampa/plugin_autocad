@@ -90,7 +90,26 @@ def test_webhooks():
     assert "job_started" in found_events, "Missing job_started event"
     assert "job_completed" in found_events, "Missing job_completed event"
     
-    # Verify data integrity in the last event
+    # 5. Simulate Plugin Event (project_saved)
+    print("Simulating plugin event (project_saved)...")
+    plugin_payload = {
+        "event_type": "project_saved",
+        "payload": {"project_id": "proj-123", "project_name": "Test Project"}
+    }
+    r = requests.post(f"{API_URL}/events/emit", json=plugin_payload, headers=headers)
+    assert r.status_code == 200, f"Event emission failed: {r.text}"
+
+    print("Waiting for plugin event...")
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        found_events = [e["event"] for e in received_events]
+        if "project_saved" in found_events:
+            break
+        time.sleep(0.5)
+
+    assert "project_saved" in found_events, "Missing project_saved event"
+    
+    # Verify data integrity
     last_event = next(e for e in received_events if e["event"] == "job_completed")
     assert last_event["data"]["job_id"] == job_id
     assert last_event["data"]["status"] == "completed"

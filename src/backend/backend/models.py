@@ -76,3 +76,7 @@ class ElevationProfileResponse(BaseModel):
 class WebhookRegistrationRequest(BaseModel):
     url: str = Field(..., description="Target URL to receive webhook events", example="https://example.com/webhook")
     events: Optional[List[str]] = Field(None, description="Optional list of events to subscribe to (default: all)")
+
+class InternalEvent(BaseModel):
+    event_type: str = Field(..., description="Type of the internal event", example="project_saved")
+    payload: Dict[str, Any] = Field(..., description="Event payload data")

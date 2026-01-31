@@ -3,13 +3,17 @@ using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 namespace sisRUA
 {
     public class ProjectRepository
     {
         private static string _databasePath;
         private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions { WriteIndented = false };
+        private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
 
         public ProjectRepository()
         {
@@ -154,6 +158,9 @@ namespace sisRUA
                         }
                         transaction.Commit();
                         SisRuaLog.Info($"INFO: Project '{projectId}' saved successfully with {features.Count()} features.");
+                        
+                        // Notify backend (fire-and-forget)
+                        _ = NotifyBackend("project_saved", new { project_id = projectId, project_name = projectName, feature_count = features.Count() });
                     }
                     catch (System.Exception ex)
                     {
@@ -231,6 +238,10 @@ namespace sisRUA
                 }
             }
             SisRuaLog.Info($"INFO: Project '{projectId}' loaded successfully with {features.Count} features.");
+            
+            // Notify backend (fire-and-forget)
+            _ = NotifyBackend("project_loaded", new { project_id = projectId, project_name = projectName, feature_count = features.Count });
+
             return (projectName, crsOut, features);
         }
 
@@ -259,6 +270,34 @@ namespace sisRUA
             }
             SisRuaLog.Info($"INFO: Found {projects.Count} projects.");
             return projects;
+        }
+
+        private async Task NotifyBackend(string eventType, object payload)
+        {
+            if (string.IsNullOrEmpty(SisRuaPlugin.BackendBaseUrl)) return;
+
+            try
+            {
+                var eventData = new
+                {
+                    event_type = eventType,
+                    payload = payload
+                };
+
+                string json = JsonSerializer.Serialize(eventData, _jsonOptions);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                
+                if (!string.IsNullOrEmpty(SisRuaPlugin.BackendAuthToken))
+                {
+                    content.Headers.Add(SisRuaPlugin.BackendAuthHeaderName, SisRuaPlugin.BackendAuthToken);
+                }
+
+                await _httpClient.PostAsync($"{SisRuaPlugin.BackendBaseUrl}/api/v1/events/emit", content);
+            }
+            catch (Exception ex)
+            {
+                SisRuaLog.Info($"DEBUG: Failed to notify backend for event {eventType}: {ex.Message}");
+            }
         }
     }
 }
