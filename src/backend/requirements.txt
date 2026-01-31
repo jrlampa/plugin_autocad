@@ -8,3 +8,4 @@ rasterio
 numpy
 requests
 matplotlib
+sentry-sdk[fastapi]

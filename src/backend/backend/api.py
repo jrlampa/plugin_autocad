@@ -1,11 +1,35 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Request
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 from typing import Dict, Any, List, Optional
 import os
 import sys
 import threading
 from pathlib import Path
+
+# --- Sentry SDK for Error Monitoring ---
+import sentry_sdk
+from sentry_sdk.integrations.fastapi import FastApiIntegration
+from sentry_sdk.integrations.starlette import StarletteIntegration
+
+SENTRY_DSN = os.environ.get("SENTRY_DSN")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            StarletteIntegration(transaction_style="endpoint"),
+            FastApiIntegration(transaction_style="endpoint"),
+        ],
+        traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
+        profiles_sample_rate=0.1,
+        environment=os.environ.get("SENTRY_ENVIRONMENT", "development"),
+        release=f"sisrua-backend@0.5.0",
+        send_default_pii=False,  # Do not send personally identifiable information
+    )
+
 
 # --- New Imports from SoC ---
 from backend.models import (
@@ -58,6 +82,48 @@ Protected endpoints require the `X-SisRua-Token` header.
         {"name": "Tools", "description": "Utility tools (elevation, etc.)"},
     ]
 )
+
+# --- CORS Middleware ---
+# Allows requests from the WebView2 control (localhost origins)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:5173",  # Vite dev server
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",  # Vite preview
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+    expose_headers=["X-SisRua-Token"],
+)
+
+# --- Security Headers Middleware ---
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Adds security headers to all responses to protect against XSS/clickjacking."""
+    
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        
+        # Prevent XSS attacks
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        
+        # Prevent clickjacking
+        response.headers["X-Frame-Options"] = "DENY"
+        
+        # Content Security Policy (relaxed for WebView2 compatibility)
+        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+        
+        # Referrer Policy
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
 
 # Instantiate independent service for tool endpoints (query/profile)
 # Note: osm and geojson services use their own instances or imports.

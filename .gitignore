@@ -27,6 +27,7 @@ cache/
 **/node_modules/
 **/dist-ssr/
 **/coverage/
+bundle-stats.html
 
 # ===== Bundles gerados (artefatos) =====
 dist/

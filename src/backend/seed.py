@@ -47,6 +47,26 @@ def init_db(conn):
         FOREIGN KEY(project_id) REFERENCES Projects(project_id)
     )
     ''')
+    
+    # --- v0.5.0 Indexes for Query Optimization ---
+    # Index on project_id for fast JOIN and feature lookup by project
+    cursor.execute('''
+    CREATE INDEX IF NOT EXISTS idx_cadfeatures_project_id 
+    ON CadFeatures(project_id)
+    ''')
+    
+    # Index on feature_type for filtering polylines vs points
+    cursor.execute('''
+    CREATE INDEX IF NOT EXISTS idx_cadfeatures_feature_type 
+    ON CadFeatures(feature_type)
+    ''')
+    
+    # Composite index for common query: features by project and type
+    cursor.execute('''
+    CREATE INDEX IF NOT EXISTS idx_cadfeatures_project_type 
+    ON CadFeatures(project_id, feature_type)
+    ''')
+    
     conn.commit()
 
 def generate_projects(conn):
