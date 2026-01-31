@@ -1,0 +1,20 @@
+{
+  "properties": {
+    "path": {
+      "description": "List of [lat, lon] points for the profile path",
+      "items": {
+        "items": {
+          "type": "number"
+        },
+        "type": "array"
+      },
+      "title": "Path",
+      "type": "array"
+    }
+  },
+  "required": [
+    "path"
+  ],
+  "title": "ElevationProfileRequest",
+  "type": "object"
+}

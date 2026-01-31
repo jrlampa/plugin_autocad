@@ -1,0 +1,22 @@
+{
+  "properties": {
+    "event_type": {
+      "description": "Type of the internal event",
+      "example": "project_saved",
+      "title": "Event Type",
+      "type": "string"
+    },
+    "payload": {
+      "additionalProperties": true,
+      "description": "Event payload data",
+      "title": "Payload",
+      "type": "object"
+    }
+  },
+  "required": [
+    "event_type",
+    "payload"
+  ],
+  "title": "InternalEvent",
+  "type": "object"
+}

@@ -9,6 +9,7 @@ Write-Host "[qa] Iniciando suíte de QA (audit-ready)..."
 
 if (-not $SkipBackend) {
   & (Join-Path $PSScriptRoot "test_backend.ps1")
+  & (Join-Path $PSScriptRoot "verify_schemas.ps1")
 }
 
 if (-not $SkipFrontend) {

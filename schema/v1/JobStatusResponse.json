@@ -1,0 +1,328 @@
+{
+  "$defs": {
+    "CadFeature": {
+      "properties": {
+        "feature_type": {
+          "default": "Polyline",
+          "description": "CAD entity type",
+          "enum": [
+            "Polyline",
+            "Point"
+          ],
+          "title": "Feature Type",
+          "type": "string"
+        },
+        "layer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Target AutoCAD layer name",
+          "title": "Layer"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Display name for the feature",
+          "title": "Name"
+        },
+        "highway": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "OSM highway tag value",
+          "title": "Highway"
+        },
+        "width_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Estimated width in meters",
+          "title": "Width M"
+        },
+        "coords_xy": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Coordinates in projected CRS (SIRGAS 2000)",
+          "title": "Coords Xy"
+        },
+        "insertion_point_xy": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Insertion point in projected CRS",
+          "title": "Insertion Point Xy"
+        },
+        "block_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Name of the AutoCAD block",
+          "title": "Block Name"
+        },
+        "block_filepath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to the block definition file",
+          "title": "Block Filepath"
+        },
+        "rotation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Rotation in radians",
+          "title": "Rotation"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Scale factor",
+          "title": "Scale"
+        },
+        "color": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ACI color code or RGB string",
+          "title": "Color"
+        },
+        "elevation": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Elevation (Z value) in meters",
+          "title": "Elevation"
+        },
+        "slope": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Calculated slope percentage",
+          "title": "Slope"
+        }
+      },
+      "title": "CadFeature",
+      "type": "object"
+    },
+    "PrepareResponse": {
+      "properties": {
+        "crs_out": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Projected Coordinate Reference System",
+          "example": "EPSG:31983",
+          "title": "Crs Out"
+        },
+        "features": {
+          "description": "List of CAD-ready features",
+          "items": {
+            "$ref": "#/$defs/CadFeature"
+          },
+          "title": "Features",
+          "type": "array"
+        },
+        "cache_hit": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Indicates if the result was served from cache",
+          "title": "Cache Hit"
+        }
+      },
+      "required": [
+        "features"
+      ],
+      "title": "PrepareResponse",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "job_id": {
+      "description": "Unique job identifier",
+      "title": "Job Id",
+      "type": "string"
+    },
+    "kind": {
+      "description": "Job type (osm/geojson)",
+      "title": "Kind",
+      "type": "string"
+    },
+    "status": {
+      "description": "Current job execution status",
+      "enum": [
+        "queued",
+        "processing",
+        "completed",
+        "failed"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "progress": {
+      "description": "Job progress from 0.0 to 1.0",
+      "title": "Progress",
+      "type": "number"
+    },
+    "message": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Human-readable status message",
+      "title": "Message"
+    },
+    "result": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PrepareResponse"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Job result payload (only on completion)"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Error detail if job failed",
+      "title": "Error"
+    },
+    "created_at": {
+      "description": "Unix timestamp of job creation",
+      "title": "Created At",
+      "type": "number"
+    },
+    "updated_at": {
+      "description": "Unix timestamp of last job update",
+      "title": "Updated At",
+      "type": "number"
+    }
+  },
+  "required": [
+    "job_id",
+    "kind",
+    "status",
+    "progress",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "JobStatusResponse",
+  "type": "object"
+}

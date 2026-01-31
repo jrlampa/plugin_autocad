@@ -1,0 +1,17 @@
+{
+  "properties": {
+    "elevations": {
+      "description": "List of elevations in meters along the path",
+      "items": {
+        "type": "number"
+      },
+      "title": "Elevations",
+      "type": "array"
+    }
+  },
+  "required": [
+    "elevations"
+  ],
+  "title": "ElevationProfileResponse",
+  "type": "object"
+}

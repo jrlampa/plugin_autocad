@@ -1,0 +1,194 @@
+{
+  "properties": {
+    "feature_type": {
+      "default": "Polyline",
+      "description": "CAD entity type",
+      "enum": [
+        "Polyline",
+        "Point"
+      ],
+      "title": "Feature Type",
+      "type": "string"
+    },
+    "layer": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Target AutoCAD layer name",
+      "title": "Layer"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Display name for the feature",
+      "title": "Name"
+    },
+    "highway": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "OSM highway tag value",
+      "title": "Highway"
+    },
+    "width_m": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Estimated width in meters",
+      "title": "Width M"
+    },
+    "coords_xy": {
+      "anyOf": [
+        {
+          "items": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Coordinates in projected CRS (SIRGAS 2000)",
+      "title": "Coords Xy"
+    },
+    "insertion_point_xy": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "number"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Insertion point in projected CRS",
+      "title": "Insertion Point Xy"
+    },
+    "block_name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Name of the AutoCAD block",
+      "title": "Block Name"
+    },
+    "block_filepath": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Path to the block definition file",
+      "title": "Block Filepath"
+    },
+    "rotation": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Rotation in radians",
+      "title": "Rotation"
+    },
+    "scale": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Scale factor",
+      "title": "Scale"
+    },
+    "color": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "ACI color code or RGB string",
+      "title": "Color"
+    },
+    "elevation": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Elevation (Z value) in meters",
+      "title": "Elevation"
+    },
+    "slope": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Calculated slope percentage",
+      "title": "Slope"
+    }
+  },
+  "title": "CadFeature",
+  "type": "object"
+}
