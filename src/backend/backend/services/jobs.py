@@ -1,8 +1,5 @@
-import uuid
-import threading
-import time
 from typing import Dict, Any, Optional
-from backend.core.interfaces import INotificationService
+from backend.core.interfaces import IEventBus
 
 # Lock para proteger job_store contra race conditions
 _job_store_lock = threading.Lock()
@@ -30,7 +27,7 @@ def init_job(kind: str) -> str:
 
 def update_job(
     job_id: str, 
-    notification_service: INotificationService,
+    event_bus: IEventBus,
     *, 
     status: str | None = None, 
     progress: float | None = None, 
@@ -53,7 +50,7 @@ def update_job(
                 event_map = {"processing": "job_started", "completed": "job_completed", "failed": "job_failed"}
                 event = event_map.get(status)
                 if event:
-                    notification_service.broadcast(event, job.copy())
+                    event_bus.publish(event, job.copy())
 
         if progress is not None:
             job["progress"] = float(max(0.0, min(1.0, progress)))

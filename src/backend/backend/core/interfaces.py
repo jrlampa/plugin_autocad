@@ -15,3 +15,11 @@ class INotificationService(Protocol):
 
     def register_url(self, url: str) -> None: 
         ...
+
+class IEventBus(Protocol):
+    """Protocol defining the contract for an event bus."""
+    def publish(self, event_type: str, payload: Dict[str, Any]) -> None: 
+        ...
+
+    def subscribe(self, event_type: str, handler: Any) -> None: 
+        ...

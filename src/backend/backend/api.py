@@ -171,11 +171,28 @@ async def health():
     return HealthResponse(status="ok")
 
 from backend.services.cache import cache_service
+from backend.core.bus import InMemoryEventBus
+
+# --- Composition Root ---
+event_bus = InMemoryEventBus()
+
+# Wiring: WebhookService listens to events
+def webhook_adapter(payload: Dict[str, Any]):
+    # Since payload isn't carrying the 'type' directly in a clean way for broadcast in this naive implementation,
+    # we might need to assume the event that triggered this IS the type, or pass it via closure.
+    # Ideally, we subscribe specific events to specific broadcasts.
+    pass
+
+# Direct subscriptions for known job events
+event_bus.subscribe("job_started", lambda p: webhook_service.broadcast("job_started", p))
+event_bus.subscribe("job_completed", lambda p: webhook_service.broadcast("job_completed", p))
+event_bus.subscribe("job_failed", lambda p: webhook_service.broadcast("job_failed", p))
+event_bus.subscribe("project_saved", lambda p: webhook_service.broadcast("project_saved", p))
 
 def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest) -> None:
     try:
-        # Dependency Injection: Pass webhook_service as notification provider
-        update_job(job_id, webhook_service, status="processing", progress=0.05, message="Iniciando...")
+        # Dependency Injection: Pass event_bus
+        update_job(job_id, event_bus, status="processing", progress=0.05, message="Iniciando...")
 
         def check_cancel():
             check_cancellation(job_id)
@@ -185,7 +202,7 @@ def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest) -> None:
         if payload.kind == "osm":
             if payload.latitude is None or payload.longitude is None or payload.radius is None:
                 raise ValueError("latitude/longitude/radius são obrigatórios para kind=osm")
-            update_job(job_id, webhook_service, progress=0.15, message="Baixando dados do OSM...")
+            update_job(job_id, event_bus, progress=0.15, message="Baixando dados do OSM...")
             
             # Instantiate services with dependencies
             elev_svc = ElevationService(cache=cache_service)
@@ -200,30 +217,30 @@ def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest) -> None:
             )
             
             check_cancel()
-            update_job(job_id, webhook_service, progress=0.95, message="Finalizando...")
+            update_job(job_id, event_bus, progress=0.95, message="Finalizando...")
 
         elif payload.kind == "geojson":
             if payload.geojson is None:
                 raise ValueError("geojson é obrigatório para kind=geojson")
-            update_job(job_id, webhook_service, progress=0.2, message="Processando GeoJSON...")
+            update_job(job_id, event_bus, progress=0.2, message="Processando GeoJSON...")
             
             result = prepare_geojson_compute(payload.geojson, check_cancel)
             
             check_cancel()
-            update_job(job_id, webhook_service, progress=0.95, message="Finalizando...")
+            update_job(job_id, event_bus, progress=0.95, message="Finalizando...")
 
         else:
             raise ValueError("kind inválido. Use 'osm' ou 'geojson'.")
 
         safe_result = PrepareResponse(**sanitize_jsonable(result))
-        update_job(job_id, webhook_service, status="completed", progress=1.0, message="Concluído.", result=safe_result.model_dump())
+        update_job(job_id, event_bus, status="completed", progress=1.0, message="Concluído.", result=safe_result.model_dump())
     except RuntimeError as e:
         if str(e) == "CANCELLED":
-            update_job(job_id, webhook_service, status="failed", progress=1.0, message="Cancelado pelo usuário.", error="CANCELLED")
+            update_job(job_id, event_bus, status="failed", progress=1.0, message="Cancelado pelo usuário.", error="CANCELLED")
         else:
-            update_job(job_id, webhook_service, status="failed", progress=1.0, message="Falhou.", error=str(e))
+            update_job(job_id, event_bus, status="failed", progress=1.0, message="Falhou.", error=str(e))
     except Exception as e:
-        update_job(job_id, webhook_service, status="failed", progress=1.0, message="Falhou.", error=str(e))
+        update_job(job_id, event_bus, status="failed", progress=1.0, message="Falhou.", error=str(e))
 
 
 @app.post("/api/v1/jobs/prepare", tags=["Jobs"], response_model=JobStatusResponse)
