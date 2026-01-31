@@ -4,14 +4,13 @@ from fastapi import HTTPException
 from backend.models import CadFeature, PrepareResponse  # Importing from models
 from backend.core.utils import (
     cache_key,
-    read_cache,
-    write_cache,
     norm_optional_str,
     to_linestrings,
     estimate_width_m,
     get_color_from_elevation,
     sanitize_jsonable
 )
+from backend.services.cache import cache_service
 from backend.services.crs import sirgas2000_utm_epsg
 
 def prepare_osm_compute(latitude: float, longitude: float, radius: float, check_cancel: Callable[[], None] = None) -> dict:
@@ -26,7 +25,7 @@ def prepare_osm_compute(latitude: float, longitude: float, radius: float, check_
     if check_cancel: check_cancel()
 
     key = cache_key(["prepare_osm", f"{latitude:.6f}", f"{longitude:.6f}", str(int(radius))])
-    cached = read_cache(key)
+    cached = cache_service.get(key)
     if cached is not None:
         cached["cache_hit"] = True
         return cached
@@ -44,7 +43,7 @@ def prepare_osm_compute(latitude: float, longitude: float, radius: float, check_
         edges = edges[edges.geometry.notna()]
     except Exception as e:
         # Tenta usar cache como fallback em caso de erro
-        cached = read_cache(key)
+        cached = cache_service.get(key)
         if cached is not None:
             cached["cache_hit"] = True
             cached["cache_fallback_reason"] = str(e)
@@ -201,7 +200,7 @@ def prepare_osm_compute(latitude: float, longitude: float, radius: float, check_
     
     # Cache
     try:
-        write_cache(key, payload.model_dump())
+        cache_service.set(key, payload.model_dump())
         payload.cache_hit = False
     except Exception:
         pass

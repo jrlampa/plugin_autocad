@@ -9,3 +9,4 @@ numpy
 requests
 matplotlib
 sentry-sdk[fastapi]
+redis

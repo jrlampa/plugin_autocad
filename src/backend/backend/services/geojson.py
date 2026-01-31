@@ -163,10 +163,11 @@ def prepare_geojson_compute(geo: Any, check_cancel: Callable[[], None] = None) -
 
     # Cache por conteúdo (ajuda em reimportações repetidas)
     try:
+        from backend.core.utils import cache_key
+        from backend.services.cache import cache_service
         raw = json.dumps(geo, sort_keys=True, ensure_ascii=False)
-        from backend.core.utils import cache_key, write_cache
         key = cache_key(["prepare_geojson", raw])
-        write_cache(key, payload.model_dump())
+        cache_service.set(key, payload.model_dump())
         payload.cache_hit = False 
     except Exception:
         pass

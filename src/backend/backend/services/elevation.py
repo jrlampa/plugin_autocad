@@ -73,6 +73,15 @@ class ElevationService:
 
     def get_elevation_at_point(self, lat, lon):
         """Returns the elevation (Z) at a specific point."""
+        from backend.services.cache import cache_service
+        from backend.core.utils import cache_key
+        
+        # Use round to 4 decimals (approx 11m) to improve cache reuse for point queries
+        key = cache_key(["elev_pt", f"{lat:.4f}", f"{lon:.4f}"])
+        cached = cache_service.get(key)
+        if cached is not None:
+            return float(cached["z"])
+
         import rasterio
         # Define a small bounding box
         tif_path = self.get_elevation_grid(lat, lon, lat, lon)
@@ -82,7 +91,9 @@ class ElevationService:
         with rasterio.open(tif_path) as src:
             vals = list(src.sample([(lon, lat)]))
             if vals and len(vals) > 0:
-                return float(vals[0][0])
+                elev = float(vals[0][0])
+                cache_service.set(key, {"z": elev}, ttl=86400) # Elevation is stable, 24h cache
+                return elev
         return None
 
     def get_elevation_profile(self, coordinates):

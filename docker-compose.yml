@@ -14,6 +14,12 @@ services:
       - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
       - OPENTOPOGRAPHY_API_KEY=${OPENTOPOGRAPHY_API_KEY:-}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - REDIS_URL=redis://redis:6379
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
 
   frontend:
     build:
