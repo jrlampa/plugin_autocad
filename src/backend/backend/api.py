@@ -35,7 +35,7 @@ if SENTRY_DSN:
         traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
         profiles_sample_rate=0.1,
         environment=os.environ.get("SENTRY_ENVIRONMENT", "development"),
-        release=f"sisrua-backend@0.5.0",
+        release=f"sisrua-backend@0.6.0",
         send_default_pii=False,  # Do not send personally identifiable information
     )
 
@@ -70,7 +70,7 @@ def _require_token(x_sisrua_token: str | None = Header(default=None, alias=AUTH_
 
 app = FastAPI(
     title="sisRUA API",
-    version="0.5.0",
+    version="0.6.0",
     description="""
 **sisRUA** - Generative Urban Design System for AutoCAD.
 
