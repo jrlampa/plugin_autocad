@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-01-31
+
+### Added
+
+- **Schema Registry**: Centralized data contracts in `schema/v1/` as JSON Schemas, exported directly from Pydantic models.
+- **Caching Tier v2**: Redis-backed tiered coaching for heavy read-path operations (OSM and Elevation) with filesystem fallback.
+- **Internal Python SDK**: `sisrua-sdk` package for typed programmatic access to the backend API.
+- **Architectural Decision Records (ADRs)**: Formal documentation of design choices in `docs/adr/`.
+- **Advanced Webhooks**: Asynchronous event broadcasting for job life-cycle and project events (`project_saved`).
+
+### Changed
+
+- **Refactored Core Services**: Applied Ockham's Razor to reduce abstraction overkill, consolidating cache and singleton patterns.
+- **Job Management**: Merged cancellation tokens directly into the job store for simpler state tracking.
+
+---
+
 ## [0.5.0] - 2026-01-31
 
 ### Added
