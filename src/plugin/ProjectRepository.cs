@@ -66,6 +66,9 @@ namespace sisRUA
                             block_filepath TEXT,
                             rotation REAL,
                             scale REAL,
+                            color TEXT,
+                            elevation REAL,
+                            slope REAL,
                             original_geojson_properties_json TEXT,
                             FOREIGN KEY (project_id) REFERENCES Projects (project_id)
                         );";
@@ -122,11 +125,11 @@ namespace sisRUA
                                     INSERT INTO CadFeatures (
                                         feature_id, project_id, feature_type, layer, name, highway, width_m,
                                         coords_xy_json, insertion_point_xy_json, block_name, block_filepath,
-                                        rotation, scale, original_geojson_properties_json
+                                        rotation, scale, color, elevation, slope, original_geojson_properties_json
                                     ) VALUES (
                                         @featureId, @projectId, @featureType, @layer, @name, @highway, @widthM,
                                         @coordsXyJson, @insertionPointXyJson, @blockName, @blockFilepath,
-                                        @rotation, @scale, @originalGeoJsonPropertiesJson
+                                        @rotation, @scale, @color, @elevation, @slope, @originalGeoJsonPropertiesJson
                                     );";
                                 command.Parameters.AddWithValue("@featureId", Guid.NewGuid().ToString());
                                 command.Parameters.AddWithValue("@projectId", projectId);
@@ -141,6 +144,9 @@ namespace sisRUA
                                 command.Parameters.AddWithValue("@blockFilepath", feature.BlockFilePath ?? (object)DBNull.Value);
                                 command.Parameters.AddWithValue("@rotation", feature.Rotation ?? (object)DBNull.Value);
                                 command.Parameters.AddWithValue("@scale", feature.Scale ?? (object)DBNull.Value);
+                                command.Parameters.AddWithValue("@color", feature.Color ?? (object)DBNull.Value);
+                                command.Parameters.AddWithValue("@elevation", feature.Elevation ?? (object)DBNull.Value);
+                                command.Parameters.AddWithValue("@slope", feature.Slope ?? (object)DBNull.Value);
                                 command.Parameters.AddWithValue("@originalGeoJsonPropertiesJson", (object)DBNull.Value); // Placeholder for now
 
                                 command.ExecuteNonQuery();
@@ -215,6 +221,9 @@ namespace sisRUA
                             feature.BlockFilePath = reader.IsDBNull(reader.GetOrdinal("block_filepath")) ? null : reader.GetString(reader.GetOrdinal("block_filepath"));
                             feature.Rotation = reader.IsDBNull(reader.GetOrdinal("rotation")) ? null : (double?)reader.GetDouble(reader.GetOrdinal("rotation"));
                             feature.Scale = reader.IsDBNull(reader.GetOrdinal("scale")) ? null : (double?)reader.GetDouble(reader.GetOrdinal("scale"));
+                            feature.Color = reader.IsDBNull(reader.GetOrdinal("color")) ? null : reader.GetString(reader.GetOrdinal("color"));
+                            feature.Elevation = reader.IsDBNull(reader.GetOrdinal("elevation")) ? null : (double?)reader.GetDouble(reader.GetOrdinal("elevation"));
+                            feature.Slope = reader.IsDBNull(reader.GetOrdinal("slope")) ? null : (double?)reader.GetDouble(reader.GetOrdinal("slope"));
 
                             features.Add(feature);
                         }
