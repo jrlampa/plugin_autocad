@@ -45,12 +45,13 @@ from backend.models import (
     PrepareOsmRequest, PrepareGeoJsonRequest, PrepareJobRequest,
     PrepareResponse, JobStatusResponse, ElevationQueryRequest, 
     ElevationProfileRequest, CadFeature, HealthResponse,
-    ElevationPointResponse, ElevationProfileResponse
+    ElevationPointResponse, ElevationProfileResponse, WebhookRegistrationRequest
 )
 from backend.services.jobs import (
     job_store, cancellation_tokens, init_job, update_job, check_cancellation, 
     get_job, cancel_job
 )
+from backend.services.webhooks import webhook_service
 from backend.services.osm import prepare_osm_compute
 from backend.services.geojson import prepare_geojson_compute
 from backend.services.elevation import ElevationService # for tool endpoints
@@ -90,6 +91,7 @@ Protected endpoints require the `X-SisRua-Token` header.
         {"name": "Jobs", "description": "Asynchronous job management"},
         {"name": "Prepare", "description": "Data preparation (OSM/GeoJSON)"},
         {"name": "Tools", "description": "Utility tools (elevation, etc.)"},
+        {"name": "Webhooks", "description": "Dynamic webhook registration"},
     ]
 )
 
@@ -312,6 +314,16 @@ async def prepare_geojson(
     """
     _require_token(x_sisrua_token)
     return prepare_geojson_compute(req.geojson)
+
+@app.post("/api/v1/webhooks/register", tags=["Webhooks"], response_model=HealthResponse)
+async def register_webhook(
+    req: WebhookRegistrationRequest,
+    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
+):
+    """Register a new URL to receive system events via webhook."""
+    _require_token(x_sisrua_token)
+    webhook_service.register_url(req.url)
+    return HealthResponse(status="ok")
 
 
 def _maybe_mount_frontend():

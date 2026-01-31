@@ -72,3 +72,7 @@ class ElevationPointResponse(BaseModel):
 
 class ElevationProfileResponse(BaseModel):
     elevations: List[float] = Field(..., description="List of elevations in meters along the path")
+
+class WebhookRegistrationRequest(BaseModel):
+    url: str = Field(..., description="Target URL to receive webhook events", example="https://example.com/webhook")
+    events: Optional[List[str]] = Field(None, description="Optional list of events to subscribe to (default: all)")

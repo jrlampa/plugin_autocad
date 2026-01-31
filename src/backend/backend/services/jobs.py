@@ -2,6 +2,7 @@ import uuid
 import threading
 import time
 from typing import Dict, Any, Optional
+from backend.services.webhooks import webhook_service
 
 # Lock para proteger job_store contra race conditions
 _job_store_lock = threading.Lock()
@@ -37,7 +38,20 @@ def update_job(job_id: str, *, status: str | None = None, progress: float | None
             return
         job["updated_at"] = now
         if status is not None:
+            old_status = job.get("status")
             job["status"] = status
+            
+            # Broadcast on state transition to terminal or processing states
+            if status != old_status:
+                event_map = {
+                    "processing": "job_started",
+                    "completed": "job_completed",
+                    "failed": "job_failed"
+                }
+                event = event_map.get(status)
+                if event:
+                    # Provide a shallow copy of the job to the webhook service
+                    webhook_service.broadcast(event, job.copy())
         if progress is not None:
             job["progress"] = float(max(0.0, min(1.0, progress)))
         if message is not None:
