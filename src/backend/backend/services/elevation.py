@@ -11,8 +11,8 @@ CACHE_DIR_DEFAULT = Path(os.environ.get('LOCALAPPDATA', '')) / 'sisRUA' / 'cache
 class ElevationService:
     def __init__(self, cache_dir: Optional[str] = None):
         # OpenTopography API base URL for SRTMGL3 (90m resolution) or SRTMGL1 (30m)
-        # Using SRTMGL3 (90m) for speed and smaller file sizes initially.
         self.base_url = "https://portal.opentopography.org/API/globaldem"
+        self.api_key = os.environ.get("OPENTOPOGRAPHY_API_KEY")
         self.cache_dir = Path(cache_dir) if cache_dir else CACHE_DIR_DEFAULT
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         
@@ -51,8 +51,12 @@ class ElevationService:
             'outputFormat': 'GTiff'
         }
         
+        headers = {}
+        if self.api_key:
+            params['API_Key'] = self.api_key
+        
         try:
-            response = requests.get(self.base_url, params=params, stream=True, timeout=30)
+            response = requests.get(self.base_url, params=params, headers=headers, stream=True, timeout=30)
             response.raise_for_status()
             
             with open(cache_path, 'wb') as f:

@@ -9,6 +9,11 @@ services:
       - ./src/backend:/app/backend
     environment:
       - PYTHONUNBUFFERED=1
+      - SISRUA_AUTH_TOKEN=${SISRUA_AUTH_TOKEN:-test-token}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
+      - OPENTOPOGRAPHY_API_KEY=${OPENTOPOGRAPHY_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
 
   frontend:
     build:
@@ -20,3 +25,4 @@ services:
       - backend
     environment:
       - VITE_API_URL=/api
+      - VITE_SENTRY_DSN=${VITE_SENTRY_DSN:-}
