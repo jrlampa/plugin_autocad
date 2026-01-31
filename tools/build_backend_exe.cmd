@@ -153,6 +153,9 @@ if not exist "%DIST_TMP%" mkdir "%DIST_TMP%"
   --clean ^
   --onefile ^
   --name sisrua_backend ^
+  --collect-all rasterio ^
+  --collect-all matplotlib ^
+  --collect-all fiona ^
   --copy-metadata osmnx ^
   --copy-metadata pyproj ^
   --collect-data pyproj ^

@@ -979,8 +979,7 @@ namespace sisRUA
                                 insertionPt,
                                 f.Rotation ?? 0.0,
                                 f.Scale ?? 1.0,
-                                f.Rotation ?? 0.0,
-                                f.Scale ?? 1.0,
+
                                 layerName,
                                 f.Color // Pass color to InsertBlock
                             );
@@ -1289,7 +1288,7 @@ namespace sisRUA
             return !(double.IsNaN(x) || double.IsInfinity(x));
         }
 
-        }
+
 
         private static Autodesk.AutoCAD.Colors.Color ParseColor(string colorStr)
         {
