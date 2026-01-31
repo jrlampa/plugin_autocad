@@ -1,26 +1,29 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Literal, Any, Dict
 
-class HealthResponse(BaseModel):
+class FrozenBaseModel(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+class HealthResponse(FrozenBaseModel):
     status: str = Field(..., description="Operational status of the API", example="ok")
 
-class PrepareOsmRequest(BaseModel):
+class PrepareOsmRequest(FrozenBaseModel):
     latitude: float = Field(..., description="Target latitude (EPSG:4326)", example=-21.7634)
     longitude: float = Field(..., description="Target longitude (EPSG:4326)", example=-41.3235)
     radius: float = Field(..., description="Search radius in meters", example=500.0)
 
-class PrepareGeoJsonRequest(BaseModel):
+class PrepareGeoJsonRequest(FrozenBaseModel):
     geojson: Any = Field(..., description="GeoJSON string or object to process")
 
-class PrepareJobRequest(BaseModel):
+class PrepareJobRequest(FrozenBaseModel):
     kind: Literal["osm", "geojson"] = Field(..., description="Type of data preparation job")
     latitude: Optional[float] = Field(None, description="Required for kind='osm'")
     longitude: Optional[float] = Field(None, description="Required for kind='osm'")
     radius: Optional[float] = Field(None, description="Required for kind='osm'")
     geojson: Any | None = Field(None, description="Required for kind='geojson'")
 
-class CadFeature(BaseModel):
+class CadFeature(FrozenBaseModel):
     feature_type: Literal["Polyline", "Point"] = Field("Polyline", description="CAD entity type")
     layer: Optional[str] = Field(None, description="Target AutoCAD layer name")
     name: Optional[str] = Field(None, description="Display name for the feature")
@@ -42,12 +45,12 @@ class CadFeature(BaseModel):
     elevation: Optional[float] = Field(None, description="Elevation (Z value) in meters")
     slope: Optional[float] = Field(None, description="Calculated slope percentage")
 
-class PrepareResponse(BaseModel):
+class PrepareResponse(FrozenBaseModel):
     crs_out: Optional[str] = Field(None, description="Projected Coordinate Reference System", example="EPSG:31983")
     features: List[CadFeature] = Field(..., description="List of CAD-ready features")
     cache_hit: Optional[bool] = Field(None, description="Indicates if the result was served from cache")
 
-class JobStatusResponse(BaseModel):
+class JobStatusResponse(FrozenBaseModel):
     job_id: str = Field(..., description="Unique job identifier")
     kind: str = Field(..., description="Job type (osm/geojson)")
     status: Literal["queued", "processing", "completed", "failed"] = Field(..., description="Current job execution status")
@@ -58,25 +61,25 @@ class JobStatusResponse(BaseModel):
     created_at: float = Field(..., description="Unix timestamp of job creation")
     updated_at: float = Field(..., description="Unix timestamp of last job update")
 
-class ElevationQueryRequest(BaseModel):
+class ElevationQueryRequest(FrozenBaseModel):
     latitude: float = Field(..., description="Target latitude (EPSG:4326)")
     longitude: float = Field(..., description="Target longitude (EPSG:4326)")
 
-class ElevationProfileRequest(BaseModel):
+class ElevationProfileRequest(FrozenBaseModel):
     path: List[List[float]] = Field(..., description="List of [lat, lon] points for the profile path")
 
-class ElevationPointResponse(BaseModel):
+class ElevationPointResponse(FrozenBaseModel):
     latitude: float = Field(..., description="Requested latitude")
     longitude: float = Field(..., description="Requested longitude")
     elevation: Optional[float] = Field(None, description="Elevation in meters (Z value)")
 
-class ElevationProfileResponse(BaseModel):
+class ElevationProfileResponse(FrozenBaseModel):
     elevations: List[float] = Field(..., description="List of elevations in meters along the path")
 
-class WebhookRegistrationRequest(BaseModel):
+class WebhookRegistrationRequest(FrozenBaseModel):
     url: str = Field(..., description="Target URL to receive webhook events", example="https://example.com/webhook")
     events: Optional[List[str]] = Field(None, description="Optional list of events to subscribe to (default: all)")
 
-class InternalEvent(BaseModel):
+class InternalEvent(FrozenBaseModel):
     event_type: str = Field(..., description="Type of the internal event", example="project_saved")
     payload: Dict[str, Any] = Field(..., description="Event payload data")

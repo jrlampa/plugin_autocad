@@ -39,9 +39,22 @@ class SisRuaClient:
         data = ElevationPointResponse(**r.json())
         return data.elevation
 
-    def create_job(self, kind: str, **kwargs) -> JobStatusResponse:
+    def create_job(
+        self, 
+        kind: str, 
+        latitude: Optional[float] = None, 
+        longitude: Optional[float] = None, 
+        radius: Optional[float] = None, 
+        geojson: Optional[Any] = None
+    ) -> JobStatusResponse:
         """Triggers a data preparation job (osm or geojson)."""
-        payload = PrepareJobRequest(kind=kind, **kwargs)
+        payload = PrepareJobRequest(
+            kind=kind, 
+            latitude=latitude, 
+            longitude=longitude, 
+            radius=radius, 
+            geojson=geojson
+        )
         r = self.session.post(
             f"{self.base_url}/jobs/prepare",
             json=payload.model_dump(exclude_none=True)
