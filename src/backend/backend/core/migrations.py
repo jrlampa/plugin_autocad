@@ -18,7 +18,7 @@ from datetime import datetime
 DB_PATH = Path(os.environ.get("LOCALAPPDATA", ".")) / "sisRUA" / "projects.db"
 
 # Current schema version
-CURRENT_VERSION = 1
+CURRENT_VERSION = 2
 
 # Migration definitions: version -> (description, sql_statements)
 # Each migration must be backward-compatible (ADD columns, CREATE tables, etc.)
@@ -81,9 +81,10 @@ def apply_migration(conn: sqlite3.Connection, version: int, description: str, st
         try:
             cursor.execute(sql)
         except sqlite3.OperationalError as e:
-            # Handle "already exists" gracefully for IF NOT EXISTS statements
-            if "already exists" in str(e).lower():
-                print(f"    (skipped - already exists)")
+            # Handle "already exists" and "duplicate column name" gracefully for idempotency
+            err_msg = str(e).lower()
+            if "already exists" in err_msg or "duplicate column name" in err_msg:
+                print(f"    (skipped - already exists: {e})")
             else:
                 raise
     
