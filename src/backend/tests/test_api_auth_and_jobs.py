@@ -169,6 +169,10 @@ def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
             for item in self._data:
                 yield None, MockRow(item) # row_idx, row_series
 
+        def itertuples(self, index=True, name='Pandas'):
+            for item in self._data:
+                yield MockRow(item)
+
         @property
         def geometry(self):
             return self._geometry_series
@@ -208,6 +212,7 @@ def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
     import osmnx
     monkeypatch.setattr(osmnx, "graph_from_point", mock_graph_from_point)
     monkeypatch.setattr(osmnx, "graph_to_gdfs", mock_graph_to_gdfs)
+    monkeypatch.setattr(osmnx, "project_graph", lambda g, to_crs: g) 
 
     # Latitude/Longitude em área que deve conter street_lights/poles
     payload = {

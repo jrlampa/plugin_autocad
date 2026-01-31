@@ -16,6 +16,7 @@ export default defineConfig({
     setupFiles: ['./src/setupTests.js'],
     css: true,
     globals: true,
+    exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**'],
     reporters: ['default', 'junit'],
     outputFile: {
       junit: process.env.VITEST_JUNIT_OUTPUT_FILE || defaultJunitPath,
