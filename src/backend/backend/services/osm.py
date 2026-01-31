@@ -13,19 +13,15 @@ from backend.core.utils import (
     sanitize_jsonable
 )
 from backend.services.crs import sirgas2000_utm_epsg
-from backend.services.elevation import ElevationService
-
-# Instantiate service here or inject? 
-# Usually service instantiation is better handled at app startup or via dependency injection.
-# For now, consistent with previous api.py, we can use a global instance or pass it.
-# Let's instantiate a global one for the module for now, as in api.py
-elevation_service = ElevationService()
 
 def prepare_osm_compute(latitude: float, longitude: float, radius: float, check_cancel: Callable[[], None] = None) -> dict:
     if check_cancel: check_cancel()
     
-    # Import local: OSMnx/GeoPandas podem ser pesados; só precisamos disso ao executar OSM.
+    # Deferred heavy imports
     import osmnx as ox  # type: ignore
+    from pyproj import Transformer
+    from backend.services.elevation import ElevationService
+    elevation_service = ElevationService()
 
     if check_cancel: check_cancel()
 
@@ -135,13 +131,12 @@ def prepare_osm_compute(latitude: float, longitude: float, radius: float, check_
     try:
         if check_cancel: check_cancel()
         
-        from pyproj import Transformer
         reverse_transformer = Transformer.from_crs(f"EPSG:{epsg_out}", "EPSG:4326", always_xy=True)
+        forward_transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_out}", always_xy=True)
         
         query_points_xy = []
         feature_indices = []
         
-        print(f"DEBUG INJECT: Processing {len(features)} features for elevation")
         for i, f in enumerate(features):
             if f.feature_type == "Polyline" and f.coords_xy and len(f.coords_xy) > 0:
                 query_points_xy.append(f.coords_xy[0])
@@ -167,17 +162,11 @@ def prepare_osm_compute(latitude: float, longitude: float, radius: float, check_
                 for f in features:
                     if f.elevation is not None:
                         f.color = get_color_from_elevation(f.elevation, z_min, z_max)
-                        
-                    if f.feature_type == "Polyline" and f.coords_xy and len(f.coords_xy) >= 2 and f.elevation is not None:
-                        pass # Slope calculation placeholder
 
         # GENERATE CONTOURS
         if check_cancel: check_cancel()
         
         contours = elevation_service.get_contours(latitude - 0.02, longitude - 0.02, latitude + 0.02, longitude + 0.02)
-        
-        from pyproj import Transformer
-        forward_transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_out}", always_xy=True)
         
         for c in contours:
             geom_latlon = c['geometry']
@@ -206,10 +195,7 @@ def prepare_osm_compute(latitude: float, longitude: float, radius: float, check_
                 )
 
     except Exception as ex:
-        import traceback
         print(f"Error injecting elevation in OSM compute: {ex}")
-        traceback.print_exc()
-        # Non-critical
 
     payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features)
     

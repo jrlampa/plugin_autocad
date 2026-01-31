@@ -1,14 +1,23 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Header, Request
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
-from typing import Dict, Any, List, Optional
 import os
 import sys
+import time
 import threading
 from pathlib import Path
+from typing import Dict, Any, List, Optional
+
+# Configure Matplotlib backend to 'Agg' BEFORE any other matplotlib imports
+# this ensures thread-safety and avoids GUI-related memory leaks in headless environments.
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+except ImportError:
+    pass
+
+from fastapi import FastAPI, HTTPException, Header, Request
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import Response
 
 # --- Sentry SDK for Error Monitoring ---
 import sentry_sdk
@@ -35,7 +44,8 @@ if SENTRY_DSN:
 from backend.models import (
     PrepareOsmRequest, PrepareGeoJsonRequest, PrepareJobRequest,
     PrepareResponse, JobStatusResponse, ElevationQueryRequest, 
-    ElevationProfileRequest, CadFeature
+    ElevationProfileRequest, CadFeature, HealthResponse,
+    ElevationPointResponse, ElevationProfileResponse
 )
 from backend.services.jobs import (
     job_store, cancellation_tokens, init_job, update_job, check_cancellation, 
@@ -101,42 +111,61 @@ app.add_middleware(
 )
 
 # --- Security Headers Middleware ---
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    """Adds security headers to all responses to protect against XSS/clickjacking."""
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Adds security headers to all responses efficiently."""
+    response = await call_next(request)
     
-    async def dispatch(self, request: Request, call_next):
-        response: Response = await call_next(request)
-        
-        # Prevent XSS attacks
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-XSS-Protection"] = "1; mode=block"
-        
-        # Prevent clickjacking
-        response.headers["X-Frame-Options"] = "DENY"
-        
-        # Content Security Policy (relaxed for WebView2 compatibility)
-        response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
-        
-        # Referrer Policy
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        
-        return response
+    # Prevent XSS attacks
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    
+    # Prevent clickjacking
+    response.headers["X-Frame-Options"] = "DENY"
+    
+    # Content Security Policy (relaxed for WebView2 compatibility)
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    
+    # Referrer Policy
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    
+    return response
 
-app.add_middleware(SecurityHeadersMiddleware)
+# --- Warm-up logic (Internal performance) ---
+@app.on_event("startup")
+async def startup_event():
+    """Warms up the environment to reduce latency on first user request."""
+    # Start background cleanup thread for jobs
+    def run_cleanup():
+        from backend.services.jobs import cleanup_expired_jobs
+        while True:
+            try:
+                count = cleanup_expired_jobs(max_age_seconds=3600)
+                if count > 0:
+                    print(f"[cleanup] Removed {count} expired jobs.")
+            except Exception as e:
+                print(f"[cleanup] Error: {e}")
+            time.sleep(600) # Run every 10 minutes
+
+    cleanup_thread = threading.Thread(target=run_cleanup, daemon=True)
+    cleanup_thread.start()
+
+    # Pre-calculate or pre-import anything that doesn't depend on heavy GIS libs
+    # (Heavy GIS libs are deferred to usage time now)
+    print("[startup] sisRUA API ready.")
 
 
-# Instantiate independent service for tool endpoints (query/profile)
-# Note: osm and geojson services use their own instances or imports.
-elevation_tool_service = ElevationService()
 
-@app.get("/api/v1/auth/check", tags=["Health"])
+@app.get("/api/v1/auth/check", tags=["Health"], response_model=HealthResponse)
 async def auth_check(x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
+    """Check if the provided authentication token is valid."""
     _require_token(x_sisrua_token)
-    return {"status": "ok"}
+    return HealthResponse(status="ok")
 
-@app.get("/api/v1/health", tags=["Health"])
+@app.get("/api/v1/health", tags=["Health"], response_model=HealthResponse)
 async def health():
-    return {"status": "ok"}
+    """Simple health check to verify the API server is up and running."""
+    return HealthResponse(status="ok")
 
 def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest) -> None:
     try:
@@ -181,36 +210,36 @@ def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest) -> None:
         update_job(job_id, status="failed", progress=1.0, message="Falhou.", error=str(e))
 
 
-@app.post("/api/v1/jobs/prepare", tags=["Jobs"])
+@app.post("/api/v1/jobs/prepare", tags=["Jobs"], response_model=JobStatusResponse)
 async def create_prepare_job(
     payload: PrepareJobRequest,
     x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
 ):
-    """Start an asynchronous data preparation job (OSM or GeoJSON)."""
+    """Start an asynchronous data preparation job (OSM or GeoJSON). returns the initial job status."""
     _require_token(x_sisrua_token)
     job_id = init_job(payload.kind)
     t = threading.Thread(target=_run_prepare_job_sync, args=(job_id, payload), daemon=True)
     t.start()
     return get_job(job_id) # Using getter from service which is locked
 
-@app.get("/api/v1/jobs/{job_id}", tags=["Jobs"])
+@app.get("/api/v1/jobs/{job_id}", tags=["Jobs"], response_model=JobStatusResponse)
 async def get_job_endpoint(
     job_id: str,
     x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
 ):
-    """Get the status and result of a job."""
+    """Retrieve the current status, progress, and result (if completed) of a job."""
     _require_token(x_sisrua_token)
     job = get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
 
-@app.delete("/api/v1/jobs/{job_id}", tags=["Jobs"])
+@app.delete("/api/v1/jobs/{job_id}", tags=["Jobs"], response_model=HealthResponse)
 async def cancel_job_endpoint(
     job_id: str,
     x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
 ):
-    """Cancel a running job."""
+    """Request cancellation of a running job."""
     _require_token(x_sisrua_token)
     
     # Use service method
@@ -223,57 +252,63 @@ async def cancel_job_endpoint(
         # if found but return false, it means it was already done, which counts as success/ignored?
         # api spec says if already finished do nothing and return ok.
         
-    return {"status": "ok"}
+    return HealthResponse(status="ok")
 
-@app.post("/api/v1/tools/elevation/query", tags=["Tools"])
+@app.post("/api/v1/tools/elevation/query", tags=["Tools"], response_model=ElevationPointResponse)
 async def query_elevation(
     req: ElevationQueryRequest,
     x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
 ):
-    """Query elevation at a single point."""
+    """Query numeric elevation (Z) at a single lat/lon point."""
     _require_token(x_sisrua_token)
     try:
-        z = elevation_tool_service.get_elevation_at_point(req.latitude, req.longitude)
-        return {"latitude": req.latitude, "longitude": req.longitude, "elevation": z}
+        from backend.services.elevation import ElevationService
+        svc = ElevationService()
+        z = svc.get_elevation_at_point(req.latitude, req.longitude)
+        return ElevationPointResponse(latitude=req.latitude, longitude=req.longitude, elevation=z)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/v1/tools/elevation/profile", tags=["Tools"])
+@app.post("/api/v1/tools/elevation/profile", tags=["Tools"], response_model=ElevationProfileResponse)
 async def query_profile(
     req: ElevationProfileRequest,
     x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
 ):
-    """Get elevation profile along a path."""
+    """Retrieve an elevation profile (list of Z values) along a given path."""
     _require_token(x_sisrua_token)
     try:
+        from backend.services.elevation import ElevationService
+        svc = ElevationService()
         # Convert list of lists to list of tuples for the service
         coords = [(p[0], p[1]) for p in req.path]
-        elevations = elevation_tool_service.get_elevation_profile(coords)
-        return {"elevations": elevations}
+        elevations = svc.get_elevation_profile(coords)
+        return ElevationProfileResponse(elevations=elevations)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/api/v1/prepare/osm", tags=["Prepare"])
+@app.post("/api/v1/prepare/osm", tags=["Prepare"], response_model=PrepareResponse)
 async def prepare_osm(
     req: PrepareOsmRequest,
     x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
 ):
     """
-    MVP (Fase 1): pega OSM em lat/lon (EPSG:4326), projeta para SIRGAS2000/UTM (zona automática)
-    e devolve linhas prontas para o C# desenhar como Polyline.
+    Synchronous OSM data preparation. 
+    Downloads OSM data in lat/lon (EPSG:4326), projects to SIRGAS 2000 UTM, 
+    and returns a list of CAD-ready features.
     """
     _require_token(x_sisrua_token)
     return prepare_osm_compute(req.latitude, req.longitude, req.radius)
 
-@app.post("/api/v1/prepare/geojson", tags=["Prepare"])
+@app.post("/api/v1/prepare/geojson", tags=["Prepare"], response_model=PrepareResponse)
 async def prepare_geojson(
     req: PrepareGeoJsonRequest,
     x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
 ):
     """
-    MVP (Fase 1): recebe GeoJSON (EPSG:4326), projeta para SIRGAS2000/UTM (zona automática)
-    e devolve linhas prontas para o C# desenhar como Polyline.
+    Synchronous GeoJSON data preparation.
+    Accepts GeoJSON (EPSG:4326), projects to SIRGAS 2000 UTM, 
+    and returns a list of CAD-ready features.
     """
     _require_token(x_sisrua_token)
     return prepare_geojson_compute(req.geojson)

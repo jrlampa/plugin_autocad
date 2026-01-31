@@ -75,10 +75,12 @@ namespace sisRUA
             PromptResult resName = ed.GetString(psoName);
             string projectName = string.IsNullOrWhiteSpace(resName.StringResult) ? $"Projeto {projectId}" : resName.StringResult.Trim();
 
-            try
-            {
                 _projectRepository.SaveProject(projectId, projectName, _lastDrawnCrsOut, _lastDrawnFeatures);
                 ed.WriteMessage($"\n[sisRUA] Projeto '{projectName}' (ID: {projectId}) salvo com sucesso.");
+                
+                // Clear stale references to free memory after save
+                _lastDrawnFeatures = null;
+                _lastDrawnCrsOut = null;
             }
             catch (System.Exception ex)
             {

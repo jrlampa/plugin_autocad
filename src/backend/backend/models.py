@@ -1,61 +1,74 @@
 from __future__ import annotations
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Literal, Any, Dict
 
+class HealthResponse(BaseModel):
+    status: str = Field(..., description="Operational status of the API", example="ok")
+
 class PrepareOsmRequest(BaseModel):
-    latitude: float
-    longitude: float
-    radius: float
+    latitude: float = Field(..., description="Target latitude (EPSG:4326)", example=-21.7634)
+    longitude: float = Field(..., description="Target longitude (EPSG:4326)", example=-41.3235)
+    radius: float = Field(..., description="Search radius in meters", example=500.0)
 
 class PrepareGeoJsonRequest(BaseModel):
-    geojson: Any  # pode vir como string JSON ou objeto GeoJSON
+    geojson: Any = Field(..., description="GeoJSON string or object to process")
 
 class PrepareJobRequest(BaseModel):
-    kind: str  # "osm" | "geojson"
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    radius: Optional[float] = None
-    geojson: Any | None = None
+    kind: Literal["osm", "geojson"] = Field(..., description="Type of data preparation job")
+    latitude: Optional[float] = Field(None, description="Required for kind='osm'")
+    longitude: Optional[float] = Field(None, description="Required for kind='osm'")
+    radius: Optional[float] = Field(None, description="Required for kind='osm'")
+    geojson: Any | None = Field(None, description="Required for kind='geojson'")
 
 class CadFeature(BaseModel):
-    feature_type: Literal["Polyline", "Point"] = "Polyline"  # Default to Polyline
-    layer: Optional[str] = None
-    name: Optional[str] = None
-    highway: Optional[str] = None
-    width_m: Optional[float] = None
+    feature_type: Literal["Polyline", "Point"] = Field("Polyline", description="CAD entity type")
+    layer: Optional[str] = Field(None, description="Target AutoCAD layer name")
+    name: Optional[str] = Field(None, description="Display name for the feature")
+    highway: Optional[str] = Field(None, description="OSM highway tag value")
+    width_m: Optional[float] = Field(None, description="Estimated width in meters")
 
     # For Polyline features
-    coords_xy: Optional[List[List[float]]] = None
+    coords_xy: Optional[List[List[float]]] = Field(None, description="Coordinates in projected CRS (SIRGAS 2000)")
 
     # For Point features (blocks)
-    insertion_point_xy: Optional[List[float]] = None
-    block_name: Optional[str] = None
-    block_filepath: Optional[str] = None
-    rotation: Optional[float] = None
-    scale: Optional[float] = None
+    insertion_point_xy: Optional[List[float]] = Field(None, description="Insertion point in projected CRS")
+    block_name: Optional[str] = Field(None, description="Name of the AutoCAD block")
+    block_filepath: Optional[str] = Field(None, description="Path to the block definition file")
+    rotation: Optional[float] = Field(None, description="Rotation in radians")
+    scale: Optional[float] = Field(None, description="Scale factor")
 
     # Phase 2 fields
-    color: Optional[str] = None
-    elevation: Optional[float] = None
-    slope: Optional[float] = None
+    color: Optional[str] = Field(None, description="ACI color code or RGB string")
+    elevation: Optional[float] = Field(None, description="Elevation (Z value) in meters")
+    slope: Optional[float] = Field(None, description="Calculated slope percentage")
 
 class PrepareResponse(BaseModel):
-    crs_out: Optional[str] = None
-    features: List[CadFeature]
-    cache_hit: Optional[bool] = None  # Indica se o resultado veio do cache
+    crs_out: Optional[str] = Field(None, description="Projected Coordinate Reference System", example="EPSG:31983")
+    features: List[CadFeature] = Field(..., description="List of CAD-ready features")
+    cache_hit: Optional[bool] = Field(None, description="Indicates if the result was served from cache")
 
 class JobStatusResponse(BaseModel):
-    job_id: str
-    kind: str
-    status: str
-    progress: float
-    message: Optional[str] = None
-    result: Optional[PrepareResponse] = None 
-    error: Optional[str] = None
+    job_id: str = Field(..., description="Unique job identifier")
+    kind: str = Field(..., description="Job type (osm/geojson)")
+    status: Literal["queued", "processing", "completed", "failed"] = Field(..., description="Current job execution status")
+    progress: float = Field(..., description="Job progress from 0.0 to 1.0")
+    message: Optional[str] = Field(None, description="Human-readable status message")
+    result: Optional[PrepareResponse] = Field(None, description="Job result payload (only on completion)")
+    error: Optional[str] = Field(None, description="Error detail if job failed")
+    created_at: float = Field(..., description="Unix timestamp of job creation")
+    updated_at: float = Field(..., description="Unix timestamp of last job update")
 
 class ElevationQueryRequest(BaseModel):
-    latitude: float
-    longitude: float
+    latitude: float = Field(..., description="Target latitude (EPSG:4326)")
+    longitude: float = Field(..., description="Target longitude (EPSG:4326)")
 
 class ElevationProfileRequest(BaseModel):
-    path: List[List[float]] # [[lat, lon], [lat, lon], ...]
+    path: List[List[float]] = Field(..., description="List of [lat, lon] points for the profile path")
+
+class ElevationPointResponse(BaseModel):
+    latitude: float = Field(..., description="Requested latitude")
+    longitude: float = Field(..., description="Requested longitude")
+    elevation: Optional[float] = Field(None, description="Elevation in meters (Z value)")
+
+class ElevationProfileResponse(BaseModel):
+    elevations: List[float] = Field(..., description="List of elevations in meters along the path")

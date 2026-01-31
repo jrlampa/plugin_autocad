@@ -1,12 +1,8 @@
 import os
 import requests
-import rasterio
-import numpy as np
 from pathlib import Path
 import hashlib
 from typing import Optional, List, Any, Tuple
-import matplotlib.pyplot as plt
-from shapely.geometry import LineString, mapping
 import math
 
 
@@ -73,6 +69,7 @@ class ElevationService:
 
     def get_elevation_at_point(self, lat, lon):
         """Returns the elevation (Z) at a specific point."""
+        import rasterio
         # Define a small bounding box
         tif_path = self.get_elevation_grid(lat, lon, lat, lon)
         if not tif_path:
@@ -89,6 +86,7 @@ class ElevationService:
         Returns elevation for a list of (lat, lon) coordinates.
         Optimized to download a single covering DEM if points are close.
         """
+        import rasterio
         if not coordinates:
             return []
             
@@ -115,6 +113,10 @@ class ElevationService:
         Generates contour lines (iso-elevation) for the given bounding box.
         Returns a list of dicts: {'elevation': float, 'geometry': LineString(lat, lon)}
         """
+        import rasterio
+        import numpy as np
+        import matplotlib.pyplot as plt
+
         tif_path = self.get_elevation_grid(min_lat, min_lon, max_lat, max_lon)
         
         with rasterio.open(tif_path) as src:

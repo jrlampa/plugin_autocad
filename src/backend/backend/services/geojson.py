@@ -5,7 +5,6 @@ from fastapi import HTTPException
 from backend.models import CadFeature, PrepareResponse # Models
 from backend.core.utils import norm_optional_str, project_lines_to_xy, sanitize_jsonable
 from backend.services.crs import sirgas2000_utm_epsg
-from backend.services.elevation import ElevationService
 
 def first_lonlat(obj) -> Tuple[float, float]:
     if not obj:
@@ -147,6 +146,7 @@ def prepare_geojson_compute(geo: Any, check_cancel: Callable[[], None] = None) -
             # Batch query
             # Instantiate simplified service if not passed? 
             # In osm.py we instantiated a global one. Let's do same here for now.
+            from backend.services.elevation import ElevationService
             elevations = ElevationService().get_elevation_profile(latlon_query)
             
             for idx, elev in zip(feature_indices, elevations):

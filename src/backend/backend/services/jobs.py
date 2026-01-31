@@ -1,5 +1,6 @@
 import uuid
 import threading
+import time
 from typing import Dict, Any, Optional
 
 # Lock para proteger job_store contra race conditions
@@ -13,6 +14,7 @@ cancellation_tokens: Dict[str, bool] = {}
 
 def init_job(kind: str) -> str:
     job_id = str(uuid.uuid4())
+    now = time.time()
     with _job_store_lock:
         job_store[job_id] = {
             "job_id": job_id,
@@ -22,14 +24,18 @@ def init_job(kind: str) -> str:
             "message": "Aguardando...",
             "result": None,
             "error": None,
+            "created_at": now,
+            "updated_at": now
         }
     return job_id
 
 def update_job(job_id: str, *, status: str | None = None, progress: float | None = None, message: str | None = None, result: Dict | None = None, error: str | None = None) -> None:
+    now = time.time()
     with _job_store_lock:
         job = job_store.get(job_id)
         if not job:
             return
+        job["updated_at"] = now
         if status is not None:
             job["status"] = status
         if progress is not None:
@@ -64,4 +70,24 @@ def cancel_job(job_id: str) -> bool:
         job["status"] = "failed"
         job["message"] = "Cancelamento solicitado..."
         job["error"] = "CANCELLED"
+        job["updated_at"] = time.time()
     return True
+
+def cleanup_expired_jobs(max_age_seconds: int = 3600):
+    """Removes jobs that have been completed or failed for more than max_age_seconds."""
+    now = time.time()
+    jobs_to_delete = []
+    
+    with _job_store_lock:
+        for job_id, job in job_store.items():
+            # Only cleanup finished jobs
+            if job["status"] in ("completed", "failed"):
+                if now - job["updated_at"] > max_age_seconds:
+                    jobs_to_delete.append(job_id)
+        
+        for job_id in jobs_to_delete:
+            del job_store[job_id]
+            if job_id in cancellation_tokens:
+                del cancellation_tokens[job_id]
+                
+    return len(jobs_to_delete)
