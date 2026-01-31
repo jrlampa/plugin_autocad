@@ -1,7 +1,8 @@
 import math
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Any
 from fastapi import HTTPException
-from backend.models import CadFeature, PrepareResponse  # Importing from models
+from backend.models import CadFeature, PrepareResponse
+from backend.core.interfaces import ICache
 from backend.core.utils import (
     cache_key,
     norm_optional_str,
@@ -10,17 +11,22 @@ from backend.core.utils import (
     get_color_from_elevation,
     sanitize_jsonable
 )
-from backend.services.cache import cache_service
 from backend.services.crs import sirgas2000_utm_epsg
 
-def prepare_osm_compute(latitude: float, longitude: float, radius: float, check_cancel: Callable[[], None] = None) -> dict:
+def prepare_osm_compute(
+    latitude: float, 
+    longitude: float, 
+    radius: float, 
+    cache_service: ICache,
+    elevation_service: Any,
+    check_cancel: Callable[[], None] = None
+) -> dict:
     if check_cancel: check_cancel()
     
     # Deferred heavy imports
     import osmnx as ox  # type: ignore
     from pyproj import Transformer
-    from backend.services.elevation import ElevationService
-    elevation_service = ElevationService()
+    # ElevationService is now injected
 
     if check_cancel: check_cancel()
 

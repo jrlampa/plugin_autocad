@@ -2,7 +2,7 @@ import uuid
 import threading
 import time
 from typing import Dict, Any, Optional
-from backend.services.webhooks import webhook_service
+from backend.core.interfaces import INotificationService
 
 # Lock para proteger job_store contra race conditions
 _job_store_lock = threading.Lock()
@@ -28,7 +28,16 @@ def init_job(kind: str) -> str:
         }
     return job_id
 
-def update_job(job_id: str, *, status: str | None = None, progress: float | None = None, message: str | None = None, result: Dict | None = None, error: str | None = None) -> None:
+def update_job(
+    job_id: str, 
+    notification_service: INotificationService,
+    *, 
+    status: str | None = None, 
+    progress: float | None = None, 
+    message: str | None = None, 
+    result: Dict | None = None, 
+    error: str | None = None
+) -> None:
     now = time.time()
     with _job_store_lock:
         job = job_store.get(job_id)
@@ -44,7 +53,7 @@ def update_job(job_id: str, *, status: str | None = None, progress: float | None
                 event_map = {"processing": "job_started", "completed": "job_completed", "failed": "job_failed"}
                 event = event_map.get(status)
                 if event:
-                    webhook_service.broadcast(event, job.copy())
+                    notification_service.broadcast(event, job.copy())
 
         if progress is not None:
             job["progress"] = float(max(0.0, min(1.0, progress)))

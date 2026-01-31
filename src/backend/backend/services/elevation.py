@@ -8,13 +8,16 @@ import math
 
 CACHE_DIR_DEFAULT = Path(os.environ.get('LOCALAPPDATA', '')) / 'sisRUA' / 'cache' / 'elevation'
 
+from backend.core.interfaces import ICache
+
 class ElevationService:
-    def __init__(self, cache_dir: Optional[str] = None):
+    def __init__(self, cache: ICache, cache_dir: Optional[str] = None):
         # OpenTopography API base URL for SRTMGL3 (90m resolution) or SRTMGL1 (30m)
         self.base_url = "https://portal.opentopography.org/API/globaldem"
         self.api_key = os.environ.get("OPENTOPOGRAPHY_API_KEY")
         self.cache_dir = Path(cache_dir) if cache_dir else CACHE_DIR_DEFAULT
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.cache = cache
         
     def _get_cache_path(self, bounds):
         """Generates a cache filename based on bounds."""
@@ -73,12 +76,11 @@ class ElevationService:
 
     def get_elevation_at_point(self, lat, lon):
         """Returns the elevation (Z) at a specific point."""
-        from backend.services.cache import cache_service
         from backend.core.utils import cache_key
         
         # Use round to 4 decimals (approx 11m) to improve cache reuse for point queries
         key = cache_key(["elev_pt", f"{lat:.4f}", f"{lon:.4f}"])
-        cached = cache_service.get(key)
+        cached = self.cache.get(key)
         if cached is not None:
             return float(cached["z"])
 
@@ -92,7 +94,7 @@ class ElevationService:
             vals = list(src.sample([(lon, lat)]))
             if vals and len(vals) > 0:
                 elev = float(vals[0][0])
-                cache_service.set(key, {"z": elev}, ttl=86400) # Elevation is stable, 24h cache
+                self.cache.set(key, {"z": elev}, ttl=86400) # Elevation is stable, 24h cache
                 return elev
         return None
 
