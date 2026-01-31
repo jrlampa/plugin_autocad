@@ -60,24 +60,6 @@ def sanitize_jsonable(obj: Any) -> Any:
     except Exception:
         return None
 
-def read_cache(key: str) -> Optional[dict]:
-    try:
-        path = cache_dir() / f"{key}.json"
-        if not path.exists():
-            return None
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return sanitize_jsonable(data)
-    except Exception:
-        return None
-
-def write_cache(key: str, payload: dict) -> None:
-    try:
-        path = cache_dir() / f"{key}.json"
-        safe = sanitize_jsonable(payload)
-        path.write_text(json.dumps(safe, ensure_ascii=False), encoding="utf-8")
-    except Exception:
-        return
-
 def get_color_from_elevation(z: float, z_min: float, z_max: float) -> str:
     if z_max == z_min:
         return "255,255,255" # White

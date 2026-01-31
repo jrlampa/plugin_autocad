@@ -10,9 +10,6 @@ _job_store_lock = threading.Lock()
 # In-memory storage for job statuses and results.
 job_store: Dict[str, Dict[str, Any]] = {}
 
-# Track which jobs have been requested to cancel
-cancellation_tokens: Dict[str, bool] = {}
-
 def init_job(kind: str) -> str:
     job_id = str(uuid.uuid4())
     now = time.time()
@@ -25,6 +22,7 @@ def init_job(kind: str) -> str:
             "message": "Aguardando...",
             "result": None,
             "error": None,
+            "cancelled": False, # Cancellation state stored directly in job dict
             "created_at": now,
             "updated_at": now
         }
@@ -34,24 +32,20 @@ def update_job(job_id: str, *, status: str | None = None, progress: float | None
     now = time.time()
     with _job_store_lock:
         job = job_store.get(job_id)
-        if not job:
+        if not job or job.get("cancelled", False):
             return
+            
         job["updated_at"] = now
         if status is not None:
             old_status = job.get("status")
             job["status"] = status
             
-            # Broadcast on state transition to terminal or processing states
             if status != old_status:
-                event_map = {
-                    "processing": "job_started",
-                    "completed": "job_completed",
-                    "failed": "job_failed"
-                }
+                event_map = {"processing": "job_started", "completed": "job_completed", "failed": "job_failed"}
                 event = event_map.get(status)
                 if event:
-                    # Provide a shallow copy of the job to the webhook service
                     webhook_service.broadcast(event, job.copy())
+
         if progress is not None:
             job["progress"] = float(max(0.0, min(1.0, progress)))
         if message is not None:
@@ -62,46 +56,44 @@ def update_job(job_id: str, *, status: str | None = None, progress: float | None
             job["error"] = error
 
 def check_cancellation(job_id: str):
-    if cancellation_tokens.get(job_id):
-        raise RuntimeError("CANCELLED")
+    """
+    Checks if a job was marked as cancelled. 
+    Worker threads call this to abort execution.
+    """
+    with _job_store_lock:
+        job = job_store.get(job_id)
+        if job and job.get("cancelled"):
+            raise RuntimeError("CANCELLED")
 
 def get_job(job_id: str) -> Optional[Dict[str, Any]]:
     with _job_store_lock:
         return job_store.get(job_id)
 
 def cancel_job(job_id: str) -> bool:
-    """Return True if cancelled, False if not found or already done."""
+    """Marks a job as cancelled if it is still running."""
     with _job_store_lock:
         job = job_store.get(job_id)
-        if not job:
+        if not job or job["status"] in ("completed", "failed"):
             return False
-        
-        # If already finished, do nothing
-        if job["status"] in ("completed", "failed"):
-            return True
             
-        cancellation_tokens[job_id] = True
+        job["cancelled"] = True
         job["status"] = "failed"
-        job["message"] = "Cancelamento solicitado..."
+        job["message"] = "Cancelado pelo usuário."
         job["error"] = "CANCELLED"
         job["updated_at"] = time.time()
     return True
 
 def cleanup_expired_jobs(max_age_seconds: int = 3600):
-    """Removes jobs that have been completed or failed for more than max_age_seconds."""
     now = time.time()
     jobs_to_delete = []
     
     with _job_store_lock:
         for job_id, job in job_store.items():
-            # Only cleanup finished jobs
             if job["status"] in ("completed", "failed"):
                 if now - job["updated_at"] > max_age_seconds:
                     jobs_to_delete.append(job_id)
         
         for job_id in jobs_to_delete:
             del job_store[job_id]
-            if job_id in cancellation_tokens:
-                del cancellation_tokens[job_id]
                 
     return len(jobs_to_delete)

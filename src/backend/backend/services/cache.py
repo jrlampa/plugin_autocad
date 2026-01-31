@@ -1,8 +1,9 @@
 import os
 import json
 import logging
+from pathlib import Path
 from typing import Optional, Any
-from backend.core.utils import read_cache as read_file_cache, write_cache as write_file_cache, sanitize_jsonable
+from backend.core.utils import sanitize_jsonable
 
 logger = logging.getLogger("sisrua.cache")
 
@@ -16,51 +17,55 @@ class CacheService:
         self.redis_url = os.environ.get("REDIS_URL")
         self.redis = None
         
+        # Filesystem cache config
+        base = Path(os.environ.get("LOCALAPPDATA") or Path.home())
+        self.file_cache_dir = base / "sisRUA" / "cache"
+        self.file_cache_dir.mkdir(parents=True, exist_ok=True)
+
         if self.redis_url:
             try:
                 import redis
                 self.redis = redis.from_url(self.redis_url, decode_responses=True)
-                # Quick health check
                 self.redis.ping()
                 logger.info(f"[cache] Redis connected at {self.redis_url}")
             except Exception as e:
-                logger.warning(f"[cache] Failed to connect to Redis: {e}. Falling back to filesystem only.")
-                self.redis = None
+                logger.warning(f"[cache] Redis unavailable: {e}")
 
     def get(self, key: str) -> Optional[Any]:
-        """
-        Retrieves data from Redis (L1) or Filesystem (L2).
-        """
         # 1. Try Redis
         if self.redis:
             try:
                 data = self.redis.get(key)
                 if data:
-                    logger.debug(f"[cache] Hit (Redis): {key}")
                     return json.loads(data)
-            except Exception as e:
-                logger.error(f"[cache] Redis get error: {e}")
+            except Exception:
+                pass
 
-        # 2. Try Filesystem Fallback
-        cached = read_file_cache(key)
-        if cached:
-            logger.debug(f"[cache] Hit (Filesystem): {key}")
-            # If we missed Redis but hit File, repopulate Redis (read-through)
-            if self.redis:
-                self._safe_redis_set(key, cached)
-            return cached
+        # 2. Try Filesystem
+        try:
+            path = self.file_cache_dir / f"{key}.json"
+            if path.exists():
+                data = json.loads(path.read_text(encoding="utf-8"))
+                cached = sanitize_jsonable(data)
+                # Read-through: Repopulate Redis
+                if self.redis:
+                    self._safe_redis_set(key, cached)
+                return cached
+        except Exception:
+            pass
 
-        logger.debug(f"[cache] Miss: {key}")
         return None
 
     def set(self, key: str, value: Any, ttl: int = 3600) -> None:
-        """
-        Saves data to both Redis and Filesystem.
-        """
-        # Always write to filesystem for persistence
-        write_file_cache(key, value)
+        # File Persistence
+        try:
+            path = self.file_cache_dir / f"{key}.json"
+            safe = sanitize_jsonable(value)
+            path.write_text(json.dumps(safe, ensure_ascii=False), encoding="utf-8")
+        except Exception as e:
+            logger.error(f"[cache] File write error: {e}")
         
-        # Write to Redis if available
+        # Redis Speed
         if self.redis:
             self._safe_redis_set(key, value, ttl)
 
@@ -68,8 +73,8 @@ class CacheService:
         try:
             sanitized = sanitize_jsonable(value)
             self.redis.set(key, json.dumps(sanitized, ensure_ascii=False), ex=ttl)
-        except Exception as e:
-            logger.error(f"[cache] Redis set error: {e}")
+        except Exception:
+            pass
 
-# Singleton instance
+# Module-level singleton
 cache_service = CacheService()

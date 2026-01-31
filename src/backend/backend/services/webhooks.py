@@ -7,29 +7,18 @@ from typing import List, Dict, Any, Optional
 class WebhookService:
     """
     Manages registration and non-blocking delivery of webhook events.
+    Thread-safe minimal implementation.
     """
-    _instance = None
-    _lock = threading.Lock()
-
-    def __new__(cls):
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = super(WebhookService, cls).__new__(cls)
-                cls._instance._initialized = False
-            return cls._instance
-
     def __init__(self):
-        if self._initialized:
-            return
-        
         self.urls: List[str] = []
+        self._lock = threading.Lock()
+        
         static_url = os.environ.get("WEBHOOK_URL")
         if static_url:
             self.urls.append(static_url)
         
-        # Thread pool for async delivery to avoid blocking job execution or API responses
+        # Thread pool for async delivery
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=5)
-        self._initialized = True
         print(f"[webhooks] Service initialized. Static listeners: {len(self.urls)}")
 
     def register_url(self, url: str):
@@ -39,9 +28,6 @@ class WebhookService:
                 print(f"[webhooks] Registered new listener: {url}")
 
     def broadcast(self, event_type: str, payload: Dict[str, Any]):
-        """
-        Broadcasts an event to all registered listeners asynchronously.
-        """
         if not self.urls:
             return
 
@@ -56,12 +42,11 @@ class WebhookService:
 
     def _deliver(self, url: str, payload: Dict[str, Any]):
         try:
-            # Short timeout to avoid hanging the executor local threads
             response = requests.post(url, json=payload, timeout=5)
             if response.status_code >= 400:
-                print(f"[webhooks] Delivery to {url} failed with status {response.status_code}")
+                print(f"[webhooks] Delivery to {url} failed: {response.status_code}")
         except Exception as e:
             print(f"[webhooks] Error delivering to {url}: {e}")
 
-# Global singleton
+# Module-level singleton (Python guarantees modules are only loaded once)
 webhook_service = WebhookService()

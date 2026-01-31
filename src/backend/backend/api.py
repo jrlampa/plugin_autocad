@@ -49,7 +49,7 @@ from backend.models import (
     InternalEvent
 )
 from backend.services.jobs import (
-    job_store, cancellation_tokens, init_job, update_job, check_cancellation, 
+    job_store, init_job, update_job, check_cancellation, 
     get_job, cancel_job
 )
 from backend.services.webhooks import webhook_service
