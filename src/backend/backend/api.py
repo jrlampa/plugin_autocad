@@ -27,10 +27,39 @@ from sentry_sdk.integrations.starlette import StarletteIntegration
 
 # --- Metrics / Logging v2 ---
 import uuid
+import structlog
 from backend.core.logger import configure_logging, get_logger, set_trace_id
 
 configure_logging()
 logger = get_logger(__name__)
+
+
+app = FastAPI(
+    title="sisRUA API",
+    version="0.6.0",
+    description="""
+**sisRUA** - Generative Urban Design System for AutoCAD.
+
+This API powers the AutoCAD plugin for:
+- Fetching and projecting **OpenStreetMap** data
+- Processing **GeoJSON** files for CAD import
+- Providing **elevation data** from SRTM sources
+- Managing **asynchronous jobs** for long-running operations
+
+## Authentication
+Protected endpoints require the `X-SisRua-Token` header.
+    """,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    openapi_tags=[
+        {"name": "Health", "description": "Health check endpoints"},
+        {"name": "Jobs", "description": "Asynchronous job management"},
+        {"name": "Prepare", "description": "Data preparation (OSM/GeoJSON)"},
+        {"name": "Tools", "description": "Utility tools (elevation, etc.)"},
+        {"name": "Webhooks", "description": "Dynamic webhook registration"},
+    ]
+)
 
 # Middleware for Audit Logging (Trace ID)
 @app.middleware("http")
@@ -101,33 +130,6 @@ def _require_token(x_sisrua_token: str | None = Header(default=None, alias=AUTH_
     
     if not x_sisrua_token or x_sisrua_token != AUTH_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized")
-
-app = FastAPI(
-    title="sisRUA API",
-    version="0.6.0",
-    description="""
-**sisRUA** - Generative Urban Design System for AutoCAD.
-
-This API powers the AutoCAD plugin for:
-- Fetching and projecting **OpenStreetMap** data
-- Processing **GeoJSON** files for CAD import
-- Providing **elevation data** from SRTM sources
-- Managing **asynchronous jobs** for long-running operations
-
-## Authentication
-Protected endpoints require the `X-SisRua-Token` header.
-    """,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
-    openapi_tags=[
-        {"name": "Health", "description": "Health check endpoints"},
-        {"name": "Jobs", "description": "Asynchronous job management"},
-        {"name": "Prepare", "description": "Data preparation (OSM/GeoJSON)"},
-        {"name": "Tools", "description": "Utility tools (elevation, etc.)"},
-        {"name": "Webhooks", "description": "Dynamic webhook registration"},
-    ]
-)
 
 # --- CORS Middleware ---
 # Allows requests from the WebView2 control (localhost origins)
