@@ -85,7 +85,6 @@ from backend.services.jobs import (
 from backend.services.webhooks import webhook_service
 from backend.services.osm import prepare_osm_compute
 from backend.services.geojson import prepare_geojson_compute
-from backend.services.elevation import ElevationService # for tool endpoints
 from backend.core.utils import sanitize_jsonable
 
 AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN") or ""
@@ -236,12 +235,11 @@ from backend.core.bus import InMemoryEventBus
 # --- Composition Root ---
 event_bus = InMemoryEventBus(cache=cache_service)
 project_service = ProjectService(event_bus=event_bus)
+from backend.services.executor import JobExecutor
+job_executor = JobExecutor(cache_service=cache_service)
 
 # Wiring: WebhookService listens to events
 def webhook_adapter(payload: Dict[str, Any]):
-    # Since payload isn't carrying the 'type' directly in a clean way for broadcast in this naive implementation,
-    # we might need to assume the event that triggered this IS the type, or pass it via closure.
-    # Ideally, we subscribe specific events to specific broadcasts.
     pass
 
 # Direct subscriptions for known job events
@@ -252,57 +250,7 @@ event_bus.subscribe("project_saved", lambda p: webhook_service.broadcast("projec
 event_bus.subscribe("project_updated", lambda p: webhook_service.broadcast("project_updated", p))
 
 def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest) -> None:
-    try:
-        # Dependency Injection: Pass event_bus
-        update_job(job_id, event_bus, status="processing", progress=0.05, message="Iniciando...")
-
-        def check_cancel():
-            check_cancellation(job_id)
-
-        check_cancel()
-
-        if payload.kind == "osm":
-            if payload.latitude is None or payload.longitude is None or payload.radius is None:
-                raise ValueError("latitude/longitude/radius são obrigatórios para kind=osm")
-            update_job(job_id, event_bus, progress=0.15, message="Baixando dados do OSM...")
-            
-            # Instantiate services with dependencies
-            elev_svc = ElevationService(cache=cache_service)
-            
-            result = prepare_osm_compute(
-                payload.latitude, 
-                payload.longitude, 
-                payload.radius, 
-                cache_service=cache_service,
-                elevation_service=elev_svc,
-                check_cancel=check_cancel
-            )
-            
-            check_cancel()
-            update_job(job_id, event_bus, progress=0.95, message="Finalizando...")
-
-        elif payload.kind == "geojson":
-            if payload.geojson is None:
-                raise ValueError("geojson é obrigatório para kind=geojson")
-            update_job(job_id, event_bus, progress=0.2, message="Processando GeoJSON...")
-            
-            result = prepare_geojson_compute(payload.geojson, check_cancel)
-            
-            check_cancel()
-            update_job(job_id, event_bus, progress=0.95, message="Finalizando...")
-
-        else:
-            raise ValueError("kind inválido. Use 'osm' ou 'geojson'.")
-
-        safe_result = PrepareResponse(**sanitize_jsonable(result))
-        update_job(job_id, event_bus, status="completed", progress=1.0, message="Concluído.", result=safe_result.model_dump())
-    except RuntimeError as e:
-        if str(e) == "CANCELLED":
-            update_job(job_id, event_bus, status="failed", progress=1.0, message="Cancelado pelo usuário.", error="CANCELLED")
-        else:
-            update_job(job_id, event_bus, status="failed", progress=1.0, message="Falhou.", error=str(e))
-    except Exception as e:
-        update_job(job_id, event_bus, status="failed", progress=1.0, message="Falhou.", error=str(e))
+    job_executor.execute_prepare_job(job_id, payload, event_bus)
 
 
 @app.post("/api/v1/jobs/prepare", tags=["Jobs"], response_model=JobStatusResponse)
