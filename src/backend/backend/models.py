@@ -8,6 +8,15 @@ class FrozenBaseModel(BaseModel):
 class HealthResponse(FrozenBaseModel):
     status: str = Field(..., description="Operational status of the API", example="ok")
 
+class ComponentHealth(FrozenBaseModel):
+    status: Literal["up", "down", "degraded"] = Field(..., description="Status of the specific component")
+    details: Optional[str] = Field(None, description="Error message or metadata")
+    latency_ms: Optional[float] = Field(None, description="Response time in milliseconds")
+
+class DeepHealthResponse(HealthResponse):
+    components: Dict[str, ComponentHealth] = Field(..., description="Health status of internal dependencies")
+    system_latency_ms: float = Field(..., description="Total time taken to perform health check")
+
 class ProjectUpdateRequest(FrozenBaseModel):
     version: int = Field(..., description="Current version of the project for optimistic locking")
     project_name: Optional[str] = Field(None, description="New project name")

@@ -291,6 +291,7 @@ namespace sisRUA
                 {
                     content.Headers.Add(SisRuaPlugin.BackendAuthHeaderName, SisRuaPlugin.BackendAuthToken);
                 }
+                content.Headers.Add("X-Request-ID", Guid.NewGuid().ToString());
 
                 await _httpClient.PostAsync($"{SisRuaPlugin.BackendBaseUrl}/api/v1/events/emit", content);
             }

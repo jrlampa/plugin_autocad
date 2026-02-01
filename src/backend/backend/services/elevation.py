@@ -10,6 +10,7 @@ CACHE_DIR_DEFAULT = Path(os.environ.get('LOCALAPPDATA', '')) / 'sisRUA' / 'cache
 
 from backend.core.interfaces import ICache
 from backend.core.circuit_breaker import CircuitBreaker
+from backend.core.retry import Retry
 
 class ElevationService:
     def __init__(self, cache: ICache, cache_dir: Optional[str] = None):
@@ -89,6 +90,7 @@ class ElevationService:
             return None
 
     @CircuitBreaker(failure_threshold=3, recovery_timeout=60.0)
+    @Retry(max_retries=3, initial_delay=2.0)
     def _download_grid(self, s, n, w, e, cache_path):
         print(f"Downloading DEM for bounds: {s, n, w, e}")
         params = {

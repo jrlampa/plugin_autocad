@@ -19,7 +19,11 @@ class JobExecutor:
         try:
             update_job(job_id, event_bus, status="processing", progress=0.05, message="Iniciando...")
 
+            from backend.core.lifecycle import SHUTDOWN_EVENT
+
             def check_cancel():
+                if SHUTDOWN_EVENT.is_set():
+                    raise RuntimeError("SHUTDOWN")
                 check_cancellation(job_id)
 
             check_cancel()
@@ -67,6 +71,8 @@ class JobExecutor:
         except RuntimeError as e:
             if str(e) == "CANCELLED":
                 update_job(job_id, event_bus, status="failed", progress=1.0, message="Cancelado pelo usuário.", error="CANCELLED")
+            elif str(e) == "SHUTDOWN":
+                update_job(job_id, event_bus, status="failed", progress=1.0, message="Servidor desligando.", error="SHUTDOWN")
             else:
                 update_job(job_id, event_bus, status="failed", progress=1.0, message="Falhou.", error=str(e))
         except Exception as e:

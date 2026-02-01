@@ -12,9 +12,11 @@ from backend.core.utils import (
     sanitize_jsonable
 )
 from backend.core.circuit_breaker import CircuitBreaker
+from backend.core.retry import Retry
 from backend.services.crs import sirgas2000_utm_epsg
 
 @CircuitBreaker(failure_threshold=3, recovery_timeout=60.0)
+@Retry(max_retries=3, initial_delay=2.0)
 def _fetch_osm_graph(lat: float, lon: float, radius: float, check_cancel: Callable = None):
     # Deferred import kept inside the safe function
     import osmnx as ox

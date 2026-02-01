@@ -94,7 +94,7 @@ if SENTRY_DSN:
         traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
         profiles_sample_rate=0.1,
         environment=os.environ.get("SENTRY_ENVIRONMENT", "development"),
-        release=f"sisrua-backend@0.6.0",
+        release=f"sisrua-backend@0.7.0",
         send_default_pii=False,  # Do not send personally identifiable information
     )
 
@@ -114,7 +114,10 @@ from backend.services.jobs import (
 from backend.services.webhooks import webhook_service
 from backend.services.osm import prepare_osm_compute
 from backend.services.geojson import prepare_geojson_compute
+from backend.services.geojson import prepare_geojson_compute
 from backend.core.utils import sanitize_jsonable
+from backend.core.rate_limit import RateLimiter
+from fastapi import Depends
 
 AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN") or ""
 AUTH_HEADER_NAME = "X-SisRua-Token"
@@ -205,6 +208,15 @@ async def health():
     """Simple health check to verify the API server is up and running."""
     return HealthResponse(status="ok")
 
+from backend.models import DeepHealthResponse
+from backend.services.health import health_service
+
+@app.get("/api/v1/health/detailed", tags=["Health"], response_model=DeepHealthResponse)
+async def health_detailed(x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
+    """Deep health check verifying DB, Cache, and Configuration."""
+    _require_token(x_sisrua_token) # Deep check is protected
+    return health_service.check_health()
+
 from backend.services.projects import ProjectService, ConflictError, NotFoundError
 from backend.models import ProjectUpdateRequest
 
@@ -251,19 +263,47 @@ event_bus.subscribe("job_failed", lambda p: webhook_service.broadcast("job_faile
 event_bus.subscribe("project_saved", lambda p: webhook_service.broadcast("project_saved", p))
 event_bus.subscribe("project_updated", lambda p: webhook_service.broadcast("project_updated", p))
 
-def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest) -> None:
-    job_executor.execute_prepare_job(job_id, payload, event_bus)
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Graceful shutdown handler."""
+    print("[shutdown] Stopping background services...")
+    
+    # Signal shutdown
+    from backend.core.lifecycle import SHUTDOWN_EVENT, job_registry
+    SHUTDOWN_EVENT.set()
+    
+    # Wait for active jobs
+    job_registry.wait_for_completion(timeout=10.0)
+    print("[shutdown] Bye.")
+
+def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest, trace_id: str) -> None:
+    try:
+        # Restore Trace Context in the new thread
+        set_trace_id(trace_id)
+        structlog.contextvars.bind_contextvars(trace_id=trace_id)
+        
+        job_executor.execute_prepare_job(job_id, payload, event_bus)
+    finally:
+        from backend.core.lifecycle import job_registry
+        job_registry.remove(threading.current_thread())
 
 
 @app.post("/api/v1/jobs/prepare", tags=["Jobs"], response_model=JobStatusResponse)
 async def create_prepare_job(
     payload: PrepareJobRequest,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
+    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME),
+    _ = Depends(RateLimiter(calls=5, period=60)) # 5 jobs per minute per IP
 ):
     """Start an asynchronous data preparation job (OSM or GeoJSON). returns the initial job status."""
     _require_token(x_sisrua_token)
+    
+    from backend.core.logger import get_trace_id
+    current_trace_id = get_trace_id()
+    from backend.core.lifecycle import job_registry
+    
     job_id = init_job(payload.kind)
-    t = threading.Thread(target=_run_prepare_job_sync, args=(job_id, payload), daemon=True)
+    t = threading.Thread(target=_run_prepare_job_sync, args=(job_id, payload, current_trace_id), daemon=True)
+    job_registry.add(t)
     t.start()
     return get_job(job_id) # Using getter from service which is locked
 
