@@ -31,6 +31,10 @@ class CacheService:
             except Exception as e:
                 logger.warning(f"[cache] Redis unavailable: {e}")
 
+    def _sanitize_key(self, key: str) -> str:
+        # Replace non-filesystem safe chars
+        return key.replace(":", "_").replace("/", "_").replace("\\", "_")
+
     def get(self, key: str) -> Optional[Any]:
         # 1. Try Redis
         if self.redis:
@@ -43,7 +47,8 @@ class CacheService:
 
         # 2. Try Filesystem
         try:
-            path = self.file_cache_dir / f"{key}.json"
+            filename = self._sanitize_key(key) + ".json"
+            path = self.file_cache_dir / filename
             if path.exists():
                 data = json.loads(path.read_text(encoding="utf-8"))
                 cached = sanitize_jsonable(data)
@@ -59,7 +64,8 @@ class CacheService:
     def set(self, key: str, value: Any, ttl: int = 3600) -> None:
         # File Persistence
         try:
-            path = self.file_cache_dir / f"{key}.json"
+            filename = self._sanitize_key(key) + ".json"
+            path = self.file_cache_dir / filename
             safe = sanitize_jsonable(value)
             path.write_text(json.dumps(safe, ensure_ascii=False), encoding="utf-8")
         except Exception as e:
