@@ -48,7 +48,7 @@ def init_db(conn):
     )
     ''')
     
-    # --- v0.5.0 Indexes for Query Optimization ---
+    # --- v0.5.0 CadFeatures Indexes for Query Optimization ---
     # Index on project_id for fast JOIN and feature lookup by project
     cursor.execute('''
     CREATE INDEX IF NOT EXISTS idx_cadfeatures_project_id 
@@ -65,6 +65,13 @@ def init_db(conn):
     cursor.execute('''
     CREATE INDEX IF NOT EXISTS idx_cadfeatures_project_type 
     ON CadFeatures(project_id, feature_type)
+    ''')
+    
+    # --- v0.8.0 Projects Indexes for Query Optimization ---
+    # Index on creation_date for date filtering and recent project queries
+    cursor.execute('''
+    CREATE INDEX IF NOT EXISTS idx_projects_creation_date 
+    ON Projects(creation_date DESC)
     ''')
     
     conn.commit()

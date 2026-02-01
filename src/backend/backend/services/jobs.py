@@ -28,6 +28,18 @@ def _persist_jobs_batch(batch: List[Dict]):
                     result TEXT
                 )
             """)
+            
+            # v0.8.0 JobHistory Indexes for Query Optimization
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_jobhistory_status_updated 
+                ON JobHistory(status, updated_at)
+            """)
+            
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_jobhistory_kind 
+                ON JobHistory(kind)
+            """)
+
             data = []
             for job in batch:
                 # Store lightweight snapshot
