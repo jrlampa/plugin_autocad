@@ -174,7 +174,7 @@ from backend.services.cache import cache_service
 from backend.core.bus import InMemoryEventBus
 
 # --- Composition Root ---
-event_bus = InMemoryEventBus()
+event_bus = InMemoryEventBus(cache=cache_service)
 
 # Wiring: WebhookService listens to events
 def webhook_adapter(payload: Dict[str, Any]):

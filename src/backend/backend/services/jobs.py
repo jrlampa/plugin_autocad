@@ -50,7 +50,9 @@ def update_job(
                 event_map = {"processing": "job_started", "completed": "job_completed", "failed": "job_failed"}
                 event = event_map.get(status)
                 if event:
-                    event_bus.publish(event, job.copy())
+                    # Idempotency Key: Ensures this specific transition is only broadcast once
+                    idem_key = f"job_event:{job_id}:{status}"
+                    event_bus.publish(event, job.copy(), idempotency_key=idem_key)
 
         if progress is not None:
             job["progress"] = float(max(0.0, min(1.0, progress)))

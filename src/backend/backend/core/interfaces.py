@@ -18,7 +18,7 @@ class INotificationService(Protocol):
 
 class IEventBus(Protocol):
     """Protocol defining the contract for an event bus."""
-    def publish(self, event_type: str, payload: Dict[str, Any]) -> None: 
+    def publish(self, event_type: str, payload: Dict[str, Any], idempotency_key: Optional[str] = None) -> None: 
         ...
 
     def subscribe(self, event_type: str, handler: Any) -> None: 
