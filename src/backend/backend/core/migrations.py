@@ -13,6 +13,7 @@ import sqlite3
 import os
 from pathlib import Path
 from datetime import datetime
+from backend.core.database import get_db_connection, DB_PATH
 
 # Database path (same as seed.py)
 DB_PATH = Path(os.environ.get("LOCALAPPDATA", ".")) / "sisRUA" / "projects.db"
@@ -116,7 +117,7 @@ def migrate_database(db_path: Path = None) -> int:
     
     print(f"[migrations] Checking database: {path}")
     
-    conn = sqlite3.connect(str(path))
+    conn = get_db_connection(path)
     try:
         current_version = get_schema_version(conn)
         print(f"[migrations] Current schema version: {current_version}")
@@ -156,7 +157,7 @@ def check_migration_status(db_path: Path = None) -> dict:
             "pending_migrations": list(MIGRATIONS.keys()),
         }
     
-    conn = sqlite3.connect(str(path))
+    conn = get_db_connection(path)
     try:
         current = get_schema_version(conn)
         pending = [v for v in sorted(MIGRATIONS.keys()) if v > current]

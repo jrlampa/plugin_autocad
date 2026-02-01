@@ -1,12 +1,56 @@
 import time
 import uuid
+import threading
+import json
+from typing import Dict, Any, List, Optional
 from backend.core.interfaces import IEventBus
 from backend.core.logger import get_logger, get_trace_id
+from backend.core.buffer import PersistenceBuffer
+from backend.core.database import get_db_connection
 
 logger = get_logger(__name__)
 
 # Lock para proteger job_store contra race conditions
 _job_store_lock = threading.Lock()
+
+def _persist_jobs_batch(batch: List[Dict]):
+    if not batch: return
+    try:
+        conn = get_db_connection()
+        try:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS JobHistory (
+                    job_id TEXT PRIMARY KEY,
+                    kind TEXT,
+                    status TEXT,
+                    created_at REAL,
+                    updated_at REAL,
+                    result TEXT
+                )
+            """)
+            data = []
+            for job in batch:
+                # Store lightweight snapshot
+                data.append((
+                    job['job_id'], 
+                    job['kind'], 
+                    job['status'], 
+                    job.get('created_at', 0.0), 
+                    job.get('updated_at', 0.0), 
+                    json.dumps(job.get('result'))
+                ))
+            conn.executemany(
+                "INSERT OR REPLACE INTO JobHistory (job_id, kind, status, created_at, updated_at, result) VALUES (?,?,?,?,?,?)", 
+                data
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.error("job_persistence_failed", error=str(e))
+
+# Initialize Persistence Buffer
+_job_persistence_buffer = PersistenceBuffer(flush_callback=_persist_jobs_batch, batch_size=10, flush_interval=5.0)
 
 # In-memory storage for job statuses and results.
 job_store: Dict[str, Dict[str, Any]] = {}
@@ -61,6 +105,10 @@ def update_job(
                     # Idempotency Key: Ensures this specific transition is only broadcast once
                     idem_key = f"job_event:{job_id}:{status}"
                     event_bus.publish(event, job.copy(), idempotency_key=idem_key)
+            
+            # Persist to buffer on terminal states
+            if status in ("completed", "failed"):
+                _job_persistence_buffer.add(job.copy())
 
         if progress is not None:
             job["progress"] = float(max(0.0, min(1.0, progress)))
