@@ -14,6 +14,9 @@ from backend.core.utils import (
 from backend.core.circuit_breaker import CircuitBreaker
 from backend.core.retry import Retry
 from backend.services.crs import sirgas2000_utm_epsg
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 @CircuitBreaker(failure_threshold=3, recovery_timeout=60.0)
 @Retry(max_retries=3, initial_delay=2.0)
@@ -211,8 +214,9 @@ def prepare_osm_compute(
                     )
                 )
 
+
     except Exception as ex:
-        print(f"Error injecting elevation in OSM compute: {ex}")
+        logger.error("elevation_injection_failed", error=str(ex))
 
     payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features)
     

@@ -11,9 +11,10 @@ class TestRateLimit(unittest.TestCase):
         from backend.core.rate_limit import _limiters
         _limiters.clear()
         
-    def test_rate_limit(self):
+    def test_rate_limiting(self):
+        from unittest import mock
         # Fake Auth
-        with unittest.mock.patch("backend.api.AUTH_TOKEN", "test-token"):
+        with mock.patch("backend.api.AUTH_TOKEN", "test-token"):
             headers = {"X-SisRua-Token": "test-token"}
             payload = {"kind": "osm", "latitude": 0, "longitude": 0, "radius": 100}
             
@@ -34,5 +35,5 @@ class TestRateLimit(unittest.TestCase):
             # I'll just verify the BLOCKING behavior for now to save time.
 
 if __name__ == "__main__":
-    import unittest.mock
+    from unittest import mock
     unittest.main()

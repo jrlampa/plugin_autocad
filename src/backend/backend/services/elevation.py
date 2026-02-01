@@ -11,6 +11,9 @@ CACHE_DIR_DEFAULT = Path(os.environ.get('LOCALAPPDATA', '')) / 'sisRUA' / 'cache
 from backend.core.interfaces import ICache
 from backend.core.circuit_breaker import CircuitBreaker
 from backend.core.retry import Retry
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 class ElevationService:
     def __init__(self, cache: ICache, cache_dir: Optional[str] = None):
@@ -77,11 +80,11 @@ class ElevationService:
         try:
             return self._download_grid(min_lat, min_lon, max_lat, max_lon, cache_path)
         except Exception as ex:
-            print(f"Error downloading DEM (Circuit Breaker or API Fail): {ex}")
+            logger.warning("dem_download_failed_fallback_local", error=str(ex))
             # Offline Fallback
             local_dem = self._find_local_coverage(s, n, w, e)
             if local_dem:
-                print(f"Offline Mode: Using local DEM: {local_dem}")
+                logger.info("using_local_dem", path=str(local_dem))
                 return local_dem
                 
             # Clean up partial file
@@ -92,7 +95,7 @@ class ElevationService:
     @CircuitBreaker(failure_threshold=3, recovery_timeout=60.0)
     @Retry(max_retries=3, initial_delay=2.0)
     def _download_grid(self, s, n, w, e, cache_path):
-        print(f"Downloading DEM for bounds: {s, n, w, e}")
+        logger.info("downloading_dem", bounds=(s, n, w, e))
         params = {
             'demtype': 'SRTMGL3',
             'south': s,

@@ -8,8 +8,9 @@ class TestDeepHealth(unittest.TestCase):
         self.client = TestClient(app)
         
     def test_deep_health(self):
+        from unittest import mock
         # Fake Auth
-        with unittest.mock.patch("backend.api.AUTH_TOKEN", "test-token"):
+        with mock.patch("backend.api.AUTH_TOKEN", "test-token"):
             headers = {"X-SisRua-Token": "test-token"}
             response = self.client.get("/api/v1/health/detailed", headers=headers)
             

@@ -34,6 +34,8 @@ configure_logging()
 logger = get_logger(__name__)
 
 
+
+
 app = FastAPI(
     title="sisRUA API",
     version="0.7.0",
@@ -60,6 +62,13 @@ Protected endpoints require the `X-SisRua-Token` header.
         {"name": "Webhooks", "description": "Dynamic webhook registration"},
     ]
 )
+
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+    # Initialize Prometheus Metrics
+    Instrumentator().instrument(app).expose(app)
+except ImportError:
+    logger.warning("prometheus_metrics_unavailable", error="Module not found")
 
 # Middleware for Audit Logging (Trace ID)
 @app.middleware("http")
@@ -297,15 +306,30 @@ async def create_prepare_job(
     """Start an asynchronous data preparation job (OSM or GeoJSON). returns the initial job status."""
     _require_token(x_sisrua_token)
     
-    from backend.core.logger import get_trace_id
-    current_trace_id = get_trace_id()
-    from backend.core.lifecycle import job_registry
-    
-    job_id = init_job(payload.kind)
-    t = threading.Thread(target=_run_prepare_job_sync, args=(job_id, payload, current_trace_id), daemon=True)
-    job_registry.add(t)
-    t.start()
-    return get_job(job_id) # Using getter from service which is locked
+    try:
+        import hashlib
+        import json
+        payload_dict = payload.model_dump()
+        payload_json = json.dumps(payload_dict, sort_keys=True)
+        idempotency_key = hashlib.sha256(payload_json.encode()).hexdigest()
+        
+        from backend.core.logger import get_trace_id
+        current_trace_id = get_trace_id()
+        from backend.core.lifecycle import job_registry
+        
+        job_id, is_new = init_job(payload.kind, idempotency_key=idempotency_key)
+        
+        if is_new:
+            t = threading.Thread(target=_run_prepare_job_sync, args=(job_id, payload, current_trace_id), daemon=True)
+            job_registry.add(t)
+            t.start()
+        else:
+            logger.info("job_creation_skipped_dedup", job_id=job_id)
+            
+        return get_job(job_id)
+    except Exception as e:
+        logger.error("create_job_failed", error=str(e), traceback=True)
+        raise e
 
 @app.get("/api/v1/jobs/{job_id}", tags=["Jobs"], response_model=JobStatusResponse)
 async def get_job_endpoint(

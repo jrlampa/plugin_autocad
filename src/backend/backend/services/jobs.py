@@ -2,7 +2,7 @@ import time
 import uuid
 import threading
 import json
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from backend.core.interfaces import IEventBus
 from backend.core.logger import get_logger, get_trace_id
 from backend.core.buffer import PersistenceBuffer
@@ -54,13 +54,29 @@ _job_persistence_buffer = PersistenceBuffer(flush_callback=_persist_jobs_batch, 
 
 # In-memory storage for job statuses and results.
 job_store: Dict[str, Dict[str, Any]] = {}
+idempotency_map: Dict[str, str] = {} # sha256 -> job_id
 
-def init_job(kind: str) -> str:
-    job_id = str(uuid.uuid4())
-    now = time.time()
-    trace_id = get_trace_id()
-    
+def init_job(kind: str, idempotency_key: Optional[str] = None) -> Tuple[str, bool]:
+    """Returns (job_id, is_new)."""
     with _job_store_lock:
+        if idempotency_key:
+            existing_id = idempotency_map.get(idempotency_key)
+            if existing_id:
+                # Validate if it still exists in store (might have been cleaned up)
+                if existing_id in job_store:
+                    logger.info("job_idempotency_hit", key=idempotency_key, job_id=existing_id)
+                    return existing_id, False
+                else:
+                    # Clean up staled key
+                    del idempotency_map[idempotency_key]
+        
+        job_id = str(uuid.uuid4())
+        now = time.time()
+        trace_id = get_trace_id()
+        
+        if idempotency_key:
+            idempotency_map[idempotency_key] = job_id
+        
         job_store[job_id] = {
             "job_id": job_id,
             "kind": kind,
@@ -69,13 +85,14 @@ def init_job(kind: str) -> str:
             "message": "Aguardando...",
             "result": None,
             "error": None,
-            "cancelled": False, # Cancellation state stored directly in job dict
+            "cancelled": False, 
             "created_at": now,
             "updated_at": now,
-            "trace_id": trace_id
+            "trace_id": trace_id,
+            "idempotency_key": idempotency_key
         }
     logger.info("job_created", job_id=job_id, kind=kind, trace_id=trace_id)
-    return job_id
+    return job_id, True
 
 def update_job(
     job_id: str, 
@@ -158,6 +175,10 @@ def cleanup_expired_jobs(max_age_seconds: int = 3600):
                     jobs_to_delete.append(job_id)
         
         for job_id in jobs_to_delete:
+            job = job_store[job_id]
+            idem_key = job.get("idempotency_key")
+            if idem_key and idem_key in idempotency_map:
+                del idempotency_map[idem_key]
             del job_store[job_id]
                 
     return len(jobs_to_delete)
