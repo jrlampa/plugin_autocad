@@ -36,7 +36,7 @@ logger = get_logger(__name__)
 
 app = FastAPI(
     title="sisRUA API",
-    version="0.6.0",
+    version="0.7.0",
     description="""
 **sisRUA** - Generative Urban Design System for AutoCAD.
 
