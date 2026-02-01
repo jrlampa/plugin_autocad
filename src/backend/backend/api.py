@@ -204,6 +204,32 @@ async def health():
     """Simple health check to verify the API server is up and running."""
     return HealthResponse(status="ok")
 
+from backend.services.projects import project_service, ConflictError, NotFoundError
+from backend.models import ProjectUpdateRequest
+
+@app.put("/api/v1/projects/{project_id}", tags=["Projects"])
+async def update_project(
+    project_id: str,
+    req: ProjectUpdateRequest,
+    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
+):
+    """
+    Update project metadata safely using Optimistic Locking.
+    Requires 'version' in body matching the database version.
+    """
+    _require_token(x_sisrua_token)
+    try:
+        updated = project_service.update_project(
+            project_id=project_id,
+            updates=req.model_dump(exclude={"version"}, exclude_unset=True),
+            expected_version=req.version
+        )
+        return updated
+    except ConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
 from backend.services.cache import cache_service
 from backend.core.bus import InMemoryEventBus
 
@@ -359,6 +385,7 @@ from pydantic import BaseModel
 class ChatRequest(BaseModel):
     message: str
     context: Optional[Dict[str, Any]] = None
+    job_id: Optional[str] = None
 
 class ChatResponse(BaseModel):
     response: str
@@ -373,7 +400,7 @@ async def chat_with_ai(
     """Interact with sisRUA AI based on Groq."""
     _require_token(x_sisrua_token)
     try:
-        reply = ai_service.generate_response(req.message, req.context)
+        reply = ai_service.generate_response(req.message, req.context, req.job_id)
         return ChatResponse(response=reply)
     except Exception as e:
         # Graceful degradation

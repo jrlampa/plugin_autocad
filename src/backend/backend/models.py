@@ -8,6 +8,11 @@ class FrozenBaseModel(BaseModel):
 class HealthResponse(FrozenBaseModel):
     status: str = Field(..., description="Operational status of the API", example="ok")
 
+class ProjectUpdateRequest(FrozenBaseModel):
+    version: int = Field(..., description="Current version of the project for optimistic locking")
+    project_name: Optional[str] = Field(None, description="New project name")
+    crs_out: Optional[str] = Field(None, description="New CRS")
+
 class PrepareOsmRequest(FrozenBaseModel):
     latitude: float = Field(..., description="Target latitude (EPSG:4326)", example=-21.7634)
     longitude: float = Field(..., description="Target longitude (EPSG:4326)", example=-41.3235)

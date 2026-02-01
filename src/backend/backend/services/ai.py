@@ -17,22 +17,38 @@ class AiService:
         else:
             self.client = Groq(api_key=self.api_key)
             
-        self.model = "mixtral-8x7b-32768" # Good balance of caching/speed
+        self.model = "llama-3.3-70b-versatile" # Latest supported model
 
-    def generate_response(self, message: str, context: Optional[Dict[str, Any]] = None) -> str:
+    def generate_response(self, message: str, context: Optional[Dict[str, Any]] = None, job_id: Optional[str] = None) -> str:
         """
         Generates a chat response. 
         Context can include current viewport, selected features, or recent errors.
+        job_id: If provided, fetches the job result and uses it as 'Ground Truth' (RAG).
         """
         if not self.client:
             return "AI Service is not configured (missing API key)."
 
         system_prompt = (
             "You are an expert GIS and AutoCAD assistant named 'sisRUA AI'. "
-            "You help users with the sisRUA plugin, explaining how to download OSM data, "
-            "generate contours, and export to DXF. "
-            "Be concise and technical."
+            "You help users with the sisRUA plugin.\n"
+            "CRITICAL INSTRUCTION: You are an INTERPRETER. Do not calculate physics or data yourself. "
+            "If a 'REPORT' or 'Context' provides values, use them as the absolute source of truth."
         )
+
+        # RAG Integration
+        if job_id:
+            try:
+                from backend.services.jobs import get_job
+                job = get_job(job_id)
+                if job and job.get("result"):
+                    import json
+                    # Limit result size to avoid token overflow? For now, assume reasonable size project summary
+                    # In a real heavy RAG, we would summarize it first.
+                    res_str = json.dumps(job["result"], default=str)[:10000] 
+                    system_prompt += f"\n\n--- REPORT (Ground Truth) ---\nJob ID: {job_id}\nKind: {job['kind']}\nData: {res_str}\n--- END REPORT ---\n"
+                    system_prompt += "User Check: Verify the report data before answering questions about quantities or stress/traction."
+            except Exception as e:
+                logger.error("rag_fetch_failed", error=str(e), job_id=job_id)
 
         if context:
             system_prompt += f"\n\nContext: {context}"
@@ -44,7 +60,7 @@ class AiService:
                     {"role": "user", "content": message}
                 ],
                 model=self.model,
-                temperature=0.5,
+                temperature=0.3, # Lower temperature for factual accuracy
                 max_tokens=1024,
             )
             return chat_completion.choices[0].message.content

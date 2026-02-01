@@ -19,7 +19,7 @@ from backend.core.database import get_db_connection, DB_PATH
 DB_PATH = Path(os.environ.get("LOCALAPPDATA", ".")) / "sisRUA" / "projects.db"
 
 # Current schema version
-CURRENT_VERSION = 2
+CURRENT_VERSION = 3
 
 # Migration definitions: version -> (description, sql_statements)
 # Each migration must be backward-compatible (ADD columns, CREATE tables, etc.)
@@ -44,9 +44,13 @@ MIGRATIONS = {
     2: (
         "v0.5.0 - Add color, elevation, and slope columns",
         [
-            "ALTER TABLE CadFeatures ADD COLUMN color TEXT",
-            "ALTER TABLE CadFeatures ADD COLUMN elevation REAL",
             "ALTER TABLE CadFeatures ADD COLUMN slope REAL",
+        ]
+    ),
+    3: (
+        "v0.6.0 - Add versioning for Optimistic Locking",
+        [
+            "ALTER TABLE Projects ADD COLUMN version INTEGER DEFAULT 1",
         ]
     ),
 }
