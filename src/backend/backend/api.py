@@ -319,6 +319,32 @@ async def query_profile(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+from backend.services.ai import AiService
+from pydantic import BaseModel
+
+class ChatRequest(BaseModel):
+    message: str
+    context: Optional[Dict[str, Any]] = None
+
+class ChatResponse(BaseModel):
+    response: str
+
+ai_service = AiService()
+
+@app.post("/api/v1/ai/chat", tags=["AI"], response_model=ChatResponse)
+async def chat_with_ai(
+    req: ChatRequest,
+    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
+):
+    """Interact with sisRUA AI based on Groq."""
+    _require_token(x_sisrua_token)
+    try:
+        reply = ai_service.generate_response(req.message, req.context)
+        return ChatResponse(response=reply)
+    except Exception as e:
+        # Graceful degradation
+        return ChatResponse(response="AI unavailable.")
+
 
 @app.post("/api/v1/prepare/osm", tags=["Prepare"], response_model=PrepareResponse)
 async def prepare_osm(
