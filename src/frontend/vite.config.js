@@ -17,12 +17,26 @@ export default defineConfig({
   build: {
     // Enable minification and treeshaking (default, but explicit)
     minify: 'esbuild',
+    // Enable CSS code splitting for per-route optimization
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
-        // Manual chunks for better caching
+        // Aggressive manual chunks for optimal lazy loading and caching
         manualChunks: {
+          // Core React - always needed, tiny and cached well
           'vendor-react': ['react', 'react-dom'],
-          'vendor-leaflet': ['leaflet', 'react-leaflet'],
+
+          // Map stack - HEAVY, lazy load only when needed (~240KB)
+          'vendor-maps': ['leaflet', 'react-leaflet', '@mapbox/togeojson'],
+
+          // Icons - separate chunk for dynamic loading
+          'vendor-icons': ['lucide-react'],
+
+          // UI utilities - lightweight, can be in main or separate
+          'vendor-utils': ['clsx', 'tailwind-merge'],
+
+          // HTTP client - used by services, separate from main
+          'vendor-http': ['axios'],
         },
       },
     },

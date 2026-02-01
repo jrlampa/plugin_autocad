@@ -1,17 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  MapContainer,
-  TileLayer,
-  Circle,
-  Marker,
-  Popup,
-  useMap,
-  GeoJSON,
-  Polyline,
-} from 'react-leaflet';
-import 'leaflet/dist/images/marker-icon.png';
-import 'leaflet/dist/images/marker-shadow.png';
-import 'leaflet/dist/leaflet.css';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import {
   Loader2,
   Download,
@@ -34,81 +21,25 @@ import {
   FileJson,
   Spline,
 } from 'lucide-react';
-import L from 'leaflet';
-import { kml } from '@mapbox/togeojson'; // Import the togeojson library
-
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import { kml } from '@mapbox/togeojson';
 import { useMapLogic } from './hooks/useMapLogic';
 import { api } from './api';
 import LoadingScreen from './components/LoadingScreen';
 
-// Configuração do Ícone Padrão do Leaflet
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+// Lazy load heavy components for faster TTI
+const MapView = lazy(() => import('./components/MapView'));
+const AiAssistant = lazy(() => import('./components/AiAssistant').then(mod => ({ default: mod.AiAssistant })));
+const HealthDashboard = lazy(() => import('./components/HealthDashboard'));
 
-// --- Handlers do Mapa ---
-function MapDropHandler({ onSymbolDrop }) {
-  const map = useMap();
-  useEffect(() => {
-    const container = map.getContainer();
-    const handleDrop = (e) => {
-      const symbolType = e.dataTransfer.getData('symbolType');
-      if (symbolType) {
-        e.preventDefault();
-        const latlng = map.mouseEventToLatLng(e);
-        onSymbolDrop(latlng, symbolType);
-      }
-    };
-    const handleDragOver = (e) => {
-      if (e.dataTransfer.types.includes('symbolType')) e.preventDefault();
-    };
-    container.addEventListener('drop', handleDrop);
-    container.addEventListener('dragover', handleDragOver);
-    return () => {
-      container.removeEventListener('drop', handleDrop);
-      container.removeEventListener('dragover', handleDragOver);
-    };
-  }, [map, onSymbolDrop]);
-  return null;
-}
-
-function MapClickHandler({ onMapClick }) {
-  const map = useMap();
-  const isDragging = useRef(false);
-
-  useEffect(() => {
-    map.on('dragstart', () => {
-      isDragging.current = true;
-    });
-    map.on('dragend', () => {
-      setTimeout(() => {
-        isDragging.current = false;
-      }, 50);
-    });
-    map.on('click', (e) => {
-      if (!isDragging.current) onMapClick(e.latlng);
-    });
-  }, [map, onMapClick]);
-  return null;
-}
-
-function MapController({ coords }) {
-  const map = useMap();
-  useEffect(() => {
-    if (coords) map.flyTo(coords, 18, { animate: true, duration: 1.5 });
-  }, [coords, map]);
-  return null;
-}
-
-import { AiAssistant } from './components/AiAssistant';
-import HealthDashboard from './components/HealthDashboard';
+// Map loading fallback
+const MapLoadingFallback = () => (
+  <div className="h-full w-full bg-slate-900 flex items-center justify-center">
+    <div className="text-center">
+      <Loader2 className="animate-spin text-blue-400 mx-auto" size={48} />
+      <p className="text-slate-400 text-sm mt-4 font-medium">Carregando mapa...</p>
+    </div>
+  </div>
+);
 
 // --- APP PRINCIPAL ---
 export default function App() {
@@ -512,55 +443,21 @@ export default function App() {
         </button>
       </div>
 
-      {/* 2. MAPA (Z-Index 0) */}
+      {/* 2. MAPA (Z-Index 0) - Lazy Loaded for TTI Optimization */}
       <div className="flex-1 relative z-0">
-        <MapContainer
-          center={coords}
-          zoom={18}
-          zoomControl={false}
-          className="h-full w-full outline-none bg-slate-900"
-        >
-          <TileLayer key={baseLayer} {...tileProviders[baseLayer]} />
-          <MapController coords={coords} />
-          <MapDropHandler onSymbolDrop={mapLogic.handleSymbolDrop} />
-          <MapClickHandler onMapClick={handleMapClick} />
-
-          {previewGeoJson && (
-            <GeoJSON
-              data={previewGeoJson}
-              pathOptions={{ color: '#ff7800', weight: 5, opacity: 0.8 }}
-            />
-          )}
-
-          {isDrawing && drawingPoints.length > 0 && (
-            <Polyline
-              positions={drawingPoints.map((p) => [p[1], p[0]])}
-              pathOptions={{ color: 'lime', weight: 4, opacity: 0.7, dashArray: '10, 10' }}
-            />
-          )}
-
-          {mapLogic.markers.map((m, idx) => (
-            <Marker key={idx} position={[m.lat, m.lon]} opacity={0.9}>
-              <Popup>
-                <div className="text-slate-800">
-                  <strong className="block text-sm uppercase mb-1">{m.tipo}</strong>
-                  <span className="text-xs text-slate-500">{m.meta.desc}</span>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-          <Circle
-            center={coords}
+        <Suspense fallback={<MapLoadingFallback />}>
+          <MapView
+            coords={coords}
+            tileProvider={tileProviders[baseLayer]}
             radius={radius}
-            pathOptions={{
-              color: '#3b82f6',
-              fillColor: '#3b82f6',
-              fillOpacity: 0.08,
-              dashArray: '8, 8',
-              weight: 1.5,
-            }}
+            previewGeoJson={previewGeoJson}
+            isDrawing={isDrawing}
+            drawingPoints={drawingPoints}
+            markers={mapLogic.markers}
+            onSymbolDrop={mapLogic.handleSymbolDrop}
+            onMapClick={handleMapClick}
           />
-        </MapContainer>
+        </Suspense>
       </div>
 
       {/* 3. PAINEL DIREITO */}
