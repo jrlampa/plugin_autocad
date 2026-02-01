@@ -85,5 +85,28 @@ def get_elevation(
     except Exception as e:
         console.print(f"[bold red]Error:[/bold red] {e}")
 
+# --- AI COMMANDS ---
+ai_app = typer.Typer(help="Interact with SisRua AI.")
+app.add_typer(ai_app, name="ai")
+
+@ai_app.command("chat")
+def chat_ai(
+    message: str = typer.Argument(..., help="Message to send to AI"),
+    context: str = typer.Option(None, help="JSON Context string")
+):
+    """Chat with the AI Assistant."""
+    client = get_client()
+    try:
+        ctx_dict = None
+        if context:
+            ctx_dict = json.loads(context)
+            
+        console.print(f"[bold blue]SisRua AI:[/bold blue] Thinking...")
+        response = client.ai.chat(message, context=ctx_dict)
+        console.print(Panel(response, title="Response", border_style="blue"))
+        
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+
 if __name__ == "__main__":
     app()

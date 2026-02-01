@@ -47,6 +47,14 @@ def main():
     elif final_status.error:
         print(f" [ERROR] Job failed: {final_status.error}")
 
+    # 5. AI Chat Test
+    print("Step 5: Testing AI Chat Retrofit...")
+    try:
+        response = client.ai.chat("Explain project architecture in 1 sentence.")
+        print(f" [AI RESPONSE] {response}")
+    except Exception as e:
+        print(f" [AI WARNING] Chat failed (expected if invalid API key): {e}")
+
     print("\n--- PASSED: SDK end-to-end flow verified. ---")
 
 if __name__ == "__main__":

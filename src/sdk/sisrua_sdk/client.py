@@ -81,6 +81,7 @@ class SisRuaClient:
         
         raise TimeoutError(f"Job {job_id} did not complete within {timeout}s")
 
+    
     def register_webhook(self, url: str, events: Optional[List[str]] = None) -> bool:
         """Registers a webhook listener."""
         payload = WebhookRegistrationRequest(url=url, events=events)
@@ -89,3 +90,25 @@ class SisRuaClient:
             json=payload.model_dump(exclude_none=True)
         )
         return r.status_code == 200
+
+    @property
+    def ai(self) -> 'AiClient':
+        """Access AI capabilities."""
+        return AiClient(self)
+
+class AiClient:
+    def __init__(self, client: SisRuaClient):
+        self.client = client
+
+    def chat(self, message: str, context: Optional[Dict[str, Any]] = None) -> str:
+        """Sends a message to the AI and returns the response."""
+        payload = {"message": message}
+        if context:
+            payload["context"] = context
+            
+        r = self.client.session.post(
+            f"{self.client.base_url}/ai/chat",
+            json=payload
+        )
+        r.raise_for_status()
+        return r.json().get("response", "")
