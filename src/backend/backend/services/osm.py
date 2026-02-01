@@ -11,7 +11,18 @@ from backend.core.utils import (
     get_color_from_elevation,
     sanitize_jsonable
 )
+from backend.core.circuit_breaker import CircuitBreaker
 from backend.services.crs import sirgas2000_utm_epsg
+
+@CircuitBreaker(failure_threshold=3, recovery_timeout=60.0)
+def _fetch_osm_graph(lat: float, lon: float, radius: float, check_cancel: Callable = None):
+    # Deferred import kept inside the safe function
+    import osmnx as ox
+    
+    if check_cancel: check_cancel()
+    graph = ox.graph_from_point((lat, lon), dist=radius, network_type="all")
+    if check_cancel: check_cancel()
+    return graph
 
 def prepare_osm_compute(
     latitude: float, 
@@ -39,9 +50,8 @@ def prepare_osm_compute(
     epsg_out = sirgas2000_utm_epsg(latitude, longitude)
     
     try:
-        if check_cancel: check_cancel()
-        graph = ox.graph_from_point((latitude, longitude), dist=radius, network_type="all")
-        if check_cancel: check_cancel()
+        # Use Circuit Breaker protected fetch
+        graph = _fetch_osm_graph(latitude, longitude, radius, check_cancel)
         
         # Optimization: Project graph using OSMnx (vectorized) directly to SIRGAS 2000
         graph = ox.project_graph(graph, to_crs=f"EPSG:{epsg_out}")

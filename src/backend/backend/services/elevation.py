@@ -9,6 +9,7 @@ import math
 CACHE_DIR_DEFAULT = Path(os.environ.get('LOCALAPPDATA', '')) / 'sisRUA' / 'cache' / 'elevation'
 
 from backend.core.interfaces import ICache
+from backend.core.circuit_breaker import CircuitBreaker
 
 class ElevationService:
     def __init__(self, cache: ICache, cache_dir: Optional[str] = None):
@@ -44,7 +45,18 @@ class ElevationService:
         if cache_path.exists():
             return cache_path
             
-        print(f"Downloading DEM for bounds: {bounds}")
+        try:
+            return self._download_grid(min_lat, min_lon, max_lat, max_lon, cache_path)
+        except Exception as ex:
+            print(f"Error downloading DEM (Circuit Breaker or API Fail): {ex}")
+            # Clean up partial file
+            if cache_path.exists():
+                cache_path.unlink()
+            return None
+
+    @CircuitBreaker(failure_threshold=3, recovery_timeout=60.0)
+    def _download_grid(self, s, n, w, e, cache_path):
+        print(f"Downloading DEM for bounds: {s, n, w, e}")
         params = {
             'demtype': 'SRTMGL3',
             'south': s,
@@ -58,21 +70,14 @@ class ElevationService:
         if self.api_key:
             params['API_Key'] = self.api_key
         
-        try:
-            response = requests.get(self.base_url, params=params, headers=headers, stream=True, timeout=30)
-            response.raise_for_status()
-            
-            with open(cache_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            
-            return cache_path
-        except Exception as ex:
-            print(f"Error downloading DEM: {ex}")
-            # Clean up partial file
-            if cache_path.exists():
-                cache_path.unlink()
-            return None
+        response = requests.get(self.base_url, params=params, headers=headers, stream=True, timeout=30)
+        response.raise_for_status()
+        
+        with open(cache_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        
+        return cache_path
 
     def get_elevation_at_point(self, lat, lon):
         """Returns the elevation (Z) at a specific point."""
