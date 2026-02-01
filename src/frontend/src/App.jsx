@@ -107,6 +107,8 @@ function MapController({ coords }) {
   return null;
 }
 
+import { AiAssistant } from './components/AiAssistant';
+
 // --- APP PRINCIPAL ---
 export default function App() {
   const mapLogic = useMapLogic();
@@ -805,6 +807,7 @@ export default function App() {
           </div>
         </div>
       )}
+      <AiAssistant />
     </div>
   );
 }

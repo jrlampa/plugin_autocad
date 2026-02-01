@@ -1,4 +1,7 @@
 from typing import Dict, Any, Optional
+import threading
+import time
+import uuid
 from backend.core.interfaces import IEventBus
 
 # Lock para proteger job_store contra race conditions

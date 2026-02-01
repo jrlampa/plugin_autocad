@@ -1,6 +1,7 @@
 import os
 import requests
 import threading
+import time
 import concurrent.futures
 from typing import List, Dict, Any, Optional
 
@@ -33,7 +34,7 @@ class WebhookService:
 
         envelope = {
             "event": event_type,
-            "timestamp": threading.time.time() if hasattr(threading, "time") else __import__("time").time(),
+            "timestamp": time.time(),
             "data": payload
         }
 

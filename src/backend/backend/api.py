@@ -64,10 +64,14 @@ AUTH_HEADER_NAME = "X-SisRua-Token"
 def _require_token(x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
     """
     Protege endpoints sensíveis contra chamadas externas na máquina do usuário.
+    Política: FAIL CLOSED. Se o servidor não tiver token configurado, ninguém entra.
     """
-    if AUTH_TOKEN:
-        if not x_sisrua_token or x_sisrua_token != AUTH_TOKEN:
-            raise HTTPException(status_code=401, detail="Unauthorized")
+    if not AUTH_TOKEN:
+        # Server misconfiguration or strict lockdown
+        raise HTTPException(status_code=500, detail="Server Authentication Not Configured")
+    
+    if not x_sisrua_token or x_sisrua_token != AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 app = FastAPI(
     title="sisRUA API",
