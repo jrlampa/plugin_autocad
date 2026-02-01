@@ -8,7 +8,12 @@ class GenericError(Exception): pass
 class NotFoundError(GenericError): pass
 class ConflictError(GenericError): pass
 
+from backend.core.interfaces import IEventBus
+
 class ProjectService:
+    def __init__(self, event_bus: Optional[IEventBus] = None):
+        self.event_bus = event_bus
+
     def get_project(self, project_id: str) -> Optional[Dict[str, Any]]:
         conn = get_db_connection()
         try:
@@ -34,6 +39,7 @@ class ProjectService:
         """
         Updates project metadata with optimistic locking.
         Raises ConflictError if version mismatch.
+        Emits 'project_updated' event on success.
         """
         conn = get_db_connection()
         try:
@@ -68,9 +74,12 @@ class ProjectService:
                     logger.warning("optimistic_lock_failure", project_id=project_id, expected=expected_version, current=current_version)
                     raise ConflictError(f"Version mismatch. Expected {expected_version}, but found {current_version}.")
             
-            return self.get_project(project_id)
+            updated_project = self.get_project(project_id)
+            
+            if self.event_bus and updated_project:
+                self.event_bus.publish("project_updated", updated_project)
+                
+            return updated_project
             
         finally:
             conn.close()
-
-project_service = ProjectService()

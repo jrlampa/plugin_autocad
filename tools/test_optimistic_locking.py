@@ -4,7 +4,7 @@ import unittest
 import time
 from pathlib import Path
 from backend.core.database import get_db_connection
-from backend.services.projects import project_service, ConflictError
+from backend.services.projects import ProjectService, ConflictError
 
 DB_PATH = Path("test_locking.db")
 
@@ -13,11 +13,6 @@ class TestOptimisticLocking(unittest.TestCase):
         if DB_PATH.exists():
             try: DB_PATH.unlink()
             except: pass
-        
-        # Override DB path for service (monkey patch or dependency injection would be better, 
-        # but for this script we just rely on the fact that get_db_connection can take a path)
-        # However, calling project_service calls get_db_connection() without args (uses DB_PATH global).
-        # We need to monkey patch backend.services.projects.get_db_connection
         
         # Setup schema
         self.conn = get_db_connection(DB_PATH)
@@ -37,6 +32,8 @@ class TestOptimisticLocking(unittest.TestCase):
         import backend.services.projects
         self.original_get_conn = backend.services.projects.get_db_connection
         backend.services.projects.get_db_connection = lambda: get_db_connection(DB_PATH)
+        
+        self.service = ProjectService() # No event bus needed for this test
 
     def tearDown(self):
         import backend.services.projects
@@ -63,16 +60,16 @@ class TestOptimisticLocking(unittest.TestCase):
         conn.close()
         
         # 2. User A reads (V1)
-        proj_a = project_service.get_project(pid)
+        proj_a = self.service.get_project(pid)
         self.assertEqual(proj_a['version'], 1)
         print("[1] Created Project V1")
 
         # 3. User B reads (V1)
-        proj_b = project_service.get_project(pid)
+        proj_b = self.service.get_project(pid)
         self.assertEqual(proj_b['version'], 1)
 
         # 4. User A updates -> V2
-        updated_a = project_service.update_project(pid, {"project_name": "Project A Updated"}, proj_a['version'])
+        updated_a = self.service.update_project(pid, {"project_name": "Project A Updated"}, proj_a['version'])
         self.assertEqual(updated_a['version'], 2)
         self.assertEqual(updated_a['project_name'], "Project A Updated")
         print("[2] User A updated to V2")
@@ -80,15 +77,15 @@ class TestOptimisticLocking(unittest.TestCase):
         # 5. User B tries to update using old V1 -> FAIL
         print("[3] User B trying to update with V1 (stale)...")
         with self.assertRaises(ConflictError):
-            project_service.update_project(pid, {"project_name": "Project B Overwrite"}, proj_b['version'])
+            self.service.update_project(pid, {"project_name": "Project B Overwrite"}, proj_b['version'])
         print("[PASS] User B blocked (ConflictError raised).")
 
         # 6. User B re-reads (V2) and retries -> V3
-        proj_b_fresh = project_service.get_project(pid)
+        proj_b_fresh = self.service.get_project(pid)
         self.assertEqual(proj_b_fresh['version'], 2)
         self.assertEqual(proj_b_fresh['project_name'], "Project A Updated")
         
-        updated_b = project_service.update_project(pid, {"project_name": "Project B Fixed"}, proj_b_fresh['version'])
+        updated_b = self.service.update_project(pid, {"project_name": "Project B Fixed"}, proj_b_fresh['version'])
         self.assertEqual(updated_b['version'], 3)
         print("[4] User B re-read and updated to V3")
 

@@ -204,7 +204,7 @@ async def health():
     """Simple health check to verify the API server is up and running."""
     return HealthResponse(status="ok")
 
-from backend.services.projects import project_service, ConflictError, NotFoundError
+from backend.services.projects import ProjectService, ConflictError, NotFoundError
 from backend.models import ProjectUpdateRequest
 
 @app.put("/api/v1/projects/{project_id}", tags=["Projects"])
@@ -235,6 +235,7 @@ from backend.core.bus import InMemoryEventBus
 
 # --- Composition Root ---
 event_bus = InMemoryEventBus(cache=cache_service)
+project_service = ProjectService(event_bus=event_bus)
 
 # Wiring: WebhookService listens to events
 def webhook_adapter(payload: Dict[str, Any]):
@@ -248,6 +249,7 @@ event_bus.subscribe("job_started", lambda p: webhook_service.broadcast("job_star
 event_bus.subscribe("job_completed", lambda p: webhook_service.broadcast("job_completed", p))
 event_bus.subscribe("job_failed", lambda p: webhook_service.broadcast("job_failed", p))
 event_bus.subscribe("project_saved", lambda p: webhook_service.broadcast("project_saved", p))
+event_bus.subscribe("project_updated", lambda p: webhook_service.broadcast("project_updated", p))
 
 def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest) -> None:
     try:
