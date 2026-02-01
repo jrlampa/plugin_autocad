@@ -26,10 +26,38 @@ class ElevationService:
         hash_digest = hashlib.md5(bounds_str.encode()).hexdigest()
         return self.cache_dir / f"srtm_{hash_digest}.tif"
 
+    def _find_local_coverage(self, s, n, w, e) -> Optional[Path]:
+        """
+        Searches for a local GeoTIFF that covers the requested bounds.
+        Scans SISRUA_DEM_LIBRARY and the cache directory.
+        """
+        search_paths = [self.cache_dir]
+        lib_path = os.environ.get("SISRUA_DEM_LIBRARY")
+        if lib_path:
+            search_paths.append(Path(lib_path))
+            
+        import rasterio
+        
+        for base_dir in search_paths:
+            if not base_dir.exists(): continue
+            
+            # Simple scan (could be optimized with an index)
+            for tif in base_dir.glob("*.tif"):
+                try:
+                    with rasterio.open(tif) as src:
+                        # Check if bounds overlap significantly or contain the request
+                        # src.bounds = (left, bottom, right, top) i.e. (w, s, e, n)
+                        if (src.bounds.left <= w and src.bounds.right >= e and
+                            src.bounds.bottom <= s and src.bounds.top >= n):
+                            return tif
+                except:
+                    continue
+        return None
+
     def get_elevation_grid(self, min_lat, min_lon, max_lat, max_lon):
         """
         Downloads or retrieves cached elevation grid (GeoTIFF) for the specified bounding box.
-        Returns the path to the GeoTIFF file.
+        Fallback to local library if offline.
         """
         # Add a small buffer to avoid edge issues
         buffer = 0.01 
@@ -49,6 +77,12 @@ class ElevationService:
             return self._download_grid(min_lat, min_lon, max_lat, max_lon, cache_path)
         except Exception as ex:
             print(f"Error downloading DEM (Circuit Breaker or API Fail): {ex}")
+            # Offline Fallback
+            local_dem = self._find_local_coverage(s, n, w, e)
+            if local_dem:
+                print(f"Offline Mode: Using local DEM: {local_dem}")
+                return local_dem
+                
             # Clean up partial file
             if cache_path.exists():
                 cache_path.unlink()
