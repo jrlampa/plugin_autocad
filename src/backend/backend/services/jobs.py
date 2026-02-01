@@ -1,8 +1,9 @@
-from typing import Dict, Any, Optional
-import threading
 import time
 import uuid
 from backend.core.interfaces import IEventBus
+from backend.core.logger import get_logger, get_trace_id
+
+logger = get_logger(__name__)
 
 # Lock para proteger job_store contra race conditions
 _job_store_lock = threading.Lock()
@@ -13,6 +14,8 @@ job_store: Dict[str, Dict[str, Any]] = {}
 def init_job(kind: str) -> str:
     job_id = str(uuid.uuid4())
     now = time.time()
+    trace_id = get_trace_id()
+    
     with _job_store_lock:
         job_store[job_id] = {
             "job_id": job_id,
@@ -24,8 +27,10 @@ def init_job(kind: str) -> str:
             "error": None,
             "cancelled": False, # Cancellation state stored directly in job dict
             "created_at": now,
-            "updated_at": now
+            "updated_at": now,
+            "trace_id": trace_id
         }
+    logger.info("job_created", job_id=job_id, kind=kind, trace_id=trace_id)
     return job_id
 
 def update_job(

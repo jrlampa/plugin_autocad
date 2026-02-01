@@ -11,3 +11,4 @@ matplotlib
 sentry-sdk[fastapi]
 redis
 groq>=0.4.0
+structlog

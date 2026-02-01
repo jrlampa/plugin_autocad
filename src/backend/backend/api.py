@@ -19,10 +19,40 @@ from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
+
 # --- Sentry SDK for Error Monitoring ---
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
+
+# --- Metrics / Logging v2 ---
+import uuid
+from backend.core.logger import configure_logging, get_logger, set_trace_id
+
+configure_logging()
+logger = get_logger(__name__)
+
+# Middleware for Audit Logging (Trace ID)
+@app.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    trace_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    set_trace_id(trace_id)
+    
+    structlog.contextvars.bind_contextvars(trace_id=trace_id)
+    
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    
+    response.headers["X-Request-ID"] = trace_id
+    
+    logger.info("request_processed", 
+                method=request.method, 
+                path=request.url.path, 
+                status_code=response.status_code, 
+                duration=process_time)
+                
+    return response
 
 SENTRY_DSN = os.environ.get("SENTRY_DSN")
 if SENTRY_DSN:
