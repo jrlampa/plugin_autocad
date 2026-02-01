@@ -108,6 +108,7 @@ function MapController({ coords }) {
 }
 
 import { AiAssistant } from './components/AiAssistant';
+import HealthDashboard from './components/HealthDashboard';
 
 // --- APP PRINCIPAL ---
 export default function App() {
@@ -115,6 +116,22 @@ export default function App() {
 
   // ** Estado de Carregamento Inicial (Backend Health Check) **
   const [isBackendReady, setIsBackendReady] = useState(false);
+
+  // ** Global Error State (Resilience) **
+  const [globalError, setGlobalError] = useState(null);
+
+  useEffect(() => {
+    const handleApiError = (event) => {
+      const { type, message } = event.detail;
+      setGlobalError({ type, message });
+
+      // Auto-dismiss after 5s
+      setTimeout(() => setGlobalError(null), 5000);
+    };
+
+    window.addEventListener('api-error', handleApiError);
+    return () => window.removeEventListener('api-error', handleApiError);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -416,6 +433,17 @@ export default function App() {
             <span className="text-2xl font-bold text-white tracking-wide">
               Solte o arquivo GeoJSON aqui
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* GLOBAL ERROR BANNER (RESILIENCE UI) */}
+      {globalError && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[4000] animate-in slide-in-from-top duration-300">
+          <div className={`px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border ${globalError.type === 'RATE_LIMIT' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
+            {globalError.type === 'RATE_LIMIT' ? <Clock size={20} /> : <AlertTriangle size={20} />}
+            <span className="text-xs font-bold">{globalError.message}</span>
+            <button onClick={() => setGlobalError(null)} className="ml-2 hover:bg-black/5 rounded-full p-1"><X size={14} /></button>
           </div>
         </div>
       )}
@@ -740,75 +768,84 @@ export default function App() {
                     O perfil selecionado define automaticamente as larguras de via, tolerância de
                     simplificação geométrica e geração de eixos.
                   </p>
-                </div>
-                <div className="pt-8 border-t border-slate-200/50">
-                  <button
-                    onClick={() => setShowSettings(false)}
-                    className="w-full py-4 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-2xl transition-colors"
-                  >
-                    VOLTAR PARA O PROJETO
-                  </button>
-                </div>
+                </p>
               </div>
+                
+                {/* HEALTH DASHBOARD INTEGRATION */}
+            <div className="pt-4 border-t border-slate-200/50">
+              <HealthDashboard />
+            </div>
+
+            <div className="pt-8 border-t border-slate-200/50">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="w-full py-4 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-2xl transition-colors"
+              >
+                VOLTAR PARA O PROJETO
+              </button>
+            </div>
+          </div>
             )}
+        </div>
+      </div>
+    </div>
+
+      {
+    mapLogic.isModalOpen && (
+      <div className="absolute inset-0 z-[2000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in zoom-in duration-200">
+        <div className="modal-glass p-8 w-96">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-black text-slate-800 flex items-center gap-3 text-lg">
+              <span className="bg-blue-100 p-2 rounded-xl text-blue-600">
+                <PenTool size={18} />
+              </span>
+              Novo {mapLogic.currentDrop?.type}
+            </h3>
+            <button onClick={mapLogic.cancelMarker}>
+              <X size={20} className="text-slate-400 hover:text-red-500 transition-colors" />
+            </button>
+          </div>
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">
+                Descrição Técnica
+              </label>
+              <input
+                className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-700"
+                autoFocus
+                placeholder="Ex: Poste Bifásico com Transformador"
+                value={mapLogic.metaInput.desc}
+                onChange={(e) =>
+                  mapLogic.setMetaInput({ ...mapLogic.metaInput, desc: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">
+                Altura / Especificação
+              </label>
+              <input
+                className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-700"
+                placeholder="Ex: 12m"
+                value={mapLogic.metaInput.altura}
+                onChange={(e) =>
+                  mapLogic.setMetaInput({ ...mapLogic.metaInput, altura: e.target.value })
+                }
+              />
+            </div>
+            <button
+              onClick={mapLogic.confirmMarker}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-sm flex justify-center gap-2 transition-all shadow-lg shadow-blue-500/30 mt-2 hover:-translate-y-0.5"
+            >
+              <Save size={18} /> SALVAR PONTO
+            </button>
           </div>
         </div>
       </div>
-
-      {mapLogic.isModalOpen && (
-        <div className="absolute inset-0 z-[2000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in zoom-in duration-200">
-          <div className="modal-glass p-8 w-96">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="font-black text-slate-800 flex items-center gap-3 text-lg">
-                <span className="bg-blue-100 p-2 rounded-xl text-blue-600">
-                  <PenTool size={18} />
-                </span>
-                Novo {mapLogic.currentDrop?.type}
-              </h3>
-              <button onClick={mapLogic.cancelMarker}>
-                <X size={20} className="text-slate-400 hover:text-red-500 transition-colors" />
-              </button>
-            </div>
-            <div className="space-y-5">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">
-                  Descrição Técnica
-                </label>
-                <input
-                  className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-700"
-                  autoFocus
-                  placeholder="Ex: Poste Bifásico com Transformador"
-                  value={mapLogic.metaInput.desc}
-                  onChange={(e) =>
-                    mapLogic.setMetaInput({ ...mapLogic.metaInput, desc: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">
-                  Altura / Especificação
-                </label>
-                <input
-                  className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-700"
-                  placeholder="Ex: 12m"
-                  value={mapLogic.metaInput.altura}
-                  onChange={(e) =>
-                    mapLogic.setMetaInput({ ...mapLogic.metaInput, altura: e.target.value })
-                  }
-                />
-              </div>
-              <button
-                onClick={mapLogic.confirmMarker}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-sm flex justify-center gap-2 transition-all shadow-lg shadow-blue-500/30 mt-2 hover:-translate-y-0.5"
-              >
-                <Save size={18} /> SALVAR PONTO
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      <AiAssistant />
-    </div>
+    )
+  }
+  <AiAssistant />
+    </div >
   );
 }
 

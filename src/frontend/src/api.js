@@ -1,5 +1,27 @@
 import axios from 'axios';
 
+// --- Global Interceptor for Resilience ---
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      const { status } = error.response;
+
+      // Dispatch custom events for UI to React
+      if (status === 429) {
+        window.dispatchEvent(new CustomEvent('api-error', {
+          detail: { type: 'RATE_LIMIT', message: 'Você está indo rápido demais! Aguarde um momento.' }
+        }));
+      } else if (status === 503) {
+        window.dispatchEvent(new CustomEvent('api-error', {
+          detail: { type: 'CIRCUIT_BREAKER', message: 'Serviço temporariamente indisponível (Proteção ativa).' }
+        }));
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Em produção, usamos a mesma origem (porta dinâmica do backend).
 // Em dev, você pode sobrescrever com VITE_API_URL.
 const API_BASE = (import.meta.env.VITE_API_URL || `${window.location.origin}/api/v1`).replace(
