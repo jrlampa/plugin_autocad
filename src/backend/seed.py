@@ -74,6 +74,38 @@ def init_db(conn):
     ON Projects(creation_date DESC)
     ''')
     
+    # --- v0.8.0 Audit Log Table ---
+    # Cryptographically signed audit logs for sensitive mutations
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS AuditLog (
+        audit_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_type TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT,
+        user_id TEXT,
+        timestamp REAL NOT NULL,
+        data_json TEXT,
+        signature TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+    
+    # v0.8.0 AuditLog Indexes for Query Optimization
+    cursor.execute('''
+    CREATE INDEX IF NOT EXISTS idx_auditlog_entity 
+    ON AuditLog(entity_type, entity_id)
+    ''')
+    
+    cursor.execute('''
+    CREATE INDEX IF NOT EXISTS idx_auditlog_timestamp 
+    ON AuditLog(timestamp DESC)
+    ''')
+    
+    cursor.execute('''
+    CREATE INDEX IF NOT EXISTS idx_auditlog_event_type 
+    ON AuditLog(event_type)
+    ''')
+    
     conn.commit()
 
 def generate_projects(conn):

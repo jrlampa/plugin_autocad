@@ -1,6 +1,7 @@
 from typing import Optional, Dict, Any, List
 from backend.core.database import get_db_connection
 from backend.core.logger import get_logger
+from backend.core.audit import get_audit_logger
 
 logger = get_logger(__name__)
 
@@ -13,6 +14,7 @@ from backend.core.interfaces import IEventBus
 class ProjectService:
     def __init__(self, event_bus: Optional[IEventBus] = None):
         self.event_bus = event_bus
+        self.audit = get_audit_logger()
 
     def get_project(self, project_id: str) -> Optional[Dict[str, Any]]:
         conn = get_db_connection()
@@ -73,6 +75,22 @@ class ProjectService:
                     current_version = exists[0]
                     logger.warning("optimistic_lock_failure", project_id=project_id, expected=expected_version, current=current_version)
                     raise ConflictError(f"Version mismatch. Expected {expected_version}, but found {current_version}.")
+            
+            # Log audit event AFTER successful commit
+            try:
+                self.audit.log(
+                    event_type="UPDATE",
+                    entity_type="Project",
+                    entity_id=project_id,
+                    data={
+                        "updates": fields_to_update,
+                        "old_version": expected_version,
+                        "new_version": expected_version + 1
+                    }
+                )
+            except Exception as e:
+                # Don't fail the update if audit fails, just log
+                logger.error("audit_log_failed", project_id=project_id, error=str(e))
             
             updated_project = self.get_project(project_id)
             
