@@ -5,9 +5,12 @@ resource "google_cloud_run_v2_service" "sisrua" {
 
   template {
     scaling {
-      max_instance_count = 10
-      min_instance_count = 1
+      max_instance_count = 50   # Increased for 10k users baseline
+      min_instance_count = 2    # Prevent cold starts under load
     }
+    
+    # High concurrency settings
+    revision_name = "sisrua-backend-v090-concurrency-locked"
 
     containers {
       image = var.container_image
