@@ -15,28 +15,42 @@ export default defineConfig({
     }),
   ],
   build: {
-    // Enable minification and treeshaking (default, but explicit)
+    // Enable minification and treeshaking
     minify: 'esbuild',
     // Enable CSS code splitting for per-route optimization
     cssCodeSplit: true,
+    target: 'esnext',
+    modulePreload: {
+      polyfill: false,
+    },
     rollupOptions: {
       output: {
         // Aggressive manual chunks for optimal lazy loading and caching
-        manualChunks: {
-          // Core React - always needed, tiny and cached well
-          'vendor-react': ['react', 'react-dom'],
-
-          // Map stack - HEAVY, lazy load only when needed (~240KB)
-          'vendor-maps': ['leaflet', 'react-leaflet', '@mapbox/togeojson'],
-
-          // Icons - separate chunk for dynamic loading
-          'vendor-icons': ['lucide-react'],
-
-          // UI utilities - lightweight, can be in main or separate
-          'vendor-utils': ['clsx', 'tailwind-merge'],
-
-          // HTTP client - used by services, separate from main
-          'vendor-http': ['axios'],
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            // Core React - separate and cacheable
+            if (id.includes('react') || id.includes('react-dom') || id.includes('scheduler')) {
+              return 'vendor-react';
+            }
+            // Sentry - HEAVY, isolate for observability chunk
+            if (id.includes('@sentry')) {
+              return 'vendor-sentry';
+            }
+            // Maps - HEAVY, lazy loaded manually but just in case
+            if (id.includes('leaflet') || id.includes('react-leaflet')) {
+              return 'vendor-maps';
+            }
+            // Axios and utils
+            if (id.includes('axios') || id.includes('clsx') || id.includes('tailwind-merge')) {
+              return 'vendor-core';
+            }
+            // Lucide Icons - Tree-shaking should handle most, but isolate just in case
+            if (id.includes('lucide-react')) {
+              return 'vendor-icons';
+            }
+            // Fallback for other node_modules
+            return 'vendor-others';
+          }
         },
       },
     },

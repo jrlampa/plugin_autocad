@@ -38,7 +38,7 @@ logger = get_logger(__name__)
 
 app = FastAPI(
     title="sisRUA API",
-    version="0.7.0",
+    version="0.8.0",
     description="""
 **sisRUA** - Generative Urban Design System for AutoCAD.
 
@@ -60,6 +60,9 @@ Protected endpoints require the `X-SisRua-Token` header.
         {"name": "Prepare", "description": "Data preparation (OSM/GeoJSON)"},
         {"name": "Tools", "description": "Utility tools (elevation, etc.)"},
         {"name": "Webhooks", "description": "Dynamic webhook registration"},
+        {"name": "Projects", "description": "Project metadata management"},
+        {"name": "AI", "description": "AI-powered chat assistance"},
+        {"name": "Audit", "description": "Cryptographic audit logging"},
     ]
 )
 
@@ -479,6 +482,10 @@ async def emit_event(
     _require_token(x_sisrua_token)
     webhook_service.broadcast(req.event_type, req.payload)
     return HealthResponse(status="ok")
+
+# --- Audit Log Routes ---
+from backend.audit_routes import audit_bp
+app.include_router(audit_bp, prefix="/api", tags=["Audit"])
 
 
 def _maybe_mount_frontend():

@@ -5,6 +5,40 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-02-01
+
+### Added
+
+- **Audit Log API**: 6 new endpoints for cryptographic audit logging (`/api/audit/*`)
+  - Create, retrieve, verify, and list audit log entries
+  - Batch signature verification
+  - Audit statistics endpoint
+- **Cryptographic Signatures**: HMAC-SHA256 signatures for tamper-proof audit logs
+- **Database Indexes**: Optimized query performance
+  - `idx_cadfeatures_project`, `idx_cadfeatures_type` for CadFeatures
+  - `idx_auditlog_entity`, `idx_auditlog_timestamp`, `idx_auditlog_event_type` for AuditLog
+- **API Documentation**:
+  - `docs/API_REFERENCE_v0.8.0.md` - Complete API reference with examples
+  - `docs/API_STABILITY_POLICY.md` - Versioning and stability guarantees
+- **Contract Tests**: `tests/test_api_contracts.py` for API stability verification
+- **Secret Management Audit**: Verified zero secrets in build artifacts
+  - `tools/scan_secrets.py` - Comprehensive secret scanner
+  - `tools/quick_secret_check.py` - Fast verification tool
+
+### Changed
+
+- **API Version**: Updated from 0.7.0 to 0.8.0
+- **OpenAPI Tags**: Added "Projects", "AI", and "Audit" categories
+
+### Security
+
+- Implemented audit logging for Project updates (optimistic locking)
+- Audit secret file (`.audit_secret`) with secure permissions (chmod 600)
+- Verified GROQ API key not hardcoded (runtime loading only)
+- Zero secrets leak verification completed
+
+---
+
 ## [0.6.0] - 2026-01-31
 
 ### Added

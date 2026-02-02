@@ -21,7 +21,6 @@ import {
   FileJson,
   Spline,
 } from 'lucide-react';
-import { kml } from '@mapbox/togeojson';
 import { useMapLogic } from './hooks/useMapLogic';
 import { api } from './api';
 import LoadingScreen from './components/LoadingScreen';
@@ -114,7 +113,7 @@ export default function App() {
 
   // Efeito para escutar mensagens do C# (Drag & Drop de arquivo na paleta)
   useEffect(() => {
-    const handleWebViewMessage = (event) => {
+    const handleWebViewMessage = async (event) => {
       if (typeof event.data === 'string') {
         try {
           const message = JSON.parse(event.data);
@@ -124,10 +123,13 @@ export default function App() {
               'KML content received from C# host via drag-drop (KMZ extraction). Converting to GeoJSON.'
             );
             try {
+              // Lazy load @mapbox/togeojson only when needed
+              const { kml } = await import('@mapbox/togeojson');
+
               // Convert KML string to GeoJSON object
               const parser = new DOMParser();
               const kmlDoc = parser.parseFromString(message.data.content, 'text/xml');
-              const convertedGeoJson = kml(kmlDoc); // Use the kml function from @mapbox/togeojson
+              const convertedGeoJson = kml(kmlDoc);
 
               if (
                 convertedGeoJson &&

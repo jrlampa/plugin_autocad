@@ -161,6 +161,15 @@ namespace sisRUA
                         
                         // Notify backend (fire-and-forget)
                         _ = NotifyBackend("project_saved", new { project_id = projectId, project_name = projectName, feature_count = features.Count() });
+
+                        // Cryptographic Audit Log (V2)
+                        _ = LogAuditAsync("UPDATE", "Project", projectId, new
+                        {
+                            project_name = projectName,
+                            crs_out = crsOut,
+                            feature_count = features.Count(),
+                            action = "save_project"
+                        });
                     }
                     catch (System.Exception ex)
                     {
@@ -242,6 +251,14 @@ namespace sisRUA
             // Notify backend (fire-and-forget)
             _ = NotifyBackend("project_loaded", new { project_id = projectId, project_name = projectName, feature_count = features.Count });
 
+            // Cryptographic Audit Log (V2)
+            _ = LogAuditAsync("READ", "Project", projectId, new
+            {
+                project_name = projectName,
+                feature_count = features.Count,
+                action = "load_project"
+            });
+
             return (projectName, crsOut, features);
         }
 
@@ -298,6 +315,45 @@ namespace sisRUA
             catch (Exception ex)
             {
                 SisRuaLog.Info($"DEBUG: Failed to notify backend for event {eventType}: {ex.Message}");
+            }
+        }
+
+        private async Task LogAuditAsync(string eventType, string entityType, string entityId, object data)
+        {
+            if (string.IsNullOrEmpty(SisRuaPlugin.BackendBaseUrl)) return;
+
+            try
+            {
+                var auditData = new
+                {
+                    event_type = eventType,
+                    entity_type = entityType,
+                    entity_id = entityId,
+                    user_id = Environment.UserName, // Default to system user for now
+                    data = data
+                };
+
+                string json = JsonSerializer.Serialize(auditData, _jsonOptions);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                if (!string.IsNullOrEmpty(SisRuaPlugin.BackendAuthToken))
+                {
+                    content.Headers.Add(SisRuaPlugin.BackendAuthHeaderName, SisRuaPlugin.BackendAuthToken);
+                }
+                content.Headers.Add("X-Request-ID", Guid.NewGuid().ToString());
+
+                // Call the new Audit API (V2)
+                var response = await _httpClient.PostAsync($"{SisRuaPlugin.BackendBaseUrl}/api/audit", content);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    string error = await response.Content.ReadAsStringAsync();
+                    SisRuaLog.Info($"DEBUG: Audit logging failed ({response.StatusCode}): {error}");
+                }
+            }
+            catch (Exception ex)
+            {
+                SisRuaLog.Info($"DEBUG: Failed to log audit event {eventType} for {entityType}:{entityId}: {ex.Message}");
             }
         }
     }
