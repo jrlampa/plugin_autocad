@@ -17,6 +17,9 @@ describe('Geolocation Sync integration', () => {
 
   it('updates coordinates when GEOLOCATION_SYNC is received', async () => {
     render(<App />);
+
+    // Wait for app to be fully loaded (backend ready)
+    await screen.findByTestId('app-root', {}, { timeout: 5000 });
     await screen.findByText(/sisRUA/i, {}, { timeout: 3000 });
 
     // Simular o recebimento de mensagem da WebView

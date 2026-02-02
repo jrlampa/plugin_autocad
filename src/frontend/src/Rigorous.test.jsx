@@ -48,6 +48,23 @@ vi.mock('./api', () => ({
   },
 }));
 
+// Mock do SdkService
+vi.mock('./services/SdkService', () => ({
+  SdkService: {
+    checkHealth: vi.fn(() => Promise.resolve({ status: 'ok' })),
+    checkHealthDetailed: vi.fn(() => Promise.resolve({
+      status: 'healthy',
+      system_status: 'healthy',
+      components: {
+        database: { status: 'healthy', latency_ms: 10 },
+        cache: { status: 'healthy', latency_ms: 5 },
+        external_apis: { status: 'healthy', details: {} },
+      },
+      system_latency_ms: 15,
+    })),
+  },
+}));
+
 describe('App Integration (Rigorous)', () => {
   let postMessageMock;
   let messageListeners = [];
@@ -90,9 +107,8 @@ describe('App Integration (Rigorous)', () => {
 
   it('deve enviar mensagem GENERATE_OSM ao clicar no botão gerar', async () => {
     render(<App />);
-    await screen.findByText(/sisRUA/i, {}, { timeout: 3000 });
-
-    const btn = screen.getByTestId('btn-generate-osm');
+    // Wait for the app to finish loading (backend ready)
+    const btn = await screen.findByTestId('btn-generate-osm', {}, { timeout: 5000 });
     fireEvent.click(btn);
 
     expect(postMessageMock).toHaveBeenCalledTimes(1);
