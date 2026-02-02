@@ -1,4 +1,3 @@
-
 import axios from 'axios';
 
 // Simple Circuit Breaker Implementation for Frontend
@@ -13,7 +12,7 @@ class CircuitBreakerRegistry {
         state: 'CLOSED',
         failures: 0,
         nextAttempt: 0,
-        config: { threshold: 3, timeout: 5000 }
+        config: { threshold: 3, timeout: 5000 },
       });
     }
     return this.breakers.get(name);
@@ -52,9 +51,11 @@ class CircuitBreakerRegistry {
       console.warn(`Circuit '${name}' Opened due to ${breaker.failures} failures.`);
 
       // Notify UI
-      window.dispatchEvent(new CustomEvent('api-error', {
-        detail: { type: 'CIRCUIT_BREAKER_OPEN', message: `Proteção ativa para ${name}.` }
-      }));
+      window.dispatchEvent(
+        new CustomEvent('api-error', {
+          detail: { type: 'CIRCUIT_BREAKER_OPEN', message: `Proteção ativa para ${name}.` },
+        })
+      );
     }
   }
 }
@@ -84,5 +85,5 @@ export const ResilienceService = {
   // Facade for Circuit Breaker
   async guard(componentName, action) {
     return registry.guard(componentName, action);
-  }
+  },
 };

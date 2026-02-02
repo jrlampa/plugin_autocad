@@ -78,12 +78,15 @@ Component Stack: ${errorInfo?.componentStack || 'N/A'}
     `.trim();
 
     // Copy to clipboard
-    navigator.clipboard.writeText(errorText).then(() => {
-      alert('Informações do erro copiadas para a área de transferência.');
-    }).catch(() => {
-      console.log(errorText);
-      alert('Erro ao copiar. Verifique o console.');
-    });
+    navigator.clipboard
+      .writeText(errorText)
+      .then(() => {
+        alert('Informações do erro copiadas para a área de transferência.');
+      })
+      .catch(() => {
+        console.log(errorText);
+        alert('Erro ao copiar. Verifique o console.');
+      });
   };
 
   render() {

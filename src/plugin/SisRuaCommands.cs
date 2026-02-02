@@ -27,6 +27,9 @@ namespace sisRUA
     /// </summary>
     public class SisRuaCommands
     {
+        // Dependency Injection for Testing
+        public static sisRUA.Engine.IDrawingEngine Engine { get; set; } = new sisRUA.Engine.AutoCADDrawingEngine();
+
         private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
         private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
         {
@@ -145,10 +148,13 @@ namespace sisRUA
                 // Optionally, clear current Model Space before redrawing
                 // For simplicity, we will just draw over for now. User can clear manually if needed.
 
+
                 ed.WriteMessage($"\n[sisRUA] Carregando e redesenhando projeto '{projectName}' (ID: {selectedProjectId})...");
                 using (var dlg = new ProcessingDialog())
                 {
                     Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
+                    // Use Engine for message
+                    Engine.WriteMessage($"Reloading project {selectedProjectId}...");
                     await DrawCadFeatures(features, dlg);
                 }
                 

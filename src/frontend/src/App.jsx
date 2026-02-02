@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
+import { SdkTest } from './components/SdkTest';
 import {
   Loader2,
   Download,
@@ -348,8 +349,7 @@ export default function App() {
 
   return (
     <div
-      data-
-      testid="app-root"
+      data-testid="app-root"
       className={`relative w-full h-full overflow-hidden bg-slate-900 font-sans flex ${isDrawing ? 'cursor-crosshair' : ''}`}
       onDragOver={(e) => {
         e.preventDefault();
@@ -358,6 +358,9 @@ export default function App() {
       onDragLeave={() => setIsDraggingFile(false)}
       onDrop={handleGlobalDrop}
     >
+      {/* SDK INTEGRATION TEST */}
+      <SdkTest />
+
       {/* OVERLAY DE UPLOAD ATUALIZADO */}
       {isDraggingFile && (
         <div className="absolute inset-0 z-[3000] bg-slate-900/60 backdrop-blur-md flex items-center justify-center m-4 rounded-3xl border-4 border-dashed border-blue-400/50 pointer-events-none animate-pulse">

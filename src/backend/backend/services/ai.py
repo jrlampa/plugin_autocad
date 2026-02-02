@@ -50,6 +50,22 @@ class AiService:
             except Exception as e:
                 logger.error("rag_fetch_failed", error=str(e), job_id=job_id)
 
+        # Audit Log Context (RAG Lite)
+        if context and context.get("fetch_audit_logs"):
+            try:
+                from backend.core.audit import get_audit_logger
+                audit = get_audit_logger()
+                # Fetch recent logs (e.g. last 5 actions)
+                recent_logs = audit.list_logs(limit=5)
+                
+                audit_str = ""
+                for log in recent_logs:
+                    audit_str += f"- [{log['created_at']}] {log['event_type']} on {log['entity_type']} {log['entity_id']}: {log['data']}\n"
+                
+                system_prompt += f"\n\n--- RECENT ACTIVITY (Audit Logs) ---\n{audit_str}--- END ACTIVITY ---\n"
+            except Exception as e:
+                logger.error("audit_rag_fetch_failed", error=str(e))
+
         if context:
             system_prompt += f"\n\nContext: {context}"
 

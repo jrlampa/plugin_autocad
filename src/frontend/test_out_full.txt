@@ -1,0 +1,377 @@
+
+> frontend@0.7.0 test
+> vitest --config vitest.config.js --run
+
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/plugin_autocad/src/frontend[39m
+
+ [32mÔ£ô[39m src/hooks/useMapLogic.test.js [2m([22m[2m2 tests[22m[2m)[22m[90m 13[2mms[22m[39m
+stderr | src/App.test.jsx > App (UI b├ísica) > renderiza o t├¡tulo
+React does not recognize the `zoomControl` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `zoomcontrol` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+
+[90mstdout[2m | src/Sync.test.jsx[2m > [22m[2mGeolocation Sync integration[2m > [22m[2mupdates coordinates when GEOLOCATION_SYNC is received
+[22m[39mGeolocation sync received from C#: { latitude: [33m-23.5505[39m, longitude: [33m-46.6333[39m }
+
+ [31mÔØ»[39m src/Sync.test.jsx [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[90m 58[2mms[22m[39m
+[31m   [31m├ù[31m Geolocation Sync integration[2m > [22mupdates coordinates when GEOLOCATION_SYNC is received[90m 57[2mms[22m[31m[39m
+[31m     ÔåÆ Unable to find an element with the placeholder text of: /Buscar endere├ºo, Lat\/Lon.../i
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<div[31m
+      [33mclass[31m=[32m"fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-[5000]"[31m
+    [36m>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"relative flex flex-col items-center animate-enter"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"w-24 h-24 bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl shadow-2xl flex items-center justify-center mb-8 relative overflow-hidden group"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"[31m
+          [36m/>[31m
+          [36m<span[31m
+            [33mclass[31m=[32m"text-5xl font-black text-white tracking-tighter"[31m
+          [36m>[31m
+            [0mR[0m
+          [36m</span>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"absolute -top-2 -right-2 w-6 h-6 bg-blue-400/30 rounded-full blur-xl animate-pulse"[31m
+          [36m/>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"absolute -bottom-2 -left-2 w-8 h-8 bg-purple-500/30 rounded-full blur-xl animate-pulse delay-75"[31m
+          [36m/>[31m
+        [36m</div>[31m
+        [36m<h1[31m
+          [33mclass[31m=[32m"text-3xl font-black text-white tracking-tight mb-2 flex items-center gap-3"[31m
+        [36m>[31m
+          [0msisRUA[0m
+          [36m<span[31m
+            [33mclass[31m=[32m"bg-white/10 px-2 py-0.5 rounded text-xs text-blue-300 font-bold border border-white/5 uppercase tracking-wider"[31m
+          [36m>[31m
+            [0mLoading[0m
+          [36m</span>[31m
+        [36m</h1>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"text-slate-400 text-sm font-medium tracking-wide uppercase mb-12"[31m
+        [36m>[31m
+          [0mGenerative Urban Design System[0m
+        [36m</p>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"flex items-center gap-3 bg-white/5 px-6 py-3 rounded-2xl border border-white/5 backdrop-blur-sm"[31m
+        [36m>[31m
+          [36m<svg[31m
+            [33maria-hidden[31m=[32m"true"[31m
+            [33mclass[31m=[32m"lucide lucide-loader-circle animate-spin text-blue-400"[31m
+            [33mfill[31m=[32m"none"[31m
+            [33mheight[31m=[32m"20"[31m
+            [33mstroke[31m=[32m"currentColor"[31m
+            [33mstroke-linecap[31m=[32m"round"[31m
+            [33mstroke-linejoin[31m=[32m"round"[31m
+            [33mstroke-width[31m=[32m"2"[31m
+            [33mviewBox[31m=[32m"0 0 24 24"[31m
+            [33mwidth[31m=[32m"20"[31m
+            [33mxmlns[31m=[32m"http://www.w3.org/2000/svg"[31m
+          [36m>[31m
+            [36m<path[31m
+              [33md[31m=[32m"M21 12a9 9 0 1 1-6.219-8.56"[31m
+            [36m/>[31m
+          [36m</svg>[31m
+          [36m<span[31m
+            [33mclass[31m=[32m"text-slate-300 text-xs font-bold animate-pulse"[31m
+          [36m>[31m
+            [0mInicializando motor de renderiza├º├úo...[0m
+          [36m</span>[31m
+        [36m</div>[31m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"absolute bottom-8 text-[10px] text-slate-600 font-mono"[31m
+      [36m>[31m
+        [0mv0.5.0 ÔÇó Build 2026.01[0m
+      [36m</div>[31m
+    [36m</div>[31m
+  [36m</div>[31m
+[36m</body>[31m[39m
+ [32mÔ£ô[39m src/App.test.jsx [2m([22m[2m1 test[22m[2m)[22m[90m 82[2mms[22m[39m
+[90mstdout[2m | src/Rigorous.test.jsx[2m > [22m[2mApp Integration (Rigorous)[2m > [22m[2mdeve mostrar preview e bot├úo importar ao receber FILE_DROPPED do Host
+[22m[39mGeoJSON content received from C# host via drag-drop.
+
+ [31mÔØ»[39m src/Rigorous.test.jsx [2m([22m[2m3 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[90m 158[2mms[22m[39m
+[31m   [31m├ù[31m App Integration (Rigorous)[2m > [22mdeve enviar mensagem GENERATE_OSM ao clicar no bot├úo gerar[90m 47[2mms[22m[31m[39m
+[31m     ÔåÆ Unable to find an element by: [data-testid="btn-generate-osm"]
+
+Ignored nodes: comments, script, style
+[36m<body>[31m
+  [36m<div>[31m
+    [36m<div[31m
+      [33mclass[31m=[32m"fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-[5000]"[31m
+    [36m>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"relative flex flex-col items-center animate-enter"[31m
+      [36m>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"w-24 h-24 bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl shadow-2xl flex items-center justify-center mb-8 relative overflow-hidden group"[31m
+        [36m>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"[31m
+          [36m/>[31m
+          [36m<span[31m
+            [33mclass[31m=[32m"text-5xl font-black text-white tracking-tighter"[31m
+          [36m>[31m
+            [0mR[0m
+          [36m</span>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"absolute -top-2 -right-2 w-6 h-6 bg-blue-400/30 rounded-full blur-xl animate-pulse"[31m
+          [36m/>[31m
+          [36m<div[31m
+            [33mclass[31m=[32m"absolute -bottom-2 -left-2 w-8 h-8 bg-purple-500/30 rounded-full blur-xl animate-pulse delay-75"[31m
+          [36m/>[31m
+        [36m</div>[31m
+        [36m<h1[31m
+          [33mclass[31m=[32m"text-3xl font-black text-white tracking-tight mb-2 flex items-center gap-3"[31m
+        [36m>[31m
+          [0msisRUA[0m
+          [36m<span[31m
+            [33mclass[31m=[32m"bg-white/10 px-2 py-0.5 rounded text-xs text-blue-300 font-bold border border-white/5 uppercase tracking-wider"[31m
+          [36m>[31m
+            [0mLoading[0m
+          [36m</span>[31m
+        [36m</h1>[31m
+        [36m<p[31m
+          [33mclass[31m=[32m"text-slate-400 text-sm font-medium tracking-wide uppercase mb-12"[31m
+        [36m>[31m
+          [0mGenerative Urban Design System[0m
+        [36m</p>[31m
+        [36m<div[31m
+          [33mclass[31m=[32m"flex items-center gap-3 bg-white/5 px-6 py-3 rounded-2xl border border-white/5 backdrop-blur-sm"[31m
+        [36m>[31m
+          [36m<svg[31m
+            [33maria-hidden[31m=[32m"true"[31m
+            [33mclass[31m=[32m"lucide lucide-loader-circle animate-spin text-blue-400"[31m
+            [33mfill[31m=[32m"none"[31m
+            [33mheight[31m=[32m"20"[31m
+            [33mstroke[31m=[32m"currentColor"[31m
+            [33mstroke-linecap[31m=[32m"round"[31m
+            [33mstroke-linejoin[31m=[32m"round"[31m
+            [33mstroke-width[31m=[32m"2"[31m
+            [33mviewBox[31m=[32m"0 0 24 24"[31m
+            [33mwidth[31m=[32m"20"[31m
+            [33mxmlns[31m=[32m"http://www.w3.org/2000/svg"[31m
+          [36m>[31m
+            [36m<path[31m
+              [33md[31m=[32m"M21 12a9 9 0 1 1-6.219-8.56"[31m
+            [36m/>[31m
+          [36m</svg>[31m
+          [36m<span[31m
+            [33mclass[31m=[32m"text-slate-300 text-xs font-bold animate-pulse"[31m
+          [36m>[31m
+            [0mInicializando motor de renderiza├º├úo...[0m
+          [36m</span>[31m
+        [36m</div>[31m
+      [36m</div>[31m
+      [36m<div[31m
+        [33mclass[31m=[32m"absolute bottom-8 text-[10px] text-slate-600 font-mono"[31m
+      [36m>[31m
+        [0mv0.5.0 ÔÇó Build 2026.01[0m
+      [36m</div>[31m
+    [36m</div>[31m
+  [36m</div>[31m
+[36m</body>[31m[39m
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ» Failed Tests 2 ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»
+
+ FAIL  src/Rigorous.test.jsx > App Integration (Rigorous) > deve enviar mensagem GENERATE_OSM ao clicar no bot├úo gerar
+TestingLibraryElementError: Unable to find an element by: [data-testid="btn-generate-osm"]
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-[5000]"
+    >
+      <div
+        class="relative flex flex-col items-center animate-enter"
+      >
+        <div
+          class="w-24 h-24 bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl shadow-2xl flex items-center justify-center mb-8 relative overflow-hidden group"
+        >
+          <div
+            class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"
+          />
+          <span
+            class="text-5xl font-black text-white tracking-tighter"
+          >
+            R
+          </span>
+          <div
+            class="absolute -top-2 -right-2 w-6 h-6 bg-blue-400/30 rounded-full blur-xl animate-pulse"
+          />
+          <div
+            class="absolute -bottom-2 -left-2 w-8 h-8 bg-purple-500/30 rounded-full blur-xl animate-pulse delay-75"
+          />
+        </div>
+        <h1
+          class="text-3xl font-black text-white tracking-tight mb-2 flex items-center gap-3"
+        >
+          sisRUA
+          <span
+            class="bg-white/10 px-2 py-0.5 rounded text-xs text-blue-300 font-bold border border-white/5 uppercase tracking-wider"
+          >
+            Loading
+          </span>
+        </h1>
+        <p
+          class="text-slate-400 text-sm font-medium tracking-wide uppercase mb-12"
+        >
+          Generative Urban Design System
+        </p>
+        <div
+          class="flex items-center gap-3 bg-white/5 px-6 py-3 rounded-2xl border border-white/5 backdrop-blur-sm"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-loader-circle animate-spin text-blue-400"
+            fill="none"
+            height="20"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="20"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M21 12a9 9 0 1 1-6.219-8.56"
+            />
+          </svg>
+          <span
+            class="text-slate-300 text-xs font-bold animate-pulse"
+          >
+            Inicializando motor de renderiza├º├úo...
+          </span>
+        </div>
+      </div>
+      <div
+        class="absolute bottom-8 text-[10px] text-slate-600 font-mono"
+      >
+        v0.5.0 ÔÇó Build 2026.01
+      </div>
+    </div>
+  </div>
+</body>
+ ÔØ» Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ÔØ» node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ÔØ» node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ÔØ» getByTestId node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ÔØ» src/Rigorous.test.jsx:95:24
+     93|     await screen.findByText(/sisRUA/i, {}, { timeout: 3000 });
+     94| 
+     95|     const btn = screen.getByTestId('btn-generate-osm');
+       |                        ^
+     96|     fireEvent.click(btn);
+     97| 
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[1/2]ÔÄ»
+
+ FAIL  src/Sync.test.jsx > Geolocation Sync integration > updates coordinates when GEOLOCATION_SYNC is received
+TestingLibraryElementError: Unable to find an element with the placeholder text of: /Buscar endere├ºo, Lat\/Lon.../i
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="fixed inset-0 bg-slate-900 flex flex-col items-center justify-center z-[5000]"
+    >
+      <div
+        class="relative flex flex-col items-center animate-enter"
+      >
+        <div
+          class="w-24 h-24 bg-gradient-to-br from-blue-600 to-blue-800 rounded-3xl shadow-2xl flex items-center justify-center mb-8 relative overflow-hidden group"
+        >
+          <div
+            class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"
+          />
+          <span
+            class="text-5xl font-black text-white tracking-tighter"
+          >
+            R
+          </span>
+          <div
+            class="absolute -top-2 -right-2 w-6 h-6 bg-blue-400/30 rounded-full blur-xl animate-pulse"
+          />
+          <div
+            class="absolute -bottom-2 -left-2 w-8 h-8 bg-purple-500/30 rounded-full blur-xl animate-pulse delay-75"
+          />
+        </div>
+        <h1
+          class="text-3xl font-black text-white tracking-tight mb-2 flex items-center gap-3"
+        >
+          sisRUA
+          <span
+            class="bg-white/10 px-2 py-0.5 rounded text-xs text-blue-300 font-bold border border-white/5 uppercase tracking-wider"
+          >
+            Loading
+          </span>
+        </h1>
+        <p
+          class="text-slate-400 text-sm font-medium tracking-wide uppercase mb-12"
+        >
+          Generative Urban Design System
+        </p>
+        <div
+          class="flex items-center gap-3 bg-white/5 px-6 py-3 rounded-2xl border border-white/5 backdrop-blur-sm"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-loader-circle animate-spin text-blue-400"
+            fill="none"
+            height="20"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="20"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M21 12a9 9 0 1 1-6.219-8.56"
+            />
+          </svg>
+          <span
+            class="text-slate-300 text-xs font-bold animate-pulse"
+          >
+            Inicializando motor de renderiza├º├úo...
+          </span>
+        </div>
+      </div>
+      <div
+        class="absolute bottom-8 text-[10px] text-slate-600 font-mono"
+      >
+        v0.5.0 ÔÇó Build 2026.01
+      </div>
+    </div>
+  </div>
+</body>
+ ÔØ» Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ÔØ» node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ÔØ» node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ÔØ» getByPlaceholderText node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ÔØ» src/Sync.test.jsx:44:26
+     42|     // O App.jsx formata com 6 casas decimais: `${lat.toFixed(6)}, ${lÔÇª
+     43|     // -23.550500, -46.633300
+     44|     const input = screen.getByPlaceholderText(/Buscar endere├ºo, Lat\/LÔÇª
+       |                          ^
+     45|     expect(input.value).toBe('-23.550500, -46.633300');
+     46|   });
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[2/2]ÔÄ»
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m5 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 21:52:36
+[2m   Duration [22m 2.06s[2m (transform 144ms, setup 467ms, collect 828ms, tests 311ms, environment 3.16s, prepare 415ms)[22m
+
+JUNIT report written to C:/plugin_autocad/qa/out/unit/junit.xml

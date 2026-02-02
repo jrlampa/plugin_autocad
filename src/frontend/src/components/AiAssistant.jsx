@@ -92,7 +92,11 @@ export const AiAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([
-    { id: 1, text: 'Olá! Sou o assistente sisRUA. Como posso ajudar com seu projeto hoje?', isUser: false }
+    {
+      id: 1,
+      text: 'Olá! Sou o assistente sisRUA. Como posso ajudar com seu projeto hoje?',
+      isUser: false,
+    },
   ]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -100,14 +104,14 @@ export const AiAssistant = () => {
     if (!input.trim() || isLoading) return;
 
     const userMsg = input;
-    setMessages(prev => [...prev, { id: Date.now(), text: userMsg, isUser: true }]);
+    setMessages((prev) => [...prev, { id: Date.now(), text: userMsg, isUser: true }]);
     setInput('');
     setIsLoading(true);
 
     // Call backend
     const response = await aiService.sendMessage(userMsg);
 
-    setMessages(prev => [...prev, { id: Date.now() + 1, text: response, isUser: false }]);
+    setMessages((prev) => [...prev, { id: Date.now() + 1, text: response, isUser: false }]);
     setIsLoading(false);
   };
 
@@ -119,19 +123,32 @@ export const AiAssistant = () => {
             <span>sisRUA AI (Beta)</span>
             <button
               onClick={() => setIsOpen(false)}
-              style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '18px' }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '18px',
+              }}
             >
               ×
             </button>
           </div>
           <div style={styles.messages}>
-            {messages.map(msg => (
+            {messages.map((msg) => (
               <div key={msg.id} style={styles.messageBubble(msg.isUser)}>
                 {msg.text}
               </div>
             ))}
             {isLoading && (
-              <div style={{ alignSelf: 'flex-start', color: '#94A3B8', fontSize: '12px', marginLeft: '12px' }}>
+              <div
+                style={{
+                  alignSelf: 'flex-start',
+                  color: '#94A3B8',
+                  fontSize: '12px',
+                  marginLeft: '12px',
+                }}
+              >
                 Digitando...
               </div>
             )}

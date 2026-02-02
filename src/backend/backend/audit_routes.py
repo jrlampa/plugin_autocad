@@ -97,51 +97,12 @@ async def list_audit_logs(
     limit: int = Query(100, ge=1, le=1000)
 ):
     """List audit logs with optional filters."""
-    conn = get_db_connection()
-    try:
-        query = """
-            SELECT audit_id, event_type, entity_type, entity_id, user_id, 
-                   timestamp, data_json, signature, created_at
-            FROM AuditLog WHERE 1=1
-        """
-        params = []
-        
-        if entity_type:
-            query += " AND entity_type = ?"
-            params.append(entity_type)
-        if entity_id:
-            query += " AND entity_id = ?"
-            params.append(entity_id)
-        if event_type:
-            query += " AND event_type = ?"
-            params.append(event_type)
-        
-        query += " ORDER BY audit_id DESC LIMIT ?"
-        params.append(limit)
-        
-        rows = conn.execute(query, params).fetchall()
-        
-        logs = [
-            {
-                "audit_id": row[0],
-                "event_type": row[1],
-                "entity_type": row[2],
-                "entity_id": row[3],
-                "user_id": row[4],
-                "timestamp": row[5],
-                "data": row[6],
-                "signature": row[7][:16] + "...",  # Truncate for display
-                "created_at": row[8]
-            }
-            for row in rows
-        ]
-        
-        return {
-            "count": len(logs),
-            "logs": logs
-        }
-    finally:
-        conn.close()
+    audit = get_audit_logger()
+    logs = audit.list_logs(entity_type, entity_id, event_type, limit)
+    return {
+        "count": len(logs),
+        "logs": logs
+    }
 
 @audit_bp.get("/audit/stats")
 async def get_audit_stats():

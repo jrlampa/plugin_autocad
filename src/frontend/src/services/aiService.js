@@ -17,14 +17,14 @@ export const aiService = {
 
       if (!res.ok) {
         // Handle non-200 responses gracefully
-        return "Desculpe, não consegui processar sua solicitação no momento.";
+        return 'Desculpe, não consegui processar sua solicitação no momento.';
       }
 
       const data = await res.json();
       return data.response;
     } catch (err) {
       console.error('AI Service Error:', err);
-      return "Erro de conexão com o assistente.";
+      return 'Erro de conexão com o assistente.';
     }
-  }
+  },
 };
