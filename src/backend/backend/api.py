@@ -173,11 +173,17 @@ async def add_security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     
-    # Prevent clickjacking
-    response.headers["X-Frame-Options"] = "DENY"
+    # Prevent clickjacking (Relaxed for WebView2)
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
     
     # Content Security Policy (relaxed for WebView2 compatibility)
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+    # Allows scripts, styles, and tile images from common providers
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https://*.tile.openstreetmap.org https://mt1.google.com https://*.basemaps.cartocdn.com;"
+    )
     
     # Referrer Policy
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -499,12 +505,29 @@ def _maybe_mount_frontend():
     # Quando empacotado (ex.: PyInstaller), __file__ pode apontar para uma pasta temporária (MEIPASS).
     # Preferimos resolver o caminho do bundle via executável.
     if getattr(sys, "frozen", False):
+        # Em produção (EXE), Contents/backend/sisrua_backend.exe
         contents_dir = Path(sys.executable).resolve().parent.parent
+        dist_dir = contents_dir / "frontend" / "dist"
     else:
-        contents_dir = Path(__file__).resolve().parent.parent
-    dist_dir = contents_dir / "frontend" / "dist"
+        # Em desenvolvimento, tenta caminhos relativos ao arquivo api.py
+        current_file = Path(__file__).resolve()
+        # 1. Tenta src/frontend/dist (layout padrão do repo)
+        dist_dir = current_file.parent.parent.parent / "frontend" / "dist"
+        
+        if not dist_dir.exists():
+            # 2. Fallback para Contents/frontend/dist (se rodando via python standalone.py na Contents)
+            dist_dir = current_file.parent.parent / "frontend" / "dist"
 
     if dist_dir.exists() and (dist_dir / "index.html").exists():
+        @app.get("/", response_class=HTMLResponse)
+        async def serve_index():
+            """Serve index.html with injected auth token."""
+            content = (dist_dir / "index.html").read_text(encoding="utf-8")
+            # Injeta o token globalmente para o frontend usar no axios
+            injected_script = f"<script>window.SISRUA_TOKEN = '{AUTH_TOKEN}';</script>"
+            content = content.replace("<head>", f"<head>{injected_script}")
+            return HTMLResponse(content)
+
         # Importante: montar após as rotas de API, para não interceptar /api/v1/*
         app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="frontend")
     else:

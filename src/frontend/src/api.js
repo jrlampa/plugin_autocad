@@ -1,6 +1,14 @@
 import axios from 'axios';
 
-// --- Global Interceptor for Resilience ---
+// --- Global Interceptor for Resilience & Auth ---
+axios.interceptors.request.use((config) => {
+  const token = window.SISRUA_TOKEN;
+  if (token) {
+    config.headers['X-SisRua-Token'] = token;
+  }
+  return config;
+});
+
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
