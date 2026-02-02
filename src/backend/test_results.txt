@@ -83,4 +83,4 @@ tests/test_api_auth_and_jobs.py::test_create_prepare_job_geojson_blocks_complete
     @app.on_event("shutdown")
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-====================== 11 passed, 39 warnings in 16.89s =======================
+====================== 11 passed, 39 warnings in 24.55s =======================

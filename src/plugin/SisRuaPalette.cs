@@ -62,19 +62,11 @@ namespace sisRUA
                 string settingsPath = SisRuaSettings.TryGetSettingsPathForDisplay();
                 string msg =
                     "Aviso de proteção de dados (LGPD)\n\n" +
-                    "O sisRUA processa dados de geolocalização (lat/lon) e pode importar arquivos (ex.: GeoJSON) localmente.\n" +
-                    "Quando você usa \"Gerar OSM\", o sisRUA pode acessar serviços do OpenStreetMap (ex.: Overpass) para baixar dados.\n\n" +
-                    "Dados locais:\n" +
-                    "- Cache do OSM/GeoJSON pode ser salvo em %LOCALAPPDATA%\\sisRUA\\cache\n" +
-                    "- A WebView2 pode gravar dados locais (ex.: cache/cookies do componente) em %LOCALAPPDATA%\\sisRUA\\webview2\n\n" +
-                    "Ao clicar em \"Sim\", você confirma que está ciente e deseja continuar.\n" +
-                    "Você pode revisar a Política de Privacidade em PRIVACY.md (no repositório) e apagar os dados locais quando quiser.\n\n" +
-                    (string.IsNullOrWhiteSpace(settingsPath) ? "" : $"Configurações: {settingsPath}\n\n") +
-                    "Deseja continuar?";
-
                 var answer = MessageBox.Show(
-                    msg,
-                    "sisRUA — Proteção de dados",
+                    "O sisRUA utiliza serviços de mapa (OpenStreetMap) e telemetria básica para melhoria contínua.\n\n" +
+                    "Ao continuar, você aceita que o plugin se comunique com o backend local e baixe dados geográficos.\n\n" +
+                    "Deseja ativar o sisRUA?",
+                    "Privacidade e Termos - sisRUA",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Information
                 );
@@ -85,6 +77,22 @@ namespace sisRUA
                 }
 
                 SisRuaSettings.TryMarkPrivacyNoticeAccepted();
+            }
+
+            // --- Pre-flight Health Check ---
+            // Verifica se o backend responde em até 2 segundos antes de tentar abrir o WebView2.
+            // Isso evita que o usuário veja uma tela branca se o backend demorar para subir ou falhar.
+            if (!SisRuaPlugin.EnsureBackendHealthy(TimeSpan.FromSeconds(2)))
+            {
+                MessageBox.Show(
+                    "O backend do sisRUA ainda não está pronto ou falhou ao iniciar.\n\n" +
+                    "Aguarde alguns segundos e tente novamente.\n" +
+                    "Se o problema persistir, verifique o console do AutoCAD para mensagens de erro.",
+                    "sisRUA - Backend Indisponível",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+                return;
             }
 
             if (_paletteSet == null)

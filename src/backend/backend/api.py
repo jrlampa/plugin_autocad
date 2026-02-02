@@ -505,11 +505,16 @@ def _maybe_mount_frontend():
     # Quando empacotado (ex.: PyInstaller), __file__ pode apontar para uma pasta temporária (MEIPASS).
     # Preferimos resolver o caminho do bundle via executável.
     if getattr(sys, "frozen", False):
-        # Em produção (EXE), Contents/backend/sisrua_backend.exe
-        contents_dir = Path(sys.executable).resolve().parent.parent
-        dist_dir = contents_dir / "frontend" / "dist"
+        # Em produção (EXE)
+        if hasattr(sys, "_MEIPASS"):
+            # Caso o frontend esteja embutido no EXE (PyInstaller --add-data)
+            dist_dir = Path(sys._MEIPASS) / "frontend" / "dist"
+        else:
+            # Fallback para pasta externa (Contents/frontend/dist)
+            contents_dir = Path(sys.executable).resolve().parent.parent
+            dist_dir = contents_dir / "frontend" / "dist"
     else:
-        # Em desenvolvimento, tenta caminhos relativos ao arquivo api.py
+        # Em desenvolvimento...
         current_file = Path(__file__).resolve()
         # 1. Tenta src/frontend/dist (layout padrão do repo)
         dist_dir = current_file.parent.parent.parent / "frontend" / "dist"

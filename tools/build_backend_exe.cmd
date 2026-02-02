@@ -162,6 +162,7 @@ if not exist "%DIST_TMP%" mkdir "%DIST_TMP%"
   --distpath "%DIST_TMP%" ^
   --workpath "%BUILD_ROOT%\\pyinstaller-work" ^
   --specpath "%BUILD_ROOT%\\pyinstaller-spec" ^
+  --add-data "%ROOT%\\src\\frontend\\dist;frontend/dist" ^
   "%BACKEND_SRC%\\standalone.py"
 
 if not exist "%DIST_TMP%\\sisrua_backend.exe" (
