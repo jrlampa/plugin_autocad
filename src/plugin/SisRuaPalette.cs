@@ -347,20 +347,23 @@ namespace sisRUA
                 // Garante que o ambiente da WebView2 (Core) está pronto.
                 await _webView.EnsureCoreWebView2Async(null);
                 
-                if (SisRuaPlugin.Instance != null && !string.IsNullOrWhiteSpace(SisRuaPlugin.BackendAuthToken))
-                {
-                    // Envia o token de autenticação de forma segura para o frontend
-                    var tokenMessage = new
-                    {
-                        action = "INIT_AUTH_TOKEN",
-                        data = new { token = SisRuaPlugin.BackendAuthToken }
-                    };
-                    string json = System.Text.Json.JsonSerializer.Serialize(tokenMessage);
-                    _webView.CoreWebView2.PostWebMessageAsJson(json);
-                }
-                
                 // Configura a ponte de comunicação JS -> C#
                 _webView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+
+                // Envia o token de autenticação de forma segura quando a navegação completa (evita Race Condition)
+                _webView.CoreWebView2.NavigationCompleted += (s, args) =>
+                {
+                    if (args.IsSuccess && SisRuaPlugin.Instance != null && !string.IsNullOrWhiteSpace(SisRuaPlugin.BackendAuthToken))
+                    {
+                        var tokenMessage = new
+                        {
+                            action = "INIT_AUTH_TOKEN",
+                            data = new { token = SisRuaPlugin.BackendAuthToken }
+                        };
+                        string json = System.Text.Json.JsonSerializer.Serialize(tokenMessage);
+                        _webView.CoreWebView2.PostWebMessageAsJson(json);
+                    }
+                };
                 
                 // Navega para a URL do frontend React.
                 string baseUrl = SisRuaPlugin.BackendBaseUrl;
