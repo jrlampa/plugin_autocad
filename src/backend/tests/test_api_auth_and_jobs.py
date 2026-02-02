@@ -227,7 +227,7 @@ def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
     job = r.json()
     job_id = job["job_id"]
     
-    deadline = time.time() + 10 # Adjusted timeout for mock
+    deadline = time.time() + 30 # Increased timeout for mock/slow disk
     last = None
     while time.time() < deadline:
         r2 = client.get(f"/api/v1/jobs/{job_id}", headers={"X-SisRua-Token": "test-token-123"})

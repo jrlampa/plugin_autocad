@@ -118,8 +118,12 @@ export default function App() {
       if (typeof event.data === 'string') {
         try {
           const message = JSON.parse(event.data);
+          if (message.action === 'INIT_AUTH_TOKEN' && message.data.token) {
+            console.log('Authentication token received from host.');
+            window.SISRUA_TOKEN = message.data.token;
+          }
           // Handle KML files from C# plugin (KMZ extraction)
-          if (message.action === 'FILE_DROPPED_KML' && message.data.content) {
+          else if (message.action === 'FILE_DROPPED_KML' && message.data.content) {
             console.log(
               'KML content received from C# host via drag-drop (KMZ extraction). Converting to GeoJSON.'
             );

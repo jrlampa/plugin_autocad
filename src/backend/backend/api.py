@@ -180,7 +180,7 @@ async def add_security_headers(request: Request, call_next):
     # Allows scripts, styles, and tile images from common providers
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "script-src 'self' 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data: https://*.tile.openstreetmap.org https://mt1.google.com https://*.basemaps.cartocdn.com;"
     )
@@ -519,15 +519,6 @@ def _maybe_mount_frontend():
             dist_dir = current_file.parent.parent / "frontend" / "dist"
 
     if dist_dir.exists() and (dist_dir / "index.html").exists():
-        @app.get("/", response_class=HTMLResponse)
-        async def serve_index():
-            """Serve index.html with injected auth token."""
-            content = (dist_dir / "index.html").read_text(encoding="utf-8")
-            # Injeta o token globalmente para o frontend usar no axios
-            injected_script = f"<script>window.SISRUA_TOKEN = '{AUTH_TOKEN}';</script>"
-            content = content.replace("<head>", f"<head>{injected_script}")
-            return HTMLResponse(content)
-
         # Importante: montar após as rotas de API, para não interceptar /api/v1/*
         app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="frontend")
     else:
