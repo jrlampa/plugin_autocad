@@ -30,6 +30,16 @@ resource "google_cloud_run_v2_service" "sisrua" {
       }
     }
   }
+
+  # Blue/Green Traffic Management
+  traffic {
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    percent = 100
+  }
+
+  # Optional: Keep previous revision for fast rollback
+  # This is usually managed via CLI during deploy, 
+  # but we can preserve the structure here.
 }
 
 # Allow unauthenticated access (Public API)
