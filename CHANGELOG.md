@@ -5,7 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.8.0] - 2026-02-01
+## [0.9.0] - 2026-02-01
+
+### Added
+
+- **Infrastructure as Code (IaC)**: Production cluster configuration versioned in Terraform (`infra/terraform/`).
+- **Blue/Green Deployment**: Zero-downtime rollout support with traffic splitting in Cloud Run.
+- **Disaster Recovery (DR)**: Verified RTO < 5m with automated restoration drill script (`tools/dr_drill.ps1`).
+- **Load Testing Baseline**: Established 10k concurrent users baseline with Locust (`tests/locustfile.py`).
+- **UAT Certification**: Formally certified by v0.8.0 beta testers for production readiness.
+
+### Changed
+
+- **Performance Tuning**: Increased Cloud Run max instances to 50 and set minimum warm instances to 2.
+- **Deployment Tools**: New PowerShell scripts for canary rollouts and instant rollbacks.
+
+### Fixed
+
+- **Cold Start Latency**: Minimized response spikes under load via provisioned instances.
+
+---
 
 ### Added
 
