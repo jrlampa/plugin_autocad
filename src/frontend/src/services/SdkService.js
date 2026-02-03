@@ -131,13 +131,22 @@ export const SdkService = {
   },
 
   /**
-   * Prepare OSM Data
+   * Prepare OSM Data - Orchestrated via AutoCAD Host
    * @param {number} latitude
    * @param {number} longitude
    * @param {number} radius
-   * @returns {Promise<PrepareResponse>}
    */
   async prepareOSM(latitude, longitude, radius) {
+    if (window.chrome?.webview) {
+      // IPC Orchestration: Delegate to C# Host
+      window.chrome.webview.postMessage({
+        action: 'GENERATE_OSM',
+        data: { latitude, longitude, radius }
+      });
+      return { status: 'orchestrated' };
+    }
+
+    // Fallback for development/web
     return await ResilienceService.executeWithTracing('SDK_PREPARE_OSM', async () => {
       return await ResilienceService.guard('OSM_API', async () => {
         return await sdkClient.prepareOsmApiV1PrepareOsmPost({ latitude, longitude, radius });
@@ -146,11 +155,20 @@ export const SdkService = {
   },
 
   /**
-   * Prepare GeoJSON Data
+   * Prepare GeoJSON Data - Orchestrated via AutoCAD Host
    * @param {object} geojson - GeoJSON object
-   * @returns {Promise<PrepareResponse>}
    */
   async prepareGeoJSON(geojson) {
+    if (window.chrome?.webview) {
+      // IPC Orchestration: Delegate to C# Host
+      window.chrome.webview.postMessage({
+        action: 'IMPORT_GEOJSON',
+        data: geojson
+      });
+      return { status: 'orchestrated' };
+    }
+
+    // Fallback for development/web
     return await ResilienceService.executeWithTracing('SDK_PREPARE_GEOJSON', async () => {
       return await sdkClient.prepareGeojsonApiV1PrepareGeojsonPost({ geojson });
     });

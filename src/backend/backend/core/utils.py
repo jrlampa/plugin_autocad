@@ -109,9 +109,101 @@ def estimate_width_m(row: Any, highway: Optional[str]) -> Optional[float]:
         "secondary": 10.0,
         "primary": 12.0,
         "motorway": 20.0,
+        "trunk": 18.0,
         "footway": 2.0,
         "cycleway": 3.0,
         "service": 4.0,
     }
     
     return width_map.get(highway, 6.0)  # Default 6.0m
+
+def get_layer_config() -> Dict[str, Any]:
+    """
+    Carrega a configuração de layers (Normas Brasileiras).
+    Busca dinamicamente no repo ou no bundle.
+    """
+    current_file = Path(__file__).resolve()
+    repo_root = current_file.parent.parent.parent.parent
+    
+    # 1. Tenta no bundle-template (Desenvolvimento)
+    layers_path = repo_root / "bundle-template" / "sisRUA.bundle" / "Contents" / "Resources" / "layers.json"
+    
+    if not layers_path.exists():
+        # 2. Tenta no layout de produção (Contents/Resources)
+        layers_path = current_file.parent.parent / "Resources" / "layers.json"
+        
+    if layers_path.exists():
+        try:
+            with open(layers_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+            
+    # Fallback Hardcoded (Normas Brasileiras simplificadas)
+    return {
+        "highway": {
+            "motorway": { "layer": "SISRUA_Vias_Expressas", "aci": 1 },
+            "trunk": { "layer": "SISRUA_Vias_Arteriais_Trunk", "aci": 2 },
+            "primary": { "layer": "SISRUA_Vias_Arteriais", "aci": 3 },
+            "secondary": { "layer": "SISRUA_Vias_Coletoras", "aci": 4 },
+            "tertiary": { "layer": "SISRUA_Vias_Locais_Principais", "aci": 5 },
+            "residential": { "layer": "SISRUA_Vias_Locais", "aci": 7 },
+            "service": { "layer": "SISRUA_Vias_Servico", "aci": 8 },
+            "pedestrian": { "layer": "SISRUA_Vias_Pedestres", "aci": 140 },
+            "footway": { "layer": "SISRUA_Vias_Pedestres", "aci": 140 }
+        }
+    }
+
+def get_layer_name(tags: Dict[str, Any], default: str = "SISRUA_DEFAULT") -> str:
+    """
+    Mapeia tags do OSM/GeoJSON para layers seguindo normas brasileiras.
+    Diferencial sisRUA: O dado já sai classificado para o engenheiro.
+    """
+    config = get_layer_config()
+    
+    # Ordem de prioridade para classificação
+    keys_to_check = ["highway", "power", "amenity", "railway", "waterway"]
+    
+    for key in keys_to_check:
+        val = tags.get(key)
+        if isinstance(val, list) and val: val = val[0]
+        val = norm_optional_str(val)
+        
+        if val and key in config and val in config[key]:
+            return config[key][val]["layer"]
+            
+    return default
+
+def clean_geometry(features: List[Any], tolerance: float = 0.1) -> List[Any]:
+    """
+    Realiza limpeza geométrica (deduplicação e simplificação) no backend.
+    """
+    from shapely.geometry import LineString # type: ignore
+    
+    seen_hashes = set()
+    cleaned = []
+    
+    for f in features:
+        # Deduplicação via Hash (Geometria + Atributos)
+        # Usamos uma string estável para o hash
+        geom_key = str(f.coords_xy) if f.feature_type == "Polyline" else str(f.insertion_point_xy)
+        attr_key = f"{f.layer}|{f.name}|{f.highway}"
+        h = hashlib.sha256(f"{geom_key}|{attr_key}".encode("utf-8")).hexdigest()
+        
+        if h in seen_hashes:
+            continue
+        seen_hashes.add(h)
+        
+        # Simplificação (apenas para Polylines)
+        if f.feature_type == "Polyline" and f.coords_xy and len(f.coords_xy) > 2:
+            try:
+                ls = LineString(f.coords_xy)
+                simplified = ls.simplify(tolerance, preserve_topology=True)
+                # Convert back to list of lists
+                f.coords_xy = [[float(x), float(y)] for x, y in simplified.coords]
+            except Exception:
+                pass # Mantém original se falhar
+        
+        cleaned.append(f)
+        
+    return cleaned

@@ -58,6 +58,7 @@ class CadFeature(FrozenBaseModel):
     color: Optional[str] = Field(None, description="ACI color code or RGB string")
     elevation: Optional[float] = Field(None, description="Elevation (Z value) in meters")
     slope: Optional[float] = Field(None, description="Calculated slope percentage")
+    original_geojson_properties: Optional[Dict[str, Any]] = Field(None, description="Original GeoJSON properties for portability")
 
 class PrepareResponse(FrozenBaseModel):
     crs_out: Optional[str] = Field(None, description="Projected Coordinate Reference System", example="EPSG:31983")

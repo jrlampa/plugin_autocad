@@ -8,11 +8,12 @@ namespace sisRUA.Engine
     /// </summary>
     public interface IDrawingEngine
     {
-        void SaveProject(string projectId, string projectName, string crs, IEnumerable<object> features); // Abstracted features
+        void SaveProject(string projectId, string projectName, string crs, IEnumerable<object> features);
         void ClearModelSpace();
         void EnsureLayer(string layerName, short colorIndex);
-        void InsertBlock(string blockName, Point3d position, double rotation, double scale, string layerName);
-        void DrawLine(Point3d start, Point3d end, string layerName);
+        void InsertBlock(string blockName, SisRuaPoint position, double rotation, double scale, string layerName);
+        void DrawLine(SisRuaPoint start, SisRuaPoint end, string layerName);
+        void DrawPolyline(IEnumerable<SisRuaPoint> points, string layerName, double? constantWidth, double? elevation, string color);
         void WriteMessage(string message);
     }
 }

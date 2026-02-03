@@ -3,7 +3,12 @@ import math
 from typing import List, Tuple, Optional, Any, Callable, Dict
 from fastapi import HTTPException
 from backend.models import CadFeature, PrepareResponse # Models
-from backend.core.utils import norm_optional_str, project_lines_to_xy, sanitize_jsonable
+from backend.core.utils import (
+    norm_optional_str, 
+    project_lines_to_xy, 
+    sanitize_jsonable, 
+    get_layer_name
+)
 from backend.services.crs import sirgas2000_utm_epsg
 
 def first_lonlat(obj) -> Tuple[float, float]:
@@ -51,19 +56,23 @@ def prepare_geojson_compute(geo: Any, check_cancel: Callable[[], None] = None) -
 
     features: List[CadFeature] = [] 
 
-    def _emit_feature(layer: Optional[str], name: Optional[str], highway: Optional[str], coords_lonlat):
+    def _emit_feature(layer: Optional[str], name: Optional[str], highway: Optional[str], coords_lonlat, props: Dict[str, Any]):
         if not coords_lonlat or len(coords_lonlat) < 2:
             return
         line = LineString([(float(x), float(y)) for (x, y) in coords_lonlat])
         coords_xy_list = project_lines_to_xy([line], transformer)
         for coords_xy in coords_xy_list:
+            # Smart Layer Mapping (Brazilian Norms)
+            inferred_layer = get_layer_name(props, default="SISRUA_GEOJSON")
+            
             features.append(
                 CadFeature(
                     feature_type="Polyline", # Explicitly set feature_type
-                    layer=layer or "SISRUA_GEOJSON",
+                    layer=layer or inferred_layer,
                     name=name,
                     highway=highway,
                     coords_xy=coords_xy,
+                    original_geojson_properties=sanitize_jsonable(props)
                 )
             )
 
@@ -77,10 +86,10 @@ def prepare_geojson_compute(geo: Any, check_cancel: Callable[[], None] = None) -
         highway = props.get("highway")
 
         if gtype == "LineString":
-            _emit_feature(layer, name, highway, coords)
+            _emit_feature(layer, name, highway, coords, props)
         elif gtype == "MultiLineString":
             for part in coords or []:
-                _emit_feature(layer, name, highway, part)
+                _emit_feature(layer, name, highway, part, props)
         elif gtype == "Point": 
             point_lonlat = coords
             if point_lonlat and len(point_lonlat) >= 2:
@@ -89,18 +98,45 @@ def prepare_geojson_compute(geo: Any, check_cancel: Callable[[], None] = None) -
                 x_proj, y_proj = transformer.transform(lon, lat)
                 if math.isfinite(x_proj) and math.isfinite(y_proj):
                     if len(features) % 50 == 0 and check_cancel: check_cancel()
-                    block_name = props.get("block_name") or props.get("BlockName")
+                    
+                    # TROJAN HORSE: Expandimos a captura de ativos para valorizar o banco local.
+                    asset_mapping = {
+                        "street_light": "POSTE_ILUMINACAO",
+                        "pole": "POSTE_ENERGIA",
+                        "fire_hydrant": "HIDRANTE",
+                        "bench": "MOBILIARIO_BANCO",
+                        "waste_basket": "MOBILIARIO_LIXEIRA",
+                        "manhole": "INFRA_BUEIRO",
+                        "tree": "VEGETACAO_ARVORE",
+                        "bus_stop": "TRANSPORTE_PARADA_ONIBUS",
+                        "traffic_signals": "SINALIZACAO_SEMAFORO",
+                        "crossing": "SINALIZACAO_FAIXA"
+                    }
+                    
+                    # Inferred classification if not explicitly provided
+                    inferred_block = None
+                    for k, v in props.items():
+                        if v in asset_mapping:
+                            inferred_block = asset_mapping[v]
+                            break
+
+                    block_name = props.get("block_name") or props.get("BlockName") or inferred_block
                     block_filepath = props.get("block_filepath") or props.get("BlockFilePath")
+                    
+                    # Smart Layer Mapping for Assets
+                    inferred_layer = get_layer_name(props, default="SISRUA_Infraestrutura_Pontos")
+                    
                     features.append(
                         CadFeature(
                             feature_type="Point",
-                            layer=layer or "SISRUA_GEOJSON_POINT",
+                            layer=layer or inferred_layer,
                             name=name,
                             block_name=norm_optional_str(block_name),
                             block_filepath=norm_optional_str(block_filepath),
                             insertion_point_xy=[x_proj, y_proj],
                             rotation=props.get("rotation"),
                             scale=props.get("scale"),
+                            original_geojson_properties=sanitize_jsonable(props)
                         )
                     )
 
@@ -158,6 +194,10 @@ def prepare_geojson_compute(geo: Any, check_cancel: Callable[[], None] = None) -
         pass
     
     if check_cancel: check_cancel()
+
+    # BIM-LITE: Offload geometric cleaning to backend for SaaS scalability
+    from backend.core.utils import clean_geometry
+    features = clean_geometry(features)
 
     payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features)
 

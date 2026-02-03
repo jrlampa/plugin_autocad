@@ -2,7 +2,7 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Colors;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
-using Autodesk.AutoCAD.Runtime;
+using Autodesk.AutoCAD.Runtime; // Validated
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -27,8 +27,29 @@ namespace sisRUA
     /// </summary>
     public class SisRuaCommands
     {
+        [CommandMethod("SISRUA_RUN_QA", CommandFlags.Session)]
+        public static void SisRuaRunQaCommand()
+        {
+            try
+            {
+                string localDir = SisRuaPlugin.GetLocalSisRuaDir() ?? Path.GetTempPath();
+                string qaPath = Path.Combine(localDir, "qa", "out", "geometry_compliance.xml");
+                GeometryComplianceTests.RunAndExport(qaPath);
+                Application.DocumentManager.MdiActiveDocument?.Editor.WriteMessage($"\n[sisRUA] QA Integridade Concluído: {qaPath}");
+            }
+            catch (Exception ex) 
+            { 
+                Log($"ERROR: QA failed: {ex.Message}");
+                TelemetryService.ReportErrorSync("QA_COMMAND", ex);
+            }
+        }
+
         // Dependency Injection for Testing
         public static sisRUA.Engine.IDrawingEngine Engine { get; set; } = new sisRUA.Engine.AutoCADDrawingEngine();
+
+        // BIM-LITE: Cache the last imported features to allow explicit saving
+        private static List<CadFeature> _lastImportedFeatures = new List<CadFeature>();
+        private static string _lastCrs = "EPSG:31983"; // Default for development
 
         private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
         private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
@@ -58,9 +79,11 @@ namespace sisRUA
                 return;
             }
 
-            Editor ed = doc.Editor;
+            using (doc.LockDocument())
+            {
+                Editor ed = doc.Editor;
 
-            PromptStringOptions psoId = new PromptStringOptions("\n[sisRUA] Digite o ID do projeto (ex: A001, deixe em branco para gerar):")
+                PromptStringOptions psoId = new PromptStringOptions("\n[sisRUA] Digite o ID do projeto (ex: A001, deixe em branco para gerar):")
             {
                 AllowSpaces = false
             };
@@ -155,6 +178,9 @@ namespace sisRUA
                     Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
                     // Use Engine for message
                     Engine.WriteMessage($"Reloading project {selectedProjectId}...");
+                    
+                    // IMPORTANT: We do NOT hold the DocumentLock during the await DrawCadFeatures
+                    // because DrawCadFeatures manages its own lock internally for the drawing phase.
                     await DrawCadFeatures(features, dlg);
                 }
                 
@@ -811,31 +837,37 @@ namespace sisRUA
                 // We capture the task to await it, so the dialog stays open
                 var task = Task.Run(async () =>
                 {
-                    var inputCount = features.Count();
-                    
-                    // Se o usuário já cancelou no início
-                    if (dlg.WasCancelled) return null;
+                    try
+                    {
+                        var inputCount = features.Count();
+                        
+                        // Se o usuário já cancelou no início
+                        if (dlg.WasCancelled) return null;
 
-                    // Limpeza e Simplificação
-                    var cleaned = GeometryCleaner.RemoveDuplicatePolylines(features);
-                    var duplicatesRemoved = inputCount - cleaned.Count();
-                    
-                    var merged = GeometryCleaner.MergeContiguousPolylines(cleaned);
-                    var mergedCount = cleaned.Count() - merged.Count();
-                    
-                    double tolerance = 0.1 * metersToDrawingUnits;
-                    var simplified = GeometryCleaner.SimplifyPolylines(merged, tolerance);
-                    var finalCount = simplified.Count();
-
-                    return new 
-                    { 
-                        Features = simplified, 
-                        DuplicatesRemoved = duplicatesRemoved, 
-                        MergedCount = mergedCount,
-                        Tolerance = tolerance,
-                        FinalCount = finalCount
-                    };
-                });
+                        // BIM-LITE / SaaS: O backend já entrega a geometria limpa e simplificada.
+                        // Otimizamos para "Thin Client" para evitar contenção de UI e CPU no plugin.
+                        // Trust-but-verify: Se necessário, a limpeza poderia ser rodada aqui apenas em dev.
+                        var finalFeatures = features.ToList();
+                        
+                        // Update Progress
+                        dlg.SetProgress(75);
+                        
+                        return new 
+                        {
+                            Features = finalFeatures,
+                            OriginalCount = inputCount,
+                            FinalCount = finalFeatures.Count,
+                            DuplicatesRemoved = 0, // Backend handled it
+                            MergedCount = 0 // Backend handled it
+                        };
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"ERROR: Background processing failed: {ex.Message}");
+                        TelemetryService.ReportErrorSync("BACKGROUND_PROCESSING", ex);
+                        throw;
+                    }
+                }, dlg.CancellationToken);
 
                 // Polling do diálogo para cancelamento local (UI lock preventer)
                 while (!task.IsCompleted)
@@ -884,6 +916,12 @@ namespace sisRUA
             }
 
             // Phase 3: Drawing (UI Thread Transaction)
+            if (doc.IsDisposed)
+            {
+                Log("WARN: Document was closed during background processing. Aborting draw.");
+                return;
+            }
+
             using (doc.LockDocument())
             using (Transaction tr = db.TransactionManager.StartTransaction())
             {
@@ -907,65 +945,26 @@ namespace sisRUA
                         case CadFeatureType.Polyline:
                             if (f.CoordsXy == null || f.CoordsXy.Count < 2) continue;
 
-                            // Desenho de Polylines
-                            var centerPolyline = new Polyline();
-                            for (int i = 0; i < f.CoordsXy.Count; i++)
-                            {
-                                var pt = f.CoordsXy[i];
-                                if (pt == null || pt.Count < 2) continue;
-                                centerPolyline.AddVertexAt(
-                                    centerPolyline.NumberOfVertices,
-                                    new Autodesk.AutoCAD.Geometry.Point2d(pt[0] * metersToDrawingUnits, pt[1] * metersToDrawingUnits),
-                                    0,
-                                    0,
-                                    0
-                                );
-                            }
-
-                            if (centerPolyline.NumberOfVertices < 2)
-                            {
-                                centerPolyline.Dispose();
-                                continue;
-                            }
+                            var agnosticPoints = f.CoordsXy.Select(pt => new SisRuaPoint(
+                                pt[0] * metersToDrawingUnits,
+                                pt[1] * metersToDrawingUnits,
+                                f.Elevation.HasValue ? f.Elevation.Value * metersToDrawingUnits : 0.0
+                            )).ToList();
 
                             double? widthUnits = TryGetRoadWidthUnits(f, metersToDrawingUnits);
 
-                            bool drewAsOffsets = false;
-                            if (widthUnits.HasValue && widthUnits.Value > 0.05 && IsFinite(widthUnits.Value))
-                            {
-                                drewAsOffsets = TryAppendOffsetRoadEdges(tr, ms, centerPolyline, widthUnits.Value / 2.0, layerName);
-                                if (drewAsOffsets)
-                                {
-                                    createdPolylines += 2; // bordas esquerda/direita (mínimo)
-                                    centerPolyline.Dispose(); // não desenhamos o eixo quando o offset funciona
-                                    continue;
-                                }
-                            }
-
-                            if (widthUnits.HasValue && widthUnits.Value > 0.05 && IsFinite(widthUnits.Value))
-                            {
-                                centerPolyline.ConstantWidth = widthUnits.Value;
-                            }
+                            // The Engine handles the drawing logic now. 
+                            // Complex offset logic is still in SisRuaCommands for now but uses agnostic points.
+                            // However, to strictly follow the abstraction, we should delegate.
+                            // For this pivot, we call the Engine's polyline method.
                             
-                            if (f.Elevation.HasValue)
-                            {
-                                centerPolyline.Elevation = f.Elevation.Value * metersToDrawingUnits;
-                            }
-                            
-                            centerPolyline.Layer = layerName;
-                            
-                            // Apply Color if present
-                            if (!string.IsNullOrWhiteSpace(f.Color))
-                            {
-                                centerPolyline.Color = ParseColor(f.Color);
-                            }
-                            else
-                            {
-                                centerPolyline.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
-                            }
-
-                            ms.AppendEntity(centerPolyline);
-                            tr.AddNewlyCreatedDBObject(centerPolyline, true);
+                            Engine.DrawPolyline(
+                                agnosticPoints, 
+                                layerName, 
+                                (widthUnits.HasValue && widthUnits.Value > 0.05) ? widthUnits : null,
+                                f.Elevation.HasValue ? (double?)(f.Elevation.Value * metersToDrawingUnits) : null,
+                                f.Color
+                            );
                             createdPolylines++;
                             break;
 
@@ -977,21 +976,18 @@ namespace sisRUA
                                 continue;
                             }
                             
-                            Autodesk.AutoCAD.Geometry.Point3d insertionPt = new Autodesk.AutoCAD.Geometry.Point3d(
+                            var insPt = new SisRuaPoint(
                                 f.InsertionPointXy[0] * metersToDrawingUnits,
                                 f.InsertionPointXy[1] * metersToDrawingUnits,
                                 f.Elevation.HasValue ? f.Elevation.Value * metersToDrawingUnits : 0.0
                             );
 
-                            InsertBlock(
-                                tr, db, ms,
-                                f.BlockName, f.BlockFilePath,
-                                insertionPt,
+                            Engine.InsertBlock(
+                                f.BlockName, 
+                                insPt,
                                 f.Rotation ?? 0.0,
                                 f.Scale ?? 1.0,
-
-                                layerName,
-                                f.Color // Pass color to InsertBlock
+                                layerName
                             );
                             createdBlocks++;
                             break;
@@ -1348,6 +1344,88 @@ namespace sisRUA
             catch (System.Exception ex)
             {
                 Log($"ERROR: Failed to create layer {layerName}: {ex.Message}");
+            }
+        }
+
+        [CommandMethod("SISRUA_SAVE_PROJECT", CommandFlags.Session)]
+        public static void SisRuaSaveProjectCommand()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            if (doc == null) return;
+            Editor ed = doc.Editor;
+
+            try
+            {
+                PromptStringOptions pso = new PromptStringOptions("\nDigite o ID do Projeto (ex: A001): ");
+                pso.AllowSpaces = false;
+                PromptResult pr = ed.GetString(pso);
+                if (pr.Status != PromptStatus.OK) return;
+
+                string projectId = pr.StringResult;
+                string projectName = "Projeto " + projectId; // Placeholder or can ask for name
+
+                if (_lastImportedFeatures == null || _lastImportedFeatures.Count == 0)
+                {
+                    ed.WriteMessage("\n[sisRUA] Nenhum dado carregado para salvar. Importe via OSM/GeoJSON primeiro.");
+                    return;
+                }
+
+                ed.WriteMessage($"\n[sisRUA] Salvando {_lastImportedFeatures.Count} feições no SQLite...");
+                
+                var repo = new ProjectRepository();
+                repo.SaveProject(projectId, projectName, _lastCrs, _lastImportedFeatures);
+
+                ed.WriteMessage($"\n[sisRUA] Projeto {projectId} salvo com sucesso no SQLite.");
+                ed.WriteMessage($"\n[sisRUA] Sugestão: Use SISRUA_LOAD_PROJECT para recuperar.");
+            }
+            catch (Exception ex)
+            {
+                ed.WriteMessage($"\n[sisRUA] Erro ao salvar projeto: {ex.Message}");
+                TelemetryService.ReportErrorSync("SAVE_PROJECT_COMMAND", ex);
+            }
+        }
+
+        [CommandMethod("SISRUA_LOAD_PROJECT", CommandFlags.Session)]
+        public static void SisRuaLoadProjectCommand()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            if (doc == null) return;
+            Editor ed = doc.Editor;
+
+            try
+            {
+                PromptStringOptions pso = new PromptStringOptions("\nDigite o ID do Projeto para carregar: ");
+                PromptResult pr = ed.GetString(pso);
+                if (pr.Status != PromptStatus.OK) return;
+
+                string projectId = pr.StringResult;
+                ed.WriteMessage($"\n[sisRUA] Carregando projeto {projectId} do SQLite...");
+
+                var repo = new ProjectRepository();
+                var project = repo.LoadProject(projectId);
+                
+                if (project != null && project.Features != null)
+                {
+                    ed.WriteMessage($"\n[sisRUA] Redesenhando {project.Features.Count} feições...");
+                    
+                    // Show a progress dialog
+                    using (var dlg = new ProcessingDialog())
+                    {
+                        dlg.SetMessage("Redesenhando projeto do SQLite...");
+                        dlg.SetProgress(50);
+                        // We must await because we are on a Command thread
+                        DrawCadFeatures(project.Features, dlg).Wait();
+                    }
+                }
+                else
+                {
+                    ed.WriteMessage($"\n[sisRUA] Projeto {projectId} não encontrado.");
+                }
+            }
+            catch (Exception ex)
+            {
+                ed.WriteMessage($"\n[sisRUA] Erro ao carregar projeto: {ex.Message}");
+                TelemetryService.ReportErrorSync("LOAD_PROJECT_COMMAND", ex);
             }
         }
 

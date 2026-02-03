@@ -98,8 +98,9 @@ def _collect_results(pack_dir: Path) -> None:
         (out_root / "playwright-report", results_dir / "playwright-report"),
         (out_root / "e2e", results_dir / "e2e"),
         # Padrões do Playwright (quando rodado no frontend diretamente)
-        (REPO_ROOT / "src" / "frontend" / "playwright-report", results_dir / "playwright-report"),
         (REPO_ROOT / "src" / "frontend" / "test-results", results_dir / "playwright-test-results"),
+        (Path(os.getenv("LOCALAPPDATA", "")) / "sisRUA" / "qa" / "out" / "geometry_compliance.xml", results_dir / "geometry_compliance.xml"),
+        (Path.home() / "AppData" / "Local" / "sisRUA" / "qa" / "out" / "geometry_compliance.xml", results_dir / "geometry_compliance.xml"),
     ]
 
     for src, dst in candidates:

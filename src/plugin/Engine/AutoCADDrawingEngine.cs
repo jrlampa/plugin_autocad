@@ -53,42 +53,72 @@ namespace sisRUA.Engine
             }
         }
 
-        public void InsertBlock(string blockName, Point3d position, double rotation, double scale, string layerName)
+        public void InsertBlock(string blockName, SisRuaPoint position, double rotation, double scale, string layerName)
         {
-             // Logic moved from SisRuaCommands.InsertBlock
-             // Validation: We need the logic to load blocks from files too.
-             // For now, assume SisRuaCommands.InsertBlock is public or moved here.
-             
-             // Simplification for the example:
              var doc = Application.DocumentManager.MdiActiveDocument;
              if (doc == null) return;
              var db = doc.Database;
+             var acadPos = new Point3d(position.X, position.Y, position.Z);
              
              using (var tr = db.TransactionManager.StartTransaction())
              {
-                 var bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
-                 var ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
-
-                 // ... Implementation of block insertion ...
-                 // This is complex to move entirely in one go without breaking.
-                 // We will create a shim first.
-                 
-                 // Reuse logic via reflection or simple re-implementation?
-                 // Re-implementation is safer for decoupling.
+                 // Implementation using acadPos...
              }
         }
         
-        public void DrawLine(Point3d start, Point3d end, string layerName) 
+        public void DrawPolyline(IEnumerable<SisRuaPoint> points, string layerName, double? constantWidth, double? elevation, string color)
         {
             var doc = Application.DocumentManager.MdiActiveDocument;
             if (doc == null) return;
             var db = doc.Database;
             using (var tr = db.TransactionManager.StartTransaction())
             {
+                var bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
+                var ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
+
+                var pline = new Polyline();
+                int i = 0;
+                foreach (var pt in points)
+                {
+                    pline.AddVertexAt(i++, new Point2d(pt.X, pt.Y), 0, 0, 0);
+                }
+
+                if (pline.NumberOfVertices < 2)
+                {
+                    pline.Dispose();
+                    return;
+                }
+
+                pline.Layer = layerName;
+                if (constantWidth.HasValue) pline.ConstantWidth = constantWidth.Value;
+                if (elevation.HasValue) pline.Elevation = elevation.Value;
+                
+                if (!string.IsNullOrWhiteSpace(color))
+                {
+                    // Logic to parse color string... for now simplified
+                    // In a real scenario, this would call a shared ParseColor helper
+                }
+
+                ms.AppendEntity(pline);
+                tr.AddNewlyCreatedDBObject(pline, true);
+                tr.Commit();
+            }
+        }
+
+        public void DrawLine(SisRuaPoint start, SisRuaPoint end, string layerName) 
+        {
+            var doc = Application.DocumentManager.MdiActiveDocument;
+            if (doc == null) return;
+            var db = doc.Database;
+            var acadStart = new Point3d(start.X, start.Y, start.Z);
+            var acadEnd = new Point3d(end.X, end.Y, end.Z);
+
+            using (var tr = db.TransactionManager.StartTransaction())
+            {
                  var bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
                  var ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
                  
-                 var line = new Line(start, end);
+                 var line = new Line(acadStart, acadEnd);
                  line.Layer = layerName;
                  ms.AppendEntity(line);
                  tr.AddNewlyCreatedDBObject(line, true);

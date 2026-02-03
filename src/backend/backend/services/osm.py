@@ -9,7 +9,8 @@ from backend.core.utils import (
     to_linestrings,
     estimate_width_m,
     get_color_from_elevation,
-    sanitize_jsonable
+    sanitize_jsonable,
+    get_layer_name
 )
 from backend.core.circuit_breaker import CircuitBreaker
 from backend.core.retry import Retry
@@ -99,14 +100,21 @@ def prepare_osm_compute(
                     coords_xy.append([float(x), float(y)])
             
             if len(coords_xy) >= 2:
+                # Capture all original properties for BIM-LITE portability
+                props = sanitize_jsonable(row._asdict())
+                
+                # Smart Layer Mapping (Brazilian Norms)
+                layer = get_layer_name(props, default="SISRUA_Vias_Locais")
+                
                 features.append(
                     CadFeature(
                         feature_type="Polyline",
-                        layer="SISRUA_OSM_VIAS",
+                        layer=layer,
                         name=name,
                         highway=highway,
                         width_m=width_m,
                         coords_xy=coords_xy,
+                        original_geojson_properties=props
                     )
                 )
 
@@ -125,25 +133,50 @@ def prepare_osm_compute(
         name_tag = getattr(row, "name", None)
 
         block_name = None
-        if highway_tag == "street_light":
-            block_name = "POSTE"
-        elif power_tag == "pole":
-            block_name = "POSTE"
-        elif amenity_tag == "bench":
-            block_name = "BANCO"
+        # TROJAN HORSE: Expandimos a captura de ativos para valorizar o banco local.
+        # Mesmo no Free, o dado estruturado (Poste, Hidrante, Bueiro) vai para o SQLite.
+        
+        # Mapeamento de Ativos Urbanos para Blocos CAD
+        asset_mapping = {
+            "street_light": "POSTE_ILUMINACAO",
+            "pole": "POSTE_ENERGIA",
+            "fire_hydrant": "HIDRANTE",
+            "bench": "MOBILIARIO_BANCO",
+            "waste_basket": "MOBILIARIO_LIXEIRA",
+            "manhole": "INFRA_BUEIRO",
+            "tree": "VEGETACAO_ARVORE",
+            "bus_stop": "TRANSPORTE_PARADA_ONIBUS",
+            "traffic_signals": "SINALIZACAO_SEMAFORO",
+            "crossing": "SINALIZACAO_FAIXA"
+        }
+
+        # Verifica tags comuns
+        search_tags = ["highway", "power", "amenity", "emergency", "man_made", "natural", "public_transport"]
+        props = sanitize_jsonable(row._asdict())
+        
+        for tag in search_tags:
+            val = props.get(tag)
+            if isinstance(val, list) and val: val = val[0]
+            if val in asset_mapping:
+                block_name = asset_mapping[val]
+                break
         
         if block_name:
             x, y = point_geom.x, point_geom.y
             if math.isfinite(x) and math.isfinite(y):
+                # Smart Layer Mapping for Assets
+                layer = get_layer_name(props, default="SISRUA_Infraestrutura_Pontos")
+                
                 features.append(
                     CadFeature(
                         feature_type="Point",
-                        layer="SISRUA_OSM_PONTOS",
-                        name=norm_optional_str(name_tag),
+                        layer=layer,
+                        name=norm_optional_str(props.get("name")),
                         block_name=block_name,
                         insertion_point_xy=[float(x), float(y)],
                         rotation=0.0, 
-                        scale=1.0 
+                        scale=1.0,
+                        original_geojson_properties=props
                     )
                 )
 
@@ -217,6 +250,10 @@ def prepare_osm_compute(
 
     except Exception as ex:
         logger.error("elevation_injection_failed", error=str(ex))
+
+    # BIM-LITE: Offload geometric cleaning to backend for SaaS scalability
+    from backend.core.utils import clean_geometry
+    features = clean_geometry(features)
 
     payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features)
     

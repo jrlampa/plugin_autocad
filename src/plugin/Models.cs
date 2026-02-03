@@ -4,6 +4,18 @@ using System.Text.Json.Serialization;
 
 namespace sisRUA
 {
+    public struct SisRuaPoint
+    {
+        public double X { get; set; }
+        public double Y { get; set; }
+        public double Z { get; set; }
+
+        public SisRuaPoint(double x, double y, double z = 0)
+        {
+            X = x; Y = y; Z = z;
+        }
+    }
+
     public enum CadFeatureType
     {
         Polyline,
@@ -52,5 +64,8 @@ namespace sisRUA
 
         [JsonPropertyName("slope")]
         public double? Slope { get; set; }
+
+        [JsonPropertyName("original_geojson_properties")]
+        public Dictionary<string, object> OriginalGeoJsonProperties { get; set; }
     }
 }

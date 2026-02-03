@@ -106,6 +106,10 @@ if exist "%SRC_BUNDLE%\Contents\Resources" (
     xcopy /E /I /Y "%SRC_BUNDLE%\Contents\Resources" "%OUT_CONTENTS%\Resources" >nul
 )
 
+REM --- Final Hygiene: Remove any accidentally copied history or non-dist files ---
+if exist "%OUT_BUNDLE%\history" rd /s /q "%OUT_BUNDLE%\history"
+if exist "%OUT_CONTENTS%\history" rd /s /q "%OUT_CONTENTS%\history"
+
 echo.
 echo ======================================================
 echo ESTRUTURA ORGANIZADA COM SUCESSO!
