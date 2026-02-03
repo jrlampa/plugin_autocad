@@ -1,9 +1,17 @@
 import axios from 'axios';
 
+// ISO 27001 Security: Tokens are stored in private module scope, NOT in window global.
+let _masterToken = null;
+let _sessionToken = null;
+
+export const setAuthToken = (token) => {
+  _masterToken = token;
+};
+
 // --- Global Interceptor for Resilience & Auth ---
 axios.interceptors.request.use((config) => {
   // ISO 27001: Prefer short-lived session token over master token
-  const token = window.SISRUA_SESSION_TOKEN || window.SISRUA_TOKEN;
+  const token = _sessionToken || _masterToken;
   if (token) {
     config.headers['X-SisRua-Token'] = token;
   }
@@ -17,9 +25,9 @@ axios.interceptors.response.use(
       const { status } = error.response;
 
       // ISO 27001: Session expired
-      if (status === 401 && window.SISRUA_SESSION_TOKEN) {
+      if (status === 401 && _sessionToken) {
         console.warn('Session expired. Attempting re-authentication...');
-        window.SISRUA_SESSION_TOKEN = null;
+        _sessionToken = null;
         // Trigger setupSecurity again if needed or notify user
       }
       // ... rest of the interceptor logic
@@ -96,11 +104,11 @@ export const api = {
 
       const { session_token } = response.data;
       if (session_token) {
-        window.SISRUA_SESSION_TOKEN = session_token;
+        _sessionToken = session_token;
         console.log('ISO 27001: Session token established. Rotating credentials.');
 
-        // Security: Remove master token from global scope once rotated
-        delete window.SISRUA_TOKEN;
+        // Security: Remove master token from local module scope once rotated
+        _masterToken = null;
         return true;
       }
     } catch (err) {

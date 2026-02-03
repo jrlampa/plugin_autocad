@@ -102,6 +102,13 @@ if exist "%BACKEND_OUT%\sisrua_backend.exe" (
   )
 )
 
+REM --- Build Hygiene (ISO 27001) ---
+if "%SISRUA_CLEAN_BUILD%"=="1" (
+  echo INFO: SISRUA_CLEAN_BUILD=1 detectado. Limpando ambiente de build...
+  if exist "%BUILD_VENV%" rmdir /s /q "%BUILD_VENV%"
+  if exist "%DIST_TMP%" rmdir /s /q "%DIST_TMP%"
+)
+
 if not exist "%PY%" (
   echo Criando venv de build: %BUILD_VENV%
   python -m venv "%BUILD_VENV%"

@@ -235,13 +235,16 @@ async def add_security_headers(request: Request, call_next):
     # Prevent clickjacking (Relaxed for WebView2)
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     
-    # Content Security Policy (relaxed for WebView2 compatibility)
-    # Allows scripts, styles, and tile images from common providers
+    # Content Security Policy (Tightened for ISO 27001)
+    # Allows scripts and styles only from 'self' (no unsafe-inline if possible)
+    # Allows tile images from trusted providers
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline'; "
-        "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data: https://*.tile.openstreetmap.org https://mt1.google.com https://*.basemaps.cartocdn.com;"
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; " # Keep unsafe-inline for style if needed by Leaflet/Radix
+        "img-src 'self' data: https://*.tile.openstreetmap.org https://mt1.google.com https://*.basemaps.cartocdn.com; "
+        "connect-src 'self' https://*.ingest.sentry.io; "
+        "object-src 'none';"
     )
     
     # Referrer Policy

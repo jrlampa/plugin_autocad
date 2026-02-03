@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<ApplicationPackage SchemaVersion="1.0" ProductType="Application" Name="sisRUA" AppVersion="0.7.0" Description="sisRUA - plugin AutoCAD (OSM/GeoJSON â†’ CAD)" Author="sisRUA">
+<ApplicationPackage SchemaVersion="1.0" ProductType="Application" Name="sisRUA" AppVersion="1.0.0" Description="sisRUA - plugin AutoCAD (OSM/GeoJSON â†’ CAD)" Author="sisRUA">
   <CompanyDetails Name="sisRUA" />
   <Components>
     <!-- AutoCAD 2021-2024 (R24.x) -> .NET 4.8 -->

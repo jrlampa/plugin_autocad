@@ -50,7 +50,11 @@ $port = Get-FreePort
 $baseUrl = "http://127.0.0.1:$port"
 
 $token = [Guid]::NewGuid().ToString("N")
-$headers = @{ 'X-SisRua-Token' = $token }
+$headers = @{ 
+  'X-SisRua-Token' = $token
+  'Origin'         = 'http://127.0.0.1:5173'
+  'Referer'        = 'http://127.0.0.1:5173/'
+}
 
 Write-Host "[smoke] Iniciando backend: $BackendExe --port $port"
 $env:SISRUA_AUTH_TOKEN = $token
