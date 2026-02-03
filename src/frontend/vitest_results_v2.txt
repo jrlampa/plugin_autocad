@@ -1,0 +1,62 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/plugin_autocad/src/frontend[39m
+
+ [32mÔ£ô[39m src/hooks/useMapLogic.test.js [2m([22m[2m2 tests[22m[2m)[22m[90m 189[2mms[22m[39m
+stderr | src/Sync.test.jsx > Geolocation Sync integration > updates coordinates when GEOLOCATION_SYNC is received
+React does not recognize the `zoomControl` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `zoomcontrol` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+
+stderr | src/App.test.jsx > App (UI b├ísica) > renderiza o t├¡tulo
+React does not recognize the `zoomControl` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `zoomcontrol` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+
+[90mstdout[2m | src/Rigorous.test.jsx[2m > [22m[2mApp Integration (Rigorous)[2m > [22m[2mdeve enviar mensagem GENERATE_OSM ao clicar no bot├úo gerar
+[22m[39mReact is ready. Sending APP_READY handshake...
+
+[90mstdout[2m | src/Sync.test.jsx[2m > [22m[2mGeolocation Sync integration[2m > [22m[2mupdates coordinates when GEOLOCATION_SYNC is received
+[22m[39m[Trace:762b44f8-b6d2-44bd-8de0-0062c959a4ea] Starting SDK_HEALTH_CHECK
+React is ready. Sending APP_READY handshake...
+
+[90mstdout[2m | src/App.test.jsx[2m > [22m[2mApp (UI b├ísica)[2m > [22m[2mrenderiza o t├¡tulo
+[22m[39m[Trace:4d4248c1-aa7f-4c24-b090-58ba4e7b8ff2] Starting SDK_HEALTH_CHECK
+
+ [32mÔ£ô[39m src/App.test.jsx [2m([22m[2m1 test[22m[2m)[22m[33m 1269[2mms[22m[39m
+   [33m[2mÔ£ô[22m[39m App (UI b├ísica)[2m > [22mrenderiza o t├¡tulo [33m1258[2mms[22m[39m
+[90mstdout[2m | src/Rigorous.test.jsx[2m > [22m[2mApp Integration (Rigorous)[2m > [22m[2mdeve atualizar UI ao receber JOB_PROGRESS (Processing -> Completed)
+[22m[39mReact is ready. Sending APP_READY handshake...
+
+stderr | Object.executeWithTracing (C:\plugin_autocad\src\frontend\src\services\ResilienceService.js:80:15)
+[Trace:4d4248c1-aa7f-4c24-b090-58ba4e7b8ff2] Failed SDK_HEALTH_CHECK (340.01ms) Error: API Error: Not Found
+    at SisRuaClient.request (C:\plugin_autocad\src\frontend\src\sdk\client.ts:16:29)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:\plugin_autocad\src\frontend\src\services\SdkService.js:23:14
+    at Object.executeWithTracing (C:\plugin_autocad\src\frontend\src\services\ResilienceService.js:74:22)
+    at Object.checkHealth (C:\plugin_autocad\src\frontend\src\services\SdkService.js:22:12)
+    at check (C:\plugin_autocad\src\frontend\src\components\SdkTest.jsx:11:24)
+
+[90mstdout[2m | src/Sync.test.jsx[2m > [22m[2mGeolocation Sync integration[2m > [22m[2mupdates coordinates when GEOLOCATION_SYNC is received
+[22m[39mGeolocation sync received from C#: { latitude: [33m-23.5505[39m, longitude: [33m-46.6333[39m }
+
+stderr | src/Sync.test.jsx
+[Trace:762b44f8-b6d2-44bd-8de0-0062c959a4ea] Failed SDK_HEALTH_CHECK (424.47ms) Error: API Error: Not Found
+    at SisRuaClient.request (C:\plugin_autocad\src\frontend\src\sdk\client.ts:16:29)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:\plugin_autocad\src\frontend\src\services\SdkService.js:23:14
+    at Object.executeWithTracing (C:\plugin_autocad\src\frontend\src\services\ResilienceService.js:74:22)
+    at Object.checkHealth (C:\plugin_autocad\src\frontend\src\services\SdkService.js:22:12)
+    at check (C:\plugin_autocad\src\frontend\src\components\SdkTest.jsx:11:24)
+
+ [32mÔ£ô[39m src/Sync.test.jsx [2m([22m[2m1 test[22m[2m)[22m[33m 1342[2mms[22m[39m
+   [33m[2mÔ£ô[22m[39m Geolocation Sync integration[2m > [22mupdates coordinates when GEOLOCATION_SYNC is received [33m1330[2mms[22m[39m
+[90mstdout[2m | src/Rigorous.test.jsx[2m > [22m[2mApp Integration (Rigorous)[2m > [22m[2mdeve mostrar preview e bot├úo importar ao receber FILE_DROPPED do Host
+[22m[39mGeoJSON content received from C# host via drag-drop.
+React is ready. Sending APP_READY handshake...
+
+ [32mÔ£ô[39m src/Rigorous.test.jsx [2m([22m[2m3 tests[22m[2m)[22m[33m 1782[2mms[22m[39m
+   [33m[2mÔ£ô[22m[39m App Integration (Rigorous)[2m > [22mdeve enviar mensagem GENERATE_OSM ao clicar no bot├úo gerar [33m1115[2mms[22m[39m
+   [33m[2mÔ£ô[22m[39m App Integration (Rigorous)[2m > [22mdeve atualizar UI ao receber JOB_PROGRESS (Processing -> Completed) [33m371[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 21:18:52
+[2m   Duration [22m 26.14s[2m (transform 1.94s, setup 6.31s, collect 10.79s, tests 4.58s, environment 36.77s, prepare 10.22s)[22m
+
+JUNIT report written to C:/plugin_autocad/qa/out/unit/junit.xml

@@ -1,0 +1,91 @@
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/plugin_autocad/src/frontend[39m
+
+ [32mÔ£ô[39m src/hooks/useMapLogic.test.js [2m([22m[2m2 tests[22m[2m)[22m[90m 183[2mms[22m[39m
+stderr | src/App.test.jsx > App (UI b├ísica) > renderiza o t├¡tulo
+React does not recognize the `zoomControl` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `zoomcontrol` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+
+stderr | src/Sync.test.jsx > Geolocation Sync integration > updates coordinates when GEOLOCATION_SYNC is received
+React does not recognize the `zoomControl` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `zoomcontrol` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+
+[90mstdout[2m | src/Rigorous.test.jsx[2m > [22m[2mApp Integration (Rigorous)[2m > [22m[2mdeve enviar mensagem GENERATE_OSM ao clicar no bot├úo gerar
+[22m[39mReact is ready. Sending APP_READY handshake...
+
+[90mstdout[2m | src/App.test.jsx[2m > [22m[2mApp (UI b├ísica)[2m > [22m[2mrenderiza o t├¡tulo
+[22m[39m[Trace:ae389cf5-7d6e-4d7f-b68e-8f7d393ac8e4] Starting SDK_HEALTH_CHECK
+
+ [32mÔ£ô[39m src/App.test.jsx [2m([22m[2m1 test[22m[2m)[22m[33m 1454[2mms[22m[39m
+   [33m[2mÔ£ô[22m[39m App (UI b├ísica)[2m > [22mrenderiza o t├¡tulo [33m1437[2mms[22m[39m
+[90mstdout[2m | src/Sync.test.jsx[2m > [22m[2mGeolocation Sync integration[2m > [22m[2mupdates coordinates when GEOLOCATION_SYNC is received
+[22m[39m[Trace:4062efbe-b7f8-4d5b-91c9-c127788ffc6a] Starting SDK_HEALTH_CHECK
+React is ready. Sending APP_READY handshake...
+
+[90mstdout[2m | src/Rigorous.test.jsx[2m > [22m[2mApp Integration (Rigorous)[2m > [22m[2mdeve atualizar UI ao receber JOB_PROGRESS (Processing -> Completed)
+[22m[39mReact is ready. Sending APP_READY handshake...
+
+stderr | Object.executeWithTracing (C:\plugin_autocad\src\frontend\src\services\ResilienceService.js:80:15)
+[Trace:ae389cf5-7d6e-4d7f-b68e-8f7d393ac8e4] Failed SDK_HEALTH_CHECK (371.79ms) Error: API Error: Not Found
+    at SisRuaClient.request (C:\plugin_autocad\src\frontend\src\sdk\client.ts:16:29)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:\plugin_autocad\src\frontend\src\services\SdkService.js:23:14
+    at Object.executeWithTracing (C:\plugin_autocad\src\frontend\src\services\ResilienceService.js:74:22)
+    at Object.checkHealth (C:\plugin_autocad\src\frontend\src\services\SdkService.js:22:12)
+    at check (C:\plugin_autocad\src\frontend\src\components\SdkTest.jsx:11:24)
+
+[90mstdout[2m | src/Sync.test.jsx[2m > [22m[2mGeolocation Sync integration[2m > [22m[2mupdates coordinates when GEOLOCATION_SYNC is received
+[22m[39mGeolocation sync received from C#: { latitude: [33m-23.5505[39m, longitude: [33m-46.6333[39m }
+
+ [32mÔ£ô[39m src/Sync.test.jsx [2m([22m[2m1 test[22m[2m)[22m[33m 1650[2mms[22m[39m
+   [33m[2mÔ£ô[22m[39m Geolocation Sync integration[2m > [22mupdates coordinates when GEOLOCATION_SYNC is received [33m1634[2mms[22m[39m
+stderr | Object.executeWithTracing (C:\plugin_autocad\src\frontend\src\services\ResilienceService.js:80:15)
+[Trace:4062efbe-b7f8-4d5b-91c9-c127788ffc6a] Failed SDK_HEALTH_CHECK (565.81ms) Error: API Error: Not Found
+    at SisRuaClient.request (C:\plugin_autocad\src\frontend\src\sdk\client.ts:16:29)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at C:\plugin_autocad\src\frontend\src\services\SdkService.js:23:14
+    at Object.executeWithTracing (C:\plugin_autocad\src\frontend\src\services\ResilienceService.js:74:22)
+    at Object.checkHealth (C:\plugin_autocad\src\frontend\src\services\SdkService.js:22:12)
+    at check (C:\plugin_autocad\src\frontend\src\components\SdkTest.jsx:11:24)
+
+[90mstdout[2m | src/Rigorous.test.jsx[2m > [22m[2mApp Integration (Rigorous)[2m > [22m[2mdeve mostrar preview e bot├úo importar ao receber FILE_DROPPED do Host
+[22m[39mGeoJSON content received from C# host via drag-drop.
+React is ready. Sending APP_READY handshake...
+
+ [31mÔØ»[39m src/Rigorous.test.jsx [2m([22m[2m3 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 2294[2mms[22m[39m
+[31m   [31m├ù[31m App Integration (Rigorous)[2m > [22mdeve enviar mensagem GENERATE_OSM ao clicar no bot├úo gerar[33m 1398[2mms[22m[31m[39m
+[31m     ÔåÆ expected "spy" to be called 1 times, but got 2 times[39m
+   [33m[2mÔ£ô[22m[39m App Integration (Rigorous)[2m > [22mdeve atualizar UI ao receber JOB_PROGRESS (Processing -> Completed) [33m504[2mms[22m[39m
+[31m   [31m├ù[31m App Integration (Rigorous)[2m > [22mdeve mostrar preview e bot├úo importar ao receber FILE_DROPPED do Host[33m 374[2mms[22m[31m[39m
+[31m     ÔåÆ expected "spy" to be called 1 times, but got 2 times[39m
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ» Failed Tests 2 ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»
+
+ FAIL  src/Rigorous.test.jsx > App Integration (Rigorous) > deve enviar mensagem GENERATE_OSM ao clicar no bot├úo gerar
+AssertionError: expected "spy" to be called 1 times, but got 2 times
+ ÔØ» src/Rigorous.test.jsx:114:29
+    112|     fireEvent.click(btn);
+    113| 
+    114|     expect(postMessageMock).toHaveBeenCalledTimes(1);
+       |                             ^
+    115|     const sentMsg = postMessageMock.mock.calls[0][0];
+    116| 
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[1/2]ÔÄ»
+
+ FAIL  src/Rigorous.test.jsx > App Integration (Rigorous) > deve mostrar preview e bot├úo importar ao receber FILE_DROPPED do Host
+AssertionError: expected "spy" to be called 1 times, but got 2 times
+ ÔØ» src/Rigorous.test.jsx:171:29
+    169|     fireEvent.click(btnImport);
+    170| 
+    171|     expect(postMessageMock).toHaveBeenCalledTimes(1); // Pode ter sidoÔÇª
+       |                             ^
+    172|     const sentMsg = postMessageMock.mock.calls[0][0];
+    173| 
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[2/2]ÔÄ»
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m5 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 21:17:38
+[2m   Duration [22m 26.09s[2m (transform 2.22s, setup 6.63s, collect 10.90s, tests 5.58s, environment 36.87s, prepare 9.22s)[22m
+
+JUNIT report written to C:/plugin_autocad/qa/out/unit/junit.xml

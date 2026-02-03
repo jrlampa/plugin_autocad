@@ -111,8 +111,15 @@ describe('App Integration (Rigorous)', () => {
     const btn = await screen.findByTestId('btn-generate-osm', {}, { timeout: 5000 });
     fireEvent.click(btn);
 
-    expect(postMessageMock).toHaveBeenCalledTimes(1);
-    const sentMsg = postMessageMock.mock.calls[0][0];
+    // ISO 27001 / UX Handshake (APP_READY) should have been sent first
+    expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'APP_READY' }));
+
+    // Now check for GENERATE_OSM
+    expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'GENERATE_OSM' }));
+
+    // Get the specific call for GENERATE_OSM
+    const osmCall = postMessageMock.mock.calls.find(call => call[0].action === 'GENERATE_OSM');
+    const sentMsg = osmCall[0];
 
     expect(sentMsg.action).toBe('GENERATE_OSM');
     expect(sentMsg.data).toHaveProperty('latitude');
@@ -168,8 +175,11 @@ describe('App Integration (Rigorous)', () => {
     // Clicar no botão deve enviar mensagem de volta ao Host
     fireEvent.click(btnImport);
 
-    expect(postMessageMock).toHaveBeenCalledTimes(1); // Pode ter sido resetado ou acumulado se o setup fosse diferente, mas aqui é novo render
-    const sentMsg = postMessageMock.mock.calls[0][0];
+    // ISO 27001 / UX Handshake (APP_READY) was sent, then IMPORT_GEOJSON
+    expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'IMPORT_GEOJSON' }));
+
+    const importCall = postMessageMock.mock.calls.find(call => call[0].action === 'IMPORT_GEOJSON');
+    const sentMsg = importCall[0];
 
     expect(sentMsg.action).toBe('IMPORT_GEOJSON');
     // Verifica se os dados enviados batem com o que foi recebido
