@@ -27,7 +27,10 @@ def api_mod(tmp_path, monkeypatch):
 
 @pytest.fixture()
 def client(api_mod):
-    return TestClient(api_mod.app)
+    # Set base_url and default Origin for ISO 27001 compliance tests
+    c = TestClient(api_mod.app, base_url="http://localhost:8000")
+    c.headers.update({"Origin": "http://localhost:8000"})
+    return c
 
 
 def test_health_is_public(client):

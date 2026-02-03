@@ -134,17 +134,76 @@ from fastapi import Depends
 AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN") or ""
 AUTH_HEADER_NAME = "X-SisRua-Token"
 
+# --- Session Token Management (ISO 27001 Hardening) ---
+# Store for short-lived session tokens. {token: expiry_timestamp}
+SESSION_TOKENS: Dict[str, float] = {}
+SESSION_DURATION = 1800 # 30 minutes
+
+def _is_valid_session(token: str) -> bool:
+    """Checks if a session token exists and is not expired."""
+    if token not in SESSION_TOKENS:
+        return False
+    if time.time() > SESSION_TOKENS[token]:
+        del SESSION_TOKENS[token] # Cleanup
+        return False
+    # Slide the window (optional but good for UX)
+    SESSION_TOKENS[token] = time.time() + SESSION_DURATION
+    return True
+
 def _require_token(x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
     """
     Protege endpoints sensíveis contra chamadas externas na máquina do usuário.
-    Política: FAIL CLOSED. Se o servidor não tiver token configurado, ninguém entra.
+    Aceita Master Token (bootstrap) ou Session Token (uso contínuo).
     """
     if not AUTH_TOKEN:
-        # Server misconfiguration or strict lockdown
         raise HTTPException(status_code=500, detail="Server Authentication Not Configured")
     
-    if not x_sisrua_token or x_sisrua_token != AUTH_TOKEN:
+    if not x_sisrua_token:
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # Verifica se é o Master Token ou um Session Token válido
+    if x_sisrua_token == AUTH_TOKEN:
+        return # Master token is always valid (backend-to-backend or bootstrap)
+    
+    if _is_valid_session(x_sisrua_token):
+        return
+        
+    raise HTTPException(status_code=401, detail="Invalid or Expired Token")
+
+# --- Strict Origin Middleware ---
+ALLOWED_ORIGINS = {
+    "http://localhost:8000", "http://127.0.0.1:8000",
+    "http://localhost:5173", "http://127.0.0.1:5173",
+    "http://localhost:4173"
+}
+
+@app.middleware("http")
+async def validate_origin(request: Request, call_next):
+    """
+    ISO 27001: Strict Origin Validation.
+    Blocks requests from external domains or malformed origins.
+    """
+    # Exceção para o health check e docs se necessário, mas aqui seremos estritos
+    if request.url.path in ["/api/v1/health", "/docs", "/openapi.json", "/"]:
+        return await call_next(request)
+
+    origin = request.headers.get("Origin")
+    referer = request.headers.get("Referer")
+    
+    # WebView2 e ambientes locais devem sempre enviar Origin ou Referer.
+    # Se vierem sem nada, pode ser uma tentativa de acesso via terminal fora do controle.
+    if not origin and not referer:
+        # Permitimos localhost root mas bloqueamos API
+        if request.url.path.startswith("/api/v1"):
+            logger.warning("security_violation_no_origin", path=request.url.path)
+            return Response("Forbidden: Strict Origin Required", status_code=403)
+            
+    # Valida Origens registradas
+    if origin and origin not in ALLOWED_ORIGINS:
+        logger.warning("security_violation_invalid_origin", origin=origin)
+        return Response("Forbidden: Invalid Origin", status_code=403)
+        
+    return await call_next(request)
 
 # --- CORS Middleware ---
 # Allows requests from the WebView2 control (localhost origins)
@@ -215,16 +274,30 @@ async def startup_event():
 
 
 
-@app.get("/api/v1/auth/check", tags=["Health"], response_model=HealthResponse)
-async def auth_check(x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
-    """Check if the provided authentication token is valid."""
-    _require_token(x_sisrua_token)
+@app.get("/api/v1/health", tags=["Health"], response_model=HealthResponse)
+async def health_check():
+    """Verifica se a API está online."""
     return HealthResponse(status="ok")
 
-@app.get("/api/v1/health", tags=["Health"], response_model=HealthResponse)
-async def health():
-    """Simple health check to verify the API server is up and running."""
-    return HealthResponse(status="ok")
+@app.get("/api/v1/auth/check", tags=["Health"])
+async def auth_check(_ = Depends(_require_token)):
+    """Verifica se o token de autenticação é válido."""
+    return {"status": "ok", "message": "Authenticated"}
+
+@app.post("/api/v1/auth/session", tags=["Health"])
+async def create_session(x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
+    """
+    ISO 27001: Session Token Handshake.
+    Troca o Master Token por um Session Token de curta duração.
+    """
+    if not AUTH_TOKEN or x_sisrua_token != AUTH_TOKEN:
+        raise HTTPException(status_code=401, detail="Invalid Master Token")
+    
+    session_token = f"sess_{uuid.uuid4().hex}"
+    SESSION_TOKENS[session_token] = time.time() + SESSION_DURATION
+    
+    logger.info("session_created", token_id=session_token[:10])
+    return {"session_token": session_token, "expires_in": SESSION_DURATION}
 
 from backend.models import DeepHealthResponse
 from backend.services.health import health_service

@@ -2,7 +2,8 @@ import axios from 'axios';
 
 // --- Global Interceptor for Resilience & Auth ---
 axios.interceptors.request.use((config) => {
-  const token = window.SISRUA_TOKEN;
+  // ISO 27001: Prefer short-lived session token over master token
+  const token = window.SISRUA_SESSION_TOKEN || window.SISRUA_TOKEN;
   if (token) {
     config.headers['X-SisRua-Token'] = token;
   }
@@ -14,6 +15,14 @@ axios.interceptors.response.use(
   (error) => {
     if (error.response) {
       const { status } = error.response;
+
+      // ISO 27001: Session expired
+      if (status === 401 && window.SISRUA_SESSION_TOKEN) {
+        console.warn('Session expired. Attempting re-authentication...');
+        window.SISRUA_SESSION_TOKEN = null;
+        // Trigger setupSecurity again if needed or notify user
+      }
+      // ... rest of the interceptor logic
 
       // Dispatch custom events for UI to React
       if (status === 429) {
@@ -74,4 +83,29 @@ export const api = {
       return false;
     }
   },
+
+  /**
+   * ISO 27001: Exchanges the Master Token (from C#) for a short-lived Session Token.
+   * This is called automatically when the token is received from the host.
+   */
+  setupSecurity: async (masterToken) => {
+    try {
+      const response = await axios.post(`${API_BASE}/auth/session`, {}, {
+        headers: { 'X-SisRua-Token': masterToken }
+      });
+
+      const { session_token } = response.data;
+      if (session_token) {
+        window.SISRUA_SESSION_TOKEN = session_token;
+        console.log('ISO 27001: Session token established. Rotating credentials.');
+
+        // Security: Remove master token from global scope once rotated
+        delete window.SISRUA_TOKEN;
+        return true;
+      }
+    } catch (err) {
+      console.error('ISO 27001: Failed to establish secure session.', err);
+      return false;
+    }
+  }
 };

@@ -119,8 +119,8 @@ export default function App() {
         try {
           const message = JSON.parse(event.data);
           if (message.action === 'INIT_AUTH_TOKEN' && message.data.token) {
-            console.log('Authentication token received from host.');
-            window.SISRUA_TOKEN = message.data.token;
+            console.log('Master token received from host. Establishing secure session...');
+            api.setupSecurity(message.data.token);
           }
           // Handle KML files from C# plugin (KMZ extraction)
           else if (message.action === 'FILE_DROPPED_KML' && message.data.content) {
