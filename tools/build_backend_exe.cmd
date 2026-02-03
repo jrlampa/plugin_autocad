@@ -163,6 +163,14 @@ if not exist "%DIST_TMP%" mkdir "%DIST_TMP%"
   --workpath "%BUILD_ROOT%\\pyinstaller-work" ^
   --specpath "%BUILD_ROOT%\\pyinstaller-spec" ^
   --add-data "%ROOT%\\src\\frontend\\dist;frontend/dist" ^
+  --exclude-module PyQt5 ^
+  --exclude-module PyQt5.QtCore ^
+  --exclude-module PyQt5.QtGui ^
+  --exclude-module PySide2 ^
+  --exclude-module tkinter ^
+  --exclude-module IPython ^
+  --exclude-module notebook ^
+  --exclude-module nbformat ^
   "%BACKEND_SRC%\\standalone.py"
 
 if not exist "%DIST_TMP%\\sisrua_backend.exe" (

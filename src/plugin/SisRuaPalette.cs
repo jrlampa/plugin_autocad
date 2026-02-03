@@ -75,8 +75,6 @@ namespace sisRUA
             if (!SisRuaSettings.IsPrivacyNoticeAccepted())
             {
                 string settingsPath = SisRuaSettings.TryGetSettingsPathForDisplay();
-                string msg =
-                    "Aviso de proteção de dados (LGPD)\n\n" +
                 var answer = MessageBox.Show(
                     "O sisRUA utiliza serviços de mapa (OpenStreetMap) e telemetria básica para melhoria contínua.\n\n" +
                     "Ao continuar, você aceita que o plugin se comunique com o backend local e baixe dados geográficos.\n\n" +
