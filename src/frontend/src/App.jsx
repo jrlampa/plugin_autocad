@@ -86,6 +86,14 @@ export default function App() {
     };
   }, []);
 
+  // ISO 27001 & UX: Handshake to remove Splash Screen
+  useEffect(() => {
+    if (isBackendReady && window.chrome?.webview) {
+      console.log('React is ready. Sending APP_READY handshake...');
+      window.chrome.webview.postMessage({ action: 'APP_READY' });
+    }
+  }, [isBackendReady]);
+
   const [coords, setCoords] = useState({ lat: -21.7634, lng: -41.3235 });
   const [inputText, setInputText] = useState('-21.763400, -41.323500');
   const [inputLoading, setInputLoading] = useState(false);

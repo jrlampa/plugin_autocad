@@ -85,7 +85,22 @@ export default function MapView({
       zoomControl={false}
       className="h-full w-full outline-none bg-slate-900"
     >
-      <TileLayer key={tileProvider.url} {...tileProvider} />
+      <TileLayer
+        key={tileProvider.url}
+        {...tileProvider}
+        eventHandlers={{
+          tileerror: () => {
+            // ISO 27001 / UX Protection: Notify user if Map Service is blocked
+            const event = new CustomEvent('api-error', {
+              detail: {
+                type: 'MAP_BLOCKED',
+                message: 'Serviço de mapas bloqueado pela rede/TI. Funções CAD continuam ativas.',
+              },
+            });
+            window.dispatchEvent(event);
+          },
+        }}
+      />
       <MapController coords={coords} />
       <MapDropHandler onSymbolDrop={onSymbolDrop} />
       <MapClickHandler onMapClick={onMapClick} />

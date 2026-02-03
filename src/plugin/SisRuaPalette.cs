@@ -24,6 +24,21 @@ namespace sisRUA
     {
         private static PaletteSet _paletteSet;
         private static WebView2 _webView;
+        private static Panel _splashPanel;
+        private static Label _splashLabel;
+        private static System.Windows.Forms.Timer _splashTimer;
+        private static int _messageIndex = 0;
+        private static readonly string[] _loadingMessages = new[]
+        {
+            "Sintonizando o rádio do estagiário...",
+            "Pedindo aumento pro Zaluar...",
+            "Perguntando pro André algo cabuloso...",
+            "Limpando o cache do AutoCAD (quem dera)...",
+            "Calibrando o GPS de papel...",
+            "Engraxando os eixos das ruas...",
+            "Convencendo os pixels a ficarem no lugar...",
+            "Aguardando o café do backend ficar pronto..."
+        };
         private static Control _uiInvokeTarget;
 
         public static void PostUiMessage(object message)
@@ -105,15 +120,51 @@ namespace sisRUA
                 };
 
                 var panel = new UserControl { Dock = DockStyle.Fill };
-                _webView = new WebView2 { Dock = DockStyle.Fill };
+                _webView = new WebView2 { Dock = DockStyle.Fill, Visible = false }; // Começa invisível
                 _uiInvokeTarget = panel;
                 
+                // --- Splash Screen Nativo ---
+                _splashPanel = new Panel { 
+                    Dock = DockStyle.Fill, 
+                    BackColor = System.Drawing.Color.FromArgb(15, 23, 42), // Slate 900
+                    Visible = true 
+                };
+                
+                _splashLabel = new Label {
+                    Text = _loadingMessages[0],
+                    ForeColor = System.Drawing.Color.White,
+                    Font = new System.Drawing.Font("Segoe UI", 10, System.Drawing.FontStyle.Bold),
+                    TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
+                    Dock = DockStyle.Bottom,
+                    Height = 100
+                };
+
+                var loaderIcon = new Label {
+                    Text = "⌛", // Spinner simplificado
+                    ForeColor = System.Drawing.Color.FromArgb(59, 130, 246), // Blue 500
+                    Font = new System.Drawing.Font("Segoe UI", 24, System.Drawing.FontStyle.Bold),
+                    TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
+                    Dock = DockStyle.Fill
+                };
+
+                _splashPanel.Controls.Add(loaderIcon);
+                _splashPanel.Controls.Add(_splashLabel);
+
+                // Timer para rotacionar mensagens
+                _splashTimer = new System.Windows.Forms.Timer { Interval = 2500 };
+                _splashTimer.Tick += (s, e) => {
+                    _messageIndex = (_messageIndex + 1) % _loadingMessages.Length;
+                    _splashLabel.Text = _loadingMessages[_messageIndex];
+                };
+                _splashTimer.Start();
+
                 // Habilita o Drag & Drop no painel
                 panel.AllowDrop = true;
                 panel.DragEnter += Panel_DragEnter;
                 panel.DragDrop += Panel_DragDrop;
 
                 panel.Controls.Add(_webView);
+                panel.Controls.Add(_splashPanel);
                 _paletteSet.Add("WebView", panel);
 
                 // A inicialização é assíncrona, então disparamos e não bloqueamos.
@@ -483,6 +534,16 @@ namespace sisRUA
                                 {
                                     Debug.WriteLine("[sisRUA] Ação 'GENERATE_OSM' recebida, mas dados incompletos (lat/lon/radius).");
                                 }
+                            }
+                            break;
+
+                        case "APP_READY":
+                            Debug.WriteLine("[sisRUA] Handshake recebido: React está pronto.");
+                            if (_splashPanel != null && _webView != null)
+                            {
+                                _splashTimer?.Stop();
+                                _splashPanel.Visible = false;
+                                _webView.Visible = true;
                             }
                             break;
 
