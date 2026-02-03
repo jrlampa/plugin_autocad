@@ -14,22 +14,12 @@ class CacheService:
     L2: Filesystem (Persistent, local fallback)
     """
     def __init__(self):
-        self.redis_url = os.environ.get("REDIS_URL")
-        self.redis = None
-        
         # Filesystem cache config
         base = Path(os.environ.get("LOCALAPPDATA") or Path.home())
         self.file_cache_dir = base / "sisRUA" / "cache"
         self.file_cache_dir.mkdir(parents=True, exist_ok=True)
 
-        if self.redis_url:
-            try:
-                import redis
-                self.redis = redis.from_url(self.redis_url, decode_responses=True)
-                self.redis.ping()
-                logger.info(f"[cache] Redis connected at {self.redis_url}")
-            except Exception as e:
-                logger.warning(f"[cache] Redis unavailable: {e}")
+        self.redis = None # Redis removed for local standalone plugin
 
     def _sanitize_key(self, key: str) -> str:
         # Replace non-filesystem safe chars

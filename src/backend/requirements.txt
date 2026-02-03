@@ -9,7 +9,7 @@ numpy
 requests
 matplotlib
 sentry-sdk[fastapi]
-redis
+# redis (removed: using local file-cache for standalone plugin)
 groq>=0.4.0
 structlog
-prometheus-fastapi-instrumentator
+# prometheus-fastapi-instrumentator (removed: local plugin does not need real-time metrics scraping)

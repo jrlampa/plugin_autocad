@@ -34,7 +34,7 @@ class HealthService:
             latency_ms=(time.time() - db_start) * 1000
         )
         
-        # 2. Cache Check (Round-trip)
+        # 2. Cache Check (Filesystem only)
         cache_start = time.time()
         try:
             test_key = "health_check_probe"
@@ -43,10 +43,10 @@ class HealthService:
             retrieved = cache_service.get(test_key)
             if retrieved and retrieved.get("ts") == test_val["ts"]:
                 c_status = "up"
-                c_details = "Redis+File" if cache_service.redis else "File-only"
+                c_details = "File-based cache"
             else:
                 c_status = "degraded"
-                c_details = "Write/Read mismatch"
+                c_details = "File write/read mismatch"
         except Exception as e:
             c_status = "down"
             c_details = str(e)

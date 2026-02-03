@@ -66,12 +66,7 @@ Protected endpoints require the `X-SisRua-Token` header.
     ]
 )
 
-try:
-    from prometheus_fastapi_instrumentator import Instrumentator
-    # Initialize Prometheus Metrics
-    Instrumentator().instrument(app).expose(app)
-except ImportError:
-    logger.warning("prometheus_metrics_unavailable", error="Module not found")
+# Prometheus metrics removed for local standalone plugin
 
 # Middleware for Audit Logging (Trace ID)
 @app.middleware("http")
