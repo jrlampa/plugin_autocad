@@ -12,70 +12,117 @@ class ExportService:
     def __init__(self, db_path: Path):
         self.db_path = db_path
 
+    def export_project_to_geojson(self, project_id: str) -> Path:
+        """
+        Exports a project as a standard GeoJSON FeatureCollection.
+        """
+        logger.info(f"Exporting project {project_id} to GeoJSON.")
+        conn = sqlite3.connect(self.db_path)
+        try:
+            # Query all features for the project
+            rows = conn.execute("""
+                SELECT feature_type, layer, name, highway, width_m, color, elevation, slope, original_geojson_properties, coords_xy
+                FROM CadFeatures WHERE project_id = ?
+            """, (project_id,)).fetchall()
+            
+            features = []
+            for row in rows:
+                f_type, layer, name, highway, width, color, elev, slope, props_json, coords_json = row
+                
+                # Parse strings/JSON
+                import json
+                props = json.loads(props_json) if props_json else {}
+                coords = json.loads(coords_json) if coords_json else []
+                
+                # Enrich properties
+                props.update({
+                    "sisrua:feature_type": f_type,
+                    "sisrua:layer": layer,
+                    "sisrua:name": name,
+                    "sisrua:highway": highway,
+                    "sisrua:width_m": width,
+                    "sisrua:color": color,
+                    "sisrua:elevation": elev,
+                    "sisrua:slope": slope
+                })
+                
+                features.append({
+                    "type": "Feature",
+                    "properties": props,
+                    "geometry": {
+                        "type": "LineString" if f_type == "Polyline" else "Point",
+                        "coordinates": coords
+                    }
+                })
+            
+            geojson = {
+                "type": "FeatureCollection",
+                "features": features,
+                "metadata": {
+                    "project_id": project_id,
+                    "exported_at": str(Path().stat().st_mtime) # Placeholder
+                }
+            }
+            
+            temp_dir = Path(tempfile.mkdtemp())
+            export_file = temp_dir / f"sisrua_{project_id}.geojson"
+            with open(export_file, "w", encoding="utf-8") as f:
+                json.dump(geojson, f, indent=2)
+                
+            return export_file
+        finally:
+            conn.close()
+
     def export_project_to_geopackage(self, project_id: str) -> Path:
         """
-        Gera um pacote GeoPackage (GPKG) a partir de um projeto.
-        O SQLite do sisRUA já é tecnicamente compatível, mas este método 
-        garante a conformidade estrita e empacota para download.
+        Generates a GPKG package by copying the DB and ensuring metadata is purged 
+        for everything except the requested project.
         """
-        logger.info(f"Exporting project {project_id} to GeoPackage.")
+        logger.info(f"Refining GeoPackage export for project {project_id}.")
         
-        # Cria um diretório temporário para trabalhar
         temp_dir = Path(tempfile.mkdtemp())
-        export_file = temp_dir / f"sisrua_export_{project_id}.gpkg"
+        export_file = temp_dir / f"sisrua_{project_id}.gpkg"
         
-        # Copiamos o nosso DB original como base (já contém as tabelas standard)
+        # Copy original DB
         shutil.copy2(self.db_path, export_file)
         
         conn = sqlite3.connect(export_file)
         try:
-            # 1. Popula a tabela gpkg_contents com metadados do projeto
-            # Em nosso esquema, cada 'Layer' do AutoCAD vira uma feature table no GIS.
-            # Para simplificar o export inicial, consolidamos em 'Vias' e 'Ativos'.
+            # purging unrelated projects from the export file to save space and privacy
+            conn.execute("DELETE FROM CadFeatures WHERE project_id != ?", (project_id,))
+            conn.execute("DELETE FROM Projects WHERE project_id != ?", (project_id,))
             
+            # Setup GPKG Metadata
             project_info = conn.execute(
                 "SELECT project_name, crs_out FROM Projects WHERE project_id = ?", 
                 (project_id,)
             ).fetchone()
             
             if not project_info:
-                raise Exception(f"Project {project_id} not found in database.")
+                raise Exception(f"Project {project_id} not found.")
                 
             project_name, crs_out = project_info
-            srs_id = 4326 # Fallback
+            srs_id = 4326
             if crs_out and "EPSG:" in crs_out:
-                try:
-                    srs_id = int(crs_out.split(":")[1])
-                except:
-                    pass
+                try: srs_id = int(crs_out.split(":")[1])
+                except: pass
 
-            # Registra as tabelas de dados no GPKG
-            # Nota: Em um export full, criaríamos tabelas reais com colunas de atributos.
-            # Aqui, garantimos apenas a estrutura que permite ao QGIS 'anexar' o dado.
-            
-            conn.execute("""
-                INSERT OR REPLACE INTO gpkg_spatial_ref_sys 
-                (srs_name, srs_id, organization, organization_coordsys_id, definition)
-                VALUES (?, ?, ?, ?, ?)
-            """, ("SIRGAS 2000 / UTM", srs_id, "EPSG", srs_id, "PROJCS[...]"))
-            
+            # Register tables
             conn.execute("""
                 INSERT OR REPLACE INTO gpkg_contents 
                 (table_name, data_type, identifier, description, srs_id)
                 VALUES (?, ?, ?, ?, ?)
-            """, ("CadFeatures", "features", project_id, f"Project: {project_name}", srs_id))
+            """, ("CadFeatures", "features", project_id, f"sisRUA Project: {project_name}", srs_id))
             
             conn.execute("""
                 INSERT OR REPLACE INTO gpkg_geometry_columns 
                 (table_name, column_name, geometry_type_name, srs_id, z, m)
-                VALUES (?, ?, ?, ?, 0, 0)
-            """, ("CadFeatures", "geometry_blob", "GEOMETRY", srs_id))
+                VALUES (?, ?, ?, ?, 1, 0)
+            """, ("CadFeatures", "coords_xy", "GEOMETRY", srs_id, 1, 0))
             
             conn.commit()
-            
-        except Exception as e:
-            logger.error("geopackage_export_failed", error=str(e))
-            raise
+            # Vacum to shrink file
+            conn.execute("VACUUM")
         finally:
             conn.close()
             

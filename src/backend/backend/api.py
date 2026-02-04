@@ -597,7 +597,30 @@ async def export_geopackage(
             filename=f"sisrua_{project_id}.gpkg"
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao exportar projeto: {str(e)}")
+        logger.error("export_geopackage_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoPackage: {str(e)}")
+
+@app.get("/api/v1/export/geojson/{project_id}", tags=["Enterprise"])
+async def export_geojson(
+    project_id: str,
+    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
+):
+    """
+    Exporta um projeto completo no formato GeoJSON padrão.
+    Portabilidade total para ferramentas web e análise espacial leve.
+    """
+    _require_token(x_sisrua_token)
+    from fastapi.responses import FileResponse
+    try:
+        path = export_service.export_project_to_geojson(project_id)
+        return FileResponse(
+            path=str(path),
+            media_type="application/geo+json",
+            filename=f"sisrua_{project_id}.geojson"
+        )
+    except Exception as e:
+        logger.error("export_geojson_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoJSON: {str(e)}")
 
 # --- Audit Log Routes ---
 from backend.audit_routes import audit_bp

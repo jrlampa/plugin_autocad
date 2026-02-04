@@ -685,8 +685,29 @@ export default function App() {
                 </div>
 
                 {/* HEALTH DASHBOARD INTEGRATION */}
-                <div className="pt-4 border-t border-slate-200/50">
-                  <HealthDashboard />
+                {/* GIS EXPORT (HARDENING) */}
+                <div className="pt-4 border-t border-slate-200/50 space-y-3">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 ml-1">
+                    <Download size={12} /> Interoperabilidade GIS
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => uiJob?.project_id && api.exportGeoJSON(uiJob.project_id)}
+                      disabled={!uiJob?.project_id}
+                      className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                    >
+                      <FileJson size={14} className="text-amber-500" />
+                      GEOJSON
+                    </button>
+                    <button
+                      onClick={() => uiJob?.project_id && api.exportGeoPackage(uiJob.project_id)}
+                      disabled={!uiJob?.project_id}
+                      className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                    >
+                      <Globe size={14} className="text-blue-500" />
+                      GEOPACKAGE
+                    </button>
+                  </div>
                 </div>
 
                 <div className="pt-8 border-t border-slate-200/50">

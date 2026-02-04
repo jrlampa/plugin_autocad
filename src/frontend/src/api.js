@@ -24,13 +24,12 @@ axios.interceptors.response.use(
     if (error.response) {
       const { status } = error.response;
 
-      // ISO 27001: Session expired
-      if (status === 401 && _sessionToken) {
-        console.warn('Session expired. Attempting re-authentication...');
+      // ISO 27001: Session expired or invalid
+      if (status === 401) {
+        console.warn('Security: Session invalid or expired. Clearing credentials.');
         _sessionToken = null;
-        // Trigger setupSecurity again if needed or notify user
+        _masterToken = null; // Wipe everything on auth error
       }
-      // ... rest of the interceptor logic
 
       // Dispatch custom events for UI to React
       if (status === 429) {
@@ -101,19 +100,31 @@ export const api = {
       const response = await axios.post(`${API_BASE}/auth/session`, {}, {
         headers: { 'X-SisRua-Token': masterToken }
       });
-
       const { session_token } = response.data;
       if (session_token) {
         _sessionToken = session_token;
+        _masterToken = null; // IMPORTANT: Wipe master token once session is rotated
         console.log('ISO 27001: Session token established. Rotating credentials.');
-
-        // Security: Remove master token from local module scope once rotated
-        _masterToken = null;
         return true;
       }
+      return false;
     } catch (err) {
       console.error('ISO 27001: Failed to establish secure session.', err);
       return false;
     }
-  }
+  },
+
+  /**
+   * Enterprise: Export project to GeoJSON
+   */
+  exportGeoJSON: (projectId) => {
+    window.open(`${API_BASE}/export/geojson/${projectId}`, '_blank');
+  },
+
+  /**
+   * Enterprise: Export project to OGC GeoPackage
+   */
+  exportGeoPackage: (projectId) => {
+    window.open(`${API_BASE}/export/geopackage/${projectId}`, '_blank');
+  },
 };
