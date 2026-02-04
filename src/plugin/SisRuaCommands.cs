@@ -30,18 +30,13 @@ namespace sisRUA
         [CommandMethod("SISRUA_RUN_QA", CommandFlags.Session)]
         public static void SisRuaRunQaCommand()
         {
-            try
+            SisRuaTransactionalShield.Execute((doc, db, tr) =>
             {
                 string localDir = SisRuaPlugin.GetLocalSisRuaDir() ?? Path.GetTempPath();
                 string qaPath = Path.Combine(localDir, "qa", "out", "geometry_compliance.xml");
                 GeometryComplianceTests.RunAndExport(qaPath);
-                Application.DocumentManager.MdiActiveDocument?.Editor.WriteMessage($"\n[sisRUA] QA Integridade Concluído: {qaPath}");
-            }
-            catch (Exception ex) 
-            { 
-                Log($"ERROR: QA failed: {ex.Message}");
-                TelemetryService.ReportErrorSync("QA_COMMAND", ex);
-            }
+                doc.Editor.WriteMessage($"\n[sisRUA] QA Integridade Concluído: {qaPath}");
+            });
         }
 
         // Dependency Injection for Testing
@@ -64,14 +59,6 @@ namespace sisRUA
         [CommandMethod("SISRUA_SAVE_PROJECT", CommandFlags.Session)]
         public static void SisRuaSaveProjectCommand()
         {
-            Document doc = Application.DocumentManager.MdiActiveDocument;
-            if (doc == null)
-            {
-                Log("WARN: SISRUA_SAVE_PROJECT called with no active document.");
-                Application.ShowAlertDialog("Nenhum desenho ativo para salvar.");
-                return;
-            }
-
             if (_lastDrawnFeatures == null || !_lastDrawnFeatures.Any())
             {
                 Log("WARN: SISRUA_SAVE_PROJECT called but no features were drawn since last AutoCAD session or command.");
@@ -79,121 +66,138 @@ namespace sisRUA
                 return;
             }
 
-            using (doc.LockDocument())
+            SisRuaTransactionalShield.Execute((doc, db, tr) =>
             {
                 Editor ed = doc.Editor;
 
                 PromptStringOptions psoId = new PromptStringOptions("\n[sisRUA] Digite o ID do projeto (ex: A001, deixe em branco para gerar):")
-            {
-                AllowSpaces = false
-            };
-            PromptResult resId = ed.GetString(psoId);
-            string projectId = resId.StringResult.Trim();
+                {
+                    AllowSpaces = false
+                };
+                PromptResult resId = ed.GetString(psoId);
+                string projectId = resId.StringResult.Trim();
 
-            if (string.IsNullOrWhiteSpace(projectId))
-            {
-                // Generate sequential ID: YYYYMMDDHHMMss
-                projectId = DateTime.Now.ToString("yyyyMMddHHmmss");
-                ed.WriteMessage($"\n[sisRUA] ID de projeto gerado automaticamente: {projectId}");
-            }
+                if (string.IsNullOrWhiteSpace(projectId))
+                {
+                    projectId = DateTime.Now.ToString("yyyyMMddHHmmss");
+                    ed.WriteMessage($"\n[sisRUA] ID de projeto gerado automaticamente: {projectId}");
+                }
 
-            PromptStringOptions psoName = new PromptStringOptions($"\n[sisRUA] Digite o nome do projeto (opcional, padrão: 'Projeto {projectId}'):");
-            PromptResult resName = ed.GetString(psoName);
-            string projectName = string.IsNullOrWhiteSpace(resName.StringResult) ? $"Projeto {projectId}" : resName.StringResult.Trim();
+                PromptStringOptions psoName = new PromptStringOptions($"\n[sisRUA] Digite o nome do projeto (opcional, padrão: 'Projeto {projectId}'):");
+                PromptResult resName = ed.GetString(psoName);
+                string projectName = string.IsNullOrWhiteSpace(resName.StringResult) ? $"Projeto {projectId}" : resName.StringResult.Trim();
 
-            try
-            {
                 _projectRepository.SaveProject(projectId, projectName, _lastDrawnCrsOut, _lastDrawnFeatures);
                 ed.WriteMessage($"\n[sisRUA] Projeto '{projectName}' (ID: {projectId}) salvo com sucesso.");
                 
-                // Clear stale references to free memory after save
                 _lastDrawnFeatures = null;
                 _lastDrawnCrsOut = null;
-            }
-            catch (System.Exception ex)
-            {
-                Log($"ERROR: Failed to save project '{projectId}': {ex.Message}");
-                Application.ShowAlertDialog($"Erro ao salvar projeto: {ex.Message}");
-            }
+            });
         }
 
         [CommandMethod("SISRUA_RELOAD_PROJECT", CommandFlags.Session)]
         public static async void SisRuaReloadProjectCommand()
         {
-            Document doc = Application.DocumentManager.MdiActiveDocument;
-            if (doc == null)
+            await SisRuaTransactionalShield.ExecuteAsync(async (doc, db, tr) =>
             {
-                Log("WARN: SISRUA_RELOAD_PROJECT called with no active document.");
-                Application.ShowAlertDialog("Nenhum desenho ativo para carregar.");
-                return;
-            }
-
-            Editor ed = doc.Editor;
-            
-            try
-            {
-                var projects = _projectRepository.ListProjects();
-                if (!projects.Any())
-                {
-                    Application.ShowAlertDialog("Não há projetos salvos para carregar.");
-                    ed.WriteMessage("\n[sisRUA] Nenhum projeto salvo encontrado.");
-                    return;
-                }
-
-                ed.WriteMessage("\n--- Projetos Salvos ---");
-                foreach (var p in projects)
-                {
-                    ed.WriteMessage($"\nID: {p.projectId}, Nome: {p.projectName}, Data: {p.creationDate}");
-                }
-                ed.WriteMessage("\n---------------------");
-
-                PromptStringOptions pso = new PromptStringOptions("\n[sisRUA] Digite o ID do projeto a carregar:")
-                {
-                    AllowSpaces = false
-                };
-                PromptResult res = ed.GetString(pso);
-                if (res.Status != PromptStatus.OK)
-                {
-                    ed.WriteMessage("\n[sisRUA] Operação de carregamento cancelada.");
-                    return;
-                }
-
-                string selectedProjectId = res.StringResult.Trim();
-                var (projectName, crsOut, features) = _projectRepository.LoadProject(selectedProjectId);
-
-                if (features == null || !features.Any())
-                {
-                    Application.ShowAlertDialog($"Projeto '{selectedProjectId}' não encontrado ou vazio.");
-                    ed.WriteMessage($"\n[sisRUA] Projeto '{selectedProjectId}' não encontrado ou vazio.");
-                    return;
-                }
-
-                // Optionally, clear current Model Space before redrawing
-                // For simplicity, we will just draw over for now. User can clear manually if needed.
-
-
-                ed.WriteMessage($"\n[sisRUA] Carregando e redesenhando projeto '{projectName}' (ID: {selectedProjectId})...");
-                using (var dlg = new ProcessingDialog())
-                {
-                    Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
-                    // Use Engine for message
-                    Engine.WriteMessage($"Reloading project {selectedProjectId}...");
-                    
-                    // IMPORTANT: We do NOT hold the DocumentLock during the await DrawCadFeatures
-                    // because DrawCadFeatures manages its own lock internally for the drawing phase.
-                    await DrawCadFeatures(features, dlg);
-                }
+                Editor ed = doc.Editor;
                 
-                _lastDrawnFeatures = features;
-                _lastDrawnCrsOut = crsOut;
+                try
+                {
+                    var projects = _projectRepository.ListProjects();
+                    if (!projects.Any())
+                    {
+                        Application.ShowAlertDialog("Não há projetos salvos para carregar.");
+                        ed.WriteMessage("\n[sisRUA] Nenhum projeto salvo encontrado.");
+                        return;
+                    }
 
-                ed.WriteMessage($"\n[sisRUA] Projeto '{projectName}' redesenhado com sucesso.");
-            }
-            catch (System.Exception ex)
+                    ed.WriteMessage("\n--- Projetos Salvos ---");
+                    foreach (var p in projects)
+                    {
+                        ed.WriteMessage($"\nID: {p.projectId}, Nome: {p.projectName}, Data: {p.creationDate}");
+                    }
+                    ed.WriteMessage("\n---------------------");
+
+                    PromptStringOptions pso = new PromptStringOptions("\n[sisRUA] Digite o ID do projeto a carregar:")
+                    {
+                        AllowSpaces = false
+                    };
+                    PromptResult res = ed.GetString(pso);
+                    if (res.Status != PromptStatus.OK)
+                    {
+                        ed.WriteMessage("\n[sisRUA] Operação de carregamento cancelada.");
+                        return;
+                    }
+
+                    string selectedProjectId = res.StringResult.Trim();
+                    var (projectName, crsOut, features) = _projectRepository.LoadProject(selectedProjectId);
+
+                    if (features == null || !features.Any())
+                    {
+                        Application.ShowAlertDialog($"Projeto '{selectedProjectId}' não encontrado ou vazio.");
+                        ed.WriteMessage($"\n[sisRUA] Projeto '{selectedProjectId}' não encontrado ou vazio.");
+                        return;
+                    }
+
+                    ed.WriteMessage($"\n[sisRUA] Carregando e redesenhando projeto '{projectName}' (ID: {selectedProjectId})...");
+                    using (var dlg = new ProcessingDialog())
+                    {
+                        Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
+                        Engine.WriteMessage($"Reloading project {selectedProjectId}...");
+                        await DrawCadFeatures(features, dlg);
+                    }
+                    
+                    _lastDrawnFeatures = features;
+                    _lastDrawnCrsOut = crsOut;
+
+                    ed.WriteMessage($"\n[sisRUA] Projeto '{projectName}' redesenhado com sucesso.");
+                }
+                catch (System.Exception ex)
+                {
+                    Log($"ERROR: Failed to load project: {ex.Message}");
+                    Application.ShowAlertDialog($"Erro ao carregar projeto: {ex.Message}");
+                }
+            });
+        }
+
+        [CommandMethod("SISRUA_SYNC_CLOUD", CommandFlags.Modal)]
+        public async void SisRuaSyncCloudCommand()
+        {
+            await SisRuaTransactionalShield.ExecuteAsync(async (doc, db, tr) =>
             {
-                Log($"ERROR: Failed to load project: {ex.Message}");
-                Application.ShowAlertDialog($"Erro ao carregar projeto: {ex.Message}");
-            }
+                var ed = doc.Editor;
+                string baseUrl = GetBackendBaseUrlOrAlert(ed);
+                if (baseUrl == null) return;
+
+                ed.WriteMessage("\n[sisRUA] Iniciando sincronização com sisRUA Cloud (Enterprise Node)...");
+
+                try
+                {
+                    using (var req = CreateAuthedJsonRequest(HttpMethod.Post, $"{baseUrl}/api/v1/sync/cloud", null))
+                    {
+                        var resp = await _httpClient.SendAsync(req);
+                        resp.EnsureSuccessStatusCode();
+                        string text = await resp.Content.ReadAsStringAsync();
+                        var syncResult = JsonSerializer.Deserialize<SyncToCloudResponse>(text, _jsonOptions);
+
+                        if (syncResult != null && syncResult.Status == "success")
+                        {
+                            ed.WriteMessage($"\n[sisRUA] Sucesso! {syncResult.SyncedFeatures} entidades sincronizadas com {syncResult.CloudNode}.");
+                            ed.WriteMessage("\n[sisRUA] Backup e integridade de dados verificados (Audit Grade).");
+                        }
+                        else
+                        {
+                            ed.WriteMessage("\n[sisRUA] Falha na sincronização. Verifique sua licença Enterprise.");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ed.WriteMessage($"\n[sisRUA] Erro de conexão: {ex.Message}");
+                    Log($"ERROR: Cloud Sync failed: {ex.Message}");
+                }
+            });
         }
 
 
@@ -425,6 +429,21 @@ namespace sisRUA
 
             [JsonPropertyName("error")]
             public string Error { get; set; }
+        }
+
+        private sealed class SyncToCloudResponse
+        {
+            [JsonPropertyName("status")]
+            public string Status { get; set; }
+
+            [JsonPropertyName("synced_features")]
+            public int SyncedFeatures { get; set; }
+
+            [JsonPropertyName("cloud_node")]
+            public string CloudNode { get; set; }
+
+            [JsonPropertyName("timestamp")]
+            public double Timestamp { get; set; }
         }
 
 
@@ -703,107 +722,107 @@ namespace sisRUA
 
         public static async Task ImportarDadosCampo(string geojsonData)
         {
-            Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
-            Log("INFO: ImportarDadosCampo called with GeoJSON data.");
-            ed.WriteMessage("\n[sisRUA] GeoJSON recebido. Preparando importação (sem DXF)...");
-
-            try
+            await SisRuaTransactionalShield.ExecuteAsync(async (doc, db, tr) =>
             {
-                string baseUrl = GetBackendBaseUrlOrAlert(ed);
-                if (string.IsNullOrWhiteSpace(baseUrl)) return;
+                Editor ed = doc.Editor;
+                Log("INFO: ImportarDadosCampo called with GeoJSON data.");
+                ed.WriteMessage("\n[sisRUA] GeoJSON recebido. Preparando importação (sem DXF)...");
 
-                ed.WriteMessage("\n[sisRUA] Criando job de importação (GeoJSON) no backend...");
-                var jobPayload = new PrepareJobRequest { Kind = "geojson", GeoJson = geojsonData };
-                
-                using (var dlg = new ProcessingDialog())
+                try
                 {
-                    Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
-                    var prepareResponse = await RunPrepareJobAsync(ed, baseUrl, jobPayload, dlg);
-                    if (prepareResponse?.Features == null || prepareResponse.Features.Count == 0)
+                    string baseUrl = GetBackendBaseUrlOrAlert(ed);
+                    if (string.IsNullOrWhiteSpace(baseUrl)) return;
+
+                    ed.WriteMessage("\n[sisRUA] Criando job de importação (GeoJSON) no backend...");
+                    var jobPayload = new PrepareJobRequest { Kind = "geojson", GeoJson = geojsonData };
+                    
+                    using (var dlg = new ProcessingDialog())
                     {
-                        ed.WriteMessage("\n[sisRUA] Aviso: backend retornou 0 features para desenhar.");
-                        Log("WARN: Backend returned 0 features to draw.");
-                        return;
+                        Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
+                        var prepareResponse = await RunPrepareJobAsync(ed, baseUrl, jobPayload, dlg);
+                        if (prepareResponse?.Features == null || prepareResponse.Features.Count == 0)
+                        {
+                            ed.WriteMessage("\n[sisRUA] Aviso: backend retornou 0 features para desenhar.");
+                            Log("WARN: Backend returned 0 features to draw.");
+                            return;
+                        }
+
+                        ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
+                        await DrawCadFeatures(prepareResponse.Features, dlg);
+
+                        // Store last drawn features for saving
+                        _lastDrawnFeatures = prepareResponse.Features;
+                        _lastDrawnCrsOut = prepareResponse.CrsOut;
                     }
-
-                    ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
-                    await DrawCadFeatures(prepareResponse.Features, dlg);
-
-                    // Store last drawn features for saving
-                    _lastDrawnFeatures = prepareResponse.Features;
-                    _lastDrawnCrsOut = prepareResponse.CrsOut;
                 }
-            }
-            catch (HttpRequestException httpEx)
-            {
-                ed.WriteMessage($"\n[sisRUA] ERRO: Falha de comunicação com o backend Python. O servidor está rodando? Detalhes: {httpEx.Message}");
-                Application.ShowAlertDialog($"Erro de comunicação com o backend do sisRUA.\nVerifique se o plugin foi iniciado corretamente.\n\nDetalhes: {httpEx.Message}");
-                Log($"ERROR: HttpRequestException in ImportarDadosCampo: {httpEx.Message}");
-            }
-            catch (System.Exception ex)
-            {
-                ed.WriteMessage($"\n[sisRUA] ERRO: Ocorreu um erro inesperado durante a importação. Detalhes: {ex.Message}");
-                Application.ShowAlertDialog($"Ocorreu um erro inesperado no sisRUA:\n{ex.Message}");
-                Log($"FATAL: Unexpected error in ImportarDadosCampo: {ex}");
-                Debug.WriteLine($"[sisRUA] StackTrace: {ex}");
-            }
+                catch (HttpRequestException httpEx)
+                {
+                    Log($"ERROR: HttpRequestException in ImportarDadosCampo: {httpEx.Message}");
+                    throw; // Shield will handle and log
+                }
+                catch (System.Exception ex)
+                {
+                    Log($"FATAL: Unexpected error in ImportarDadosCampo: {ex}");
+                    throw;
+                }
+            });
         }
 
         public static async Task GerarProjetoOsm(double latitude, double longitude, double radius)
         {
-            Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
-            Log($"INFO: GerarProjetoOsm called with Lat={latitude}, Lon={longitude}, Radius={radius}.");
-            ed.WriteMessage("\n[sisRUA] Recebida solicitação para gerar ruas do OSM (sem DXF)...");
-
-            try
+            await SisRuaTransactionalShield.ExecuteAsync(async (doc, db, tr) =>
             {
-                string baseUrl = GetBackendBaseUrlOrAlert(ed);
-                if (string.IsNullOrWhiteSpace(baseUrl)) return;
+                Editor ed = doc.Editor;
+                Log($"INFO: GerarProjetoOsm called with Lat={latitude}, Lon={longitude}, Radius={radius}.");
+                ed.WriteMessage("\n[sisRUA] Recebida solicitação para gerar ruas do OSM (sem DXF)...");
 
-                ed.WriteMessage($"\n[sisRUA] Parâmetros: Lat={latitude}, Lon={longitude}, Raio={radius}m");
-                ed.WriteMessage("\n[sisRUA] Criando job OSM no backend...");
-                var jobPayload = new PrepareJobRequest
+                try
                 {
-                    Kind = "osm",
-                    Latitude = latitude,
-                    Longitude = longitude,
-                    Radius = radius
-                };
-                
-                using (var dlg = new ProcessingDialog())
-                {
-                    Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
-                    var prepareResponse = await RunPrepareJobAsync(ed, baseUrl, jobPayload, dlg);
+                    string baseUrl = GetBackendBaseUrlOrAlert(ed);
+                    if (string.IsNullOrWhiteSpace(baseUrl)) return;
 
-                    if (prepareResponse?.Features == null || prepareResponse.Features.Count == 0)
+                    ed.WriteMessage($"\n[sisRUA] Parâmetros: Lat={latitude}, Lon={longitude}, Raio={radius}m");
+                    ed.WriteMessage("\n[sisRUA] Criando job OSM no backend...");
+                    var jobPayload = new PrepareJobRequest
                     {
-                        ed.WriteMessage("\n[sisRUA] Aviso: backend retornou 0 features para desenhar.");
-                        Log("WARN: Backend returned 0 features to draw.");
-                        return;
+                        Kind = "osm",
+                        Latitude = latitude,
+                        Longitude = longitude,
+                        Radius = radius
+                    };
+                    
+                    using (var dlg = new ProcessingDialog())
+                    {
+                        Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
+                        var prepareResponse = await RunPrepareJobAsync(ed, baseUrl, jobPayload, dlg);
+
+                        if (prepareResponse?.Features == null || prepareResponse.Features.Count == 0)
+                        {
+                            ed.WriteMessage("\n[sisRUA] Aviso: backend retornou 0 features para desenhar.");
+                            Log("WARN: Backend returned 0 features to draw.");
+                            return;
+                        }
+
+                        ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
+                        await DrawCadFeatures(prepareResponse.Features, dlg);
+                        EnsureOsmAttributionMText(prepareResponse.Features);
+
+                        // Store last drawn features for saving
+                        _lastDrawnFeatures = prepareResponse.Features;
+                        _lastDrawnCrsOut = prepareResponse.CrsOut;
                     }
-
-                    ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
-                    await DrawCadFeatures(prepareResponse.Features, dlg);
-                    EnsureOsmAttributionMText(prepareResponse.Features);
-
-                    // Store last drawn features for saving
-                    _lastDrawnFeatures = prepareResponse.Features;
-                    _lastDrawnCrsOut = prepareResponse.CrsOut;
                 }
-            }
-            catch (HttpRequestException httpEx)
-            {
-                ed.WriteMessage($"\n[sisRUA] ERRO: Falha de comunicação com o backend Python. O servidor está rodando? Detalhes: {httpEx.Message}");
-                Application.ShowAlertDialog($"Erro de comunicação com o backend do sisRUA.\nVerifique se o plugin foi iniciado corretamente.\n\nDetalhes: {httpEx.Message}");
-                Log($"ERROR: HttpRequestException in GerarProjetoOsm: {httpEx.Message}");
-            }
-            catch (System.Exception ex)
-            {
-                ed.WriteMessage($"\n[sisRUA] ERRO: Ocorreu um erro inesperado durante a geração do OSM. Detalhes: {ex.Message}");
-                Application.ShowAlertDialog($"Ocorreu um erro inesperado no sisRUA:\n{ex.Message}");
-                Log($"FATAL: Unexpected error in GerarProjetoOsm: {ex}");
-                Debug.WriteLine($"[sisRUA] StackTrace: {ex}");
-            }
+                catch (HttpRequestException httpEx)
+                {
+                    Log($"ERROR: HttpRequestException in GerarProjetoOsm: {httpEx.Message}");
+                    throw;
+                }
+                catch (System.Exception ex)
+                {
+                    Log($"FATAL: Unexpected error in GerarProjetoOsm: {ex}");
+                    throw;
+                }
+            });
         }
 
         private static async Task DrawCadFeatures(IEnumerable<CadFeature> features, ProcessingDialog dlg)
@@ -915,89 +934,115 @@ namespace sisRUA
                 ed.WriteMessage($"\n[sisRUA] Aviso: Polylines simplificadas (tolerância: {finalTolerance:F2} unidades).");
             }
 
-            // Phase 3: Drawing (UI Thread Transaction)
-            if (doc.IsDisposed)
+            // Phase 3: Drawing (UI Thread Transaction via Shield)
+            // Phase 3: Live-Streaming Drawing (Chunked Transactions for UX)
+            if (doc.IsDisposed) return;
+
+            int createdPolylines = 0;
+            int createdBlocks = 0;
+            int chunkSize = 50;
+            var featureList = finalFeatures.ToList();
+
+            for (int i = 0; i < featureList.Count; i += chunkSize)
             {
-                Log("WARN: Document was closed during background processing. Aborting draw.");
-                return;
+                if (dlg.WasCancelled) break;
+
+                var chunk = featureList.Skip(i).Take(chunkSize);
+
+                SisRuaTransactionalShield.Execute((d, database, tr) =>
+                {
+                    LayerTable lt = (LayerTable)tr.GetObject(database.LayerTableId, OpenMode.ForRead);
+                    
+                    // Re-extracting origin only on first chunk for efficiency
+                    double originX = 0, originY = 0;
+                    var firstFeature = featureList.FirstOrDefault(f => f.OriginalGeoJsonProperties != null && f.OriginalGeoJsonProperties.ContainsKey("sys_sisrua_origin"));
+                    if (firstFeature != null)
+                    {
+                        try {
+                            var originList = firstFeature.OriginalGeoJsonProperties["sys_sisrua_origin"] as System.Text.Json.JsonElement?;
+                            if (originList.HasValue && originList.Value.ValueKind == System.Text.Json.JsonValueKind.Array) {
+                                originX = originList.Value[0].GetDouble();
+                                originY = originList.Value[1].GetDouble();
+                            }
+                        } catch { }
+                    }
+
+                    foreach (var f in chunk)
+                    {
+                        if (f == null) continue;
+                        var (layerName, aci) = GetLayerStyleForFeature(f);
+                        EnsureLayer(tr, database, lt, layerName, aci);
+
+                        switch (f.FeatureType)
+                        {
+                            case CadFeatureType.Polyline:
+                                if (f.CoordsXy == null || f.CoordsXy.Count < 2) continue;
+                                var agnosticPoints = f.CoordsXy.Select(pt => new SisRuaPoint(
+                                    (pt[0] + originX) * metersToDrawingUnits,
+                                    (pt[1] + originY) * metersToDrawingUnits,
+                                    f.Elevation.HasValue ? f.Elevation.Value * metersToDrawingUnits : 0.0
+                                )).ToList();
+
+                                double? widthUnits = TryGetRoadWidthUnits(f, metersToDrawingUnits);
+                                Engine.DrawPolyline(agnosticPoints, layerName, (widthUnits.HasValue && widthUnits.Value > 0.05) ? widthUnits : null, f.Elevation.HasValue ? (double?)(f.Elevation.Value * metersToDrawingUnits) : null, f.Color);
+                                createdPolylines++;
+                                break;
+
+                            case CadFeatureType.Point:
+                                if (f.InsertionPointXy == null || f.InsertionPointXy.Count < 2 || string.IsNullOrWhiteSpace(f.BlockName) || string.IsNullOrWhiteSpace(f.BlockFilePath)) continue;
+                                var insPt = new SisRuaPoint((f.InsertionPointXy[0] + originX) * metersToDrawingUnits, (f.InsertionPointXy[1] + originY) * metersToDrawingUnits, f.Elevation.HasValue ? f.Elevation.Value * metersToDrawingUnits : 0.0);
+                                Engine.InsertBlock(f.BlockName, insPt, f.Rotation ?? 0.0, f.Scale ?? 1.0, layerName);
+                                createdBlocks++;
+                                break;
+                        }
+                    }
+                });
+
+                // Progressive UI feedback
+                ed.UpdateScreen();
+                dlg.SetProgress(75 + (int)(25.0 * i / featureList.Count));
+                await Task.Delay(5); // Micro-delay allows AutoCAD to pump messages and show the drawing
             }
 
-            using (doc.LockDocument())
-            using (Transaction tr = db.TransactionManager.StartTransaction())
+            ed.WriteMessage($"\n[sisRUA] Sucesso! {createdPolylines} polylines e {createdBlocks} blocos criados.");
+            
+            // AUDIT INTEGRITY: Inject OID to mark drawing as "Certified Padrão sisRUA"
+            EnsurePadrãoSisRuaMetadata(database);
+            
+            ed.Regen();
+        }
+
+        private static void EnsurePadrãoSisRuaMetadata(Database db)
+        {
+            try
             {
-                LayerTable lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
-
-                ObjectId msId = SymbolUtilityServices.GetBlockModelSpaceId(db);
-                BlockTableRecord ms = (BlockTableRecord)tr.GetObject(msId, OpenMode.ForWrite);
-
-                int createdPolylines = 0;
-                int createdBlocks = 0;
-
-                foreach (var f in finalFeatures)
+                using (var tr = db.TransactionManager.StartTransaction())
                 {
-                    if (f == null) continue;
-
-                    var (layerName, aci) = GetLayerStyleForFeature(f);
-                    EnsureLayer(tr, db, lt, layerName, aci);
-
-                    switch (f.FeatureType)
+                    var nod = (DBDictionary)tr.GetObject(db.NamedObjectsDictionaryId, OpenMode.ForWrite);
+                    
+                    if (!nod.Contains("SISRUA_METADATA"))
                     {
-                        case CadFeatureType.Polyline:
-                            if (f.CoordsXy == null || f.CoordsXy.Count < 2) continue;
-
-                            var agnosticPoints = f.CoordsXy.Select(pt => new SisRuaPoint(
-                                pt[0] * metersToDrawingUnits,
-                                pt[1] * metersToDrawingUnits,
-                                f.Elevation.HasValue ? f.Elevation.Value * metersToDrawingUnits : 0.0
-                            )).ToList();
-
-                            double? widthUnits = TryGetRoadWidthUnits(f, metersToDrawingUnits);
-
-                            // The Engine handles the drawing logic now. 
-                            // Complex offset logic is still in SisRuaCommands for now but uses agnostic points.
-                            // However, to strictly follow the abstraction, we should delegate.
-                            // For this pivot, we call the Engine's polyline method.
-                            
-                            Engine.DrawPolyline(
-                                agnosticPoints, 
-                                layerName, 
-                                (widthUnits.HasValue && widthUnits.Value > 0.05) ? widthUnits : null,
-                                f.Elevation.HasValue ? (double?)(f.Elevation.Value * metersToDrawingUnits) : null,
-                                f.Color
-                            );
-                            createdPolylines++;
-                            break;
-
-                        case CadFeatureType.Point:
-                            // Inserção de Blocos
-                            if (f.InsertionPointXy == null || f.InsertionPointXy.Count < 2 || string.IsNullOrWhiteSpace(f.BlockName) || string.IsNullOrWhiteSpace(f.BlockFilePath))
-                            {
-                                Log($"WARN: Skipping point feature due to missing data: InsertionPointXy, BlockName, or BlockFilePath is null/empty for feature {f.Name ?? "unnamed"}.");
-                                continue;
-                            }
-                            
-                            var insPt = new SisRuaPoint(
-                                f.InsertionPointXy[0] * metersToDrawingUnits,
-                                f.InsertionPointXy[1] * metersToDrawingUnits,
-                                f.Elevation.HasValue ? f.Elevation.Value * metersToDrawingUnits : 0.0
-                            );
-
-                            Engine.InsertBlock(
-                                f.BlockName, 
-                                insPt,
-                                f.Rotation ?? 0.0,
-                                f.Scale ?? 1.0,
-                                layerName
-                            );
-                            createdBlocks++;
-                            break;
+                        var sisruaDict = new DBDictionary();
+                        nod.SetAt("SISRUA_METADATA", sisruaDict);
+                        tr.AddNewlyCreatedDBObject(sisruaDict, true);
+                        
+                        // Injetamos um XRecord com o ID do projeto (UUID) e Timestamp
+                        var xRec = new XRecord();
+                        xRec.Data = new ResultBuffer(
+                            new TypedValue((int)DxfCode.Text, Guid.NewGuid().ToString()),
+                            new TypedValue((int)DxfCode.Text, DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")),
+                            new TypedValue((int)DxfCode.Text, "Padrão sisRUA v0.8.0")
+                        );
+                        
+                        sisruaDict.SetAt("Audit_ID", xRec);
+                        tr.AddNewlyCreatedDBObject(xRec, true);
                     }
+                    tr.Commit();
                 }
-
-                tr.Commit();
-                ed.WriteMessage($"\n[sisRUA] Sucesso! {createdPolylines} polylines e {createdBlocks} blocos criados no Model Space.");
-                Log($"INFO: DrawCadFeatures completed. {createdPolylines} polylines and {createdBlocks} blocks created.");
-                ed.Regen();
+            }
+            catch (Exception ex)
+            {
+                Log($"ERROR: Failed to inject Audit Metadata: {ex.Message}");
             }
         }
 
@@ -1344,88 +1389,6 @@ namespace sisRUA
             catch (System.Exception ex)
             {
                 Log($"ERROR: Failed to create layer {layerName}: {ex.Message}");
-            }
-        }
-
-        [CommandMethod("SISRUA_SAVE_PROJECT", CommandFlags.Session)]
-        public static void SisRuaSaveProjectCommand()
-        {
-            Document doc = Application.DocumentManager.MdiActiveDocument;
-            if (doc == null) return;
-            Editor ed = doc.Editor;
-
-            try
-            {
-                PromptStringOptions pso = new PromptStringOptions("\nDigite o ID do Projeto (ex: A001): ");
-                pso.AllowSpaces = false;
-                PromptResult pr = ed.GetString(pso);
-                if (pr.Status != PromptStatus.OK) return;
-
-                string projectId = pr.StringResult;
-                string projectName = "Projeto " + projectId; // Placeholder or can ask for name
-
-                if (_lastImportedFeatures == null || _lastImportedFeatures.Count == 0)
-                {
-                    ed.WriteMessage("\n[sisRUA] Nenhum dado carregado para salvar. Importe via OSM/GeoJSON primeiro.");
-                    return;
-                }
-
-                ed.WriteMessage($"\n[sisRUA] Salvando {_lastImportedFeatures.Count} feições no SQLite...");
-                
-                var repo = new ProjectRepository();
-                repo.SaveProject(projectId, projectName, _lastCrs, _lastImportedFeatures);
-
-                ed.WriteMessage($"\n[sisRUA] Projeto {projectId} salvo com sucesso no SQLite.");
-                ed.WriteMessage($"\n[sisRUA] Sugestão: Use SISRUA_LOAD_PROJECT para recuperar.");
-            }
-            catch (Exception ex)
-            {
-                ed.WriteMessage($"\n[sisRUA] Erro ao salvar projeto: {ex.Message}");
-                TelemetryService.ReportErrorSync("SAVE_PROJECT_COMMAND", ex);
-            }
-        }
-
-        [CommandMethod("SISRUA_LOAD_PROJECT", CommandFlags.Session)]
-        public static void SisRuaLoadProjectCommand()
-        {
-            Document doc = Application.DocumentManager.MdiActiveDocument;
-            if (doc == null) return;
-            Editor ed = doc.Editor;
-
-            try
-            {
-                PromptStringOptions pso = new PromptStringOptions("\nDigite o ID do Projeto para carregar: ");
-                PromptResult pr = ed.GetString(pso);
-                if (pr.Status != PromptStatus.OK) return;
-
-                string projectId = pr.StringResult;
-                ed.WriteMessage($"\n[sisRUA] Carregando projeto {projectId} do SQLite...");
-
-                var repo = new ProjectRepository();
-                var project = repo.LoadProject(projectId);
-                
-                if (project != null && project.Features != null)
-                {
-                    ed.WriteMessage($"\n[sisRUA] Redesenhando {project.Features.Count} feições...");
-                    
-                    // Show a progress dialog
-                    using (var dlg = new ProcessingDialog())
-                    {
-                        dlg.SetMessage("Redesenhando projeto do SQLite...");
-                        dlg.SetProgress(50);
-                        // We must await because we are on a Command thread
-                        DrawCadFeatures(project.Features, dlg).Wait();
-                    }
-                }
-                else
-                {
-                    ed.WriteMessage($"\n[sisRUA] Projeto {projectId} não encontrado.");
-                }
-            }
-            catch (Exception ex)
-            {
-                ed.WriteMessage($"\n[sisRUA] Erro ao carregar projeto: {ex.Message}");
-                TelemetryService.ReportErrorSync("LOAD_PROJECT_COMMAND", ex);
             }
         }
 

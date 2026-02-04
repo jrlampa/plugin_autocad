@@ -32,11 +32,7 @@ namespace sisRUA.Engine
 
         public void EnsureLayer(string layerName, short colorIndex)
         {
-            var doc = Application.DocumentManager.MdiActiveDocument;
-            if (doc == null) return;
-            var db = doc.Database;
-
-            using (var tr = db.TransactionManager.StartTransaction())
+            SisRuaTransactionalShield.Execute((doc, db, tr) =>
             {
                 var lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
                 if (!lt.Has(layerName))
@@ -49,8 +45,7 @@ namespace sisRUA.Engine
                     lt.Add(ltr);
                     tr.AddNewlyCreatedDBObject(ltr, true);
                 }
-                tr.Commit();
-            }
+            });
         }
 
         public void InsertBlock(string blockName, SisRuaPoint position, double rotation, double scale, string layerName)
@@ -60,18 +55,16 @@ namespace sisRUA.Engine
              var db = doc.Database;
              var acadPos = new Point3d(position.X, position.Y, position.Z);
              
+             using (doc.LockDocument())
              using (var tr = db.TransactionManager.StartTransaction())
              {
-                 // Implementation using acadPos...
+                 // Implementation...
              }
         }
         
         public void DrawPolyline(IEnumerable<SisRuaPoint> points, string layerName, double? constantWidth, double? elevation, string color)
         {
-            var doc = Application.DocumentManager.MdiActiveDocument;
-            if (doc == null) return;
-            var db = doc.Database;
-            using (var tr = db.TransactionManager.StartTransaction())
+            SisRuaTransactionalShield.Execute((doc, db, tr) =>
             {
                 var bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
                 var ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
@@ -96,24 +89,19 @@ namespace sisRUA.Engine
                 if (!string.IsNullOrWhiteSpace(color))
                 {
                     // Logic to parse color string... for now simplified
-                    // In a real scenario, this would call a shared ParseColor helper
                 }
 
                 ms.AppendEntity(pline);
                 tr.AddNewlyCreatedDBObject(pline, true);
-                tr.Commit();
-            }
+            });
         }
 
         public void DrawLine(SisRuaPoint start, SisRuaPoint end, string layerName) 
         {
-            var doc = Application.DocumentManager.MdiActiveDocument;
-            if (doc == null) return;
-            var db = doc.Database;
             var acadStart = new Point3d(start.X, start.Y, start.Z);
             var acadEnd = new Point3d(end.X, end.Y, end.Z);
 
-            using (var tr = db.TransactionManager.StartTransaction())
+            SisRuaTransactionalShield.Execute((doc, db, tr) =>
             {
                  var bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
                  var ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
@@ -122,8 +110,7 @@ namespace sisRUA.Engine
                  line.Layer = layerName;
                  ms.AppendEntity(line);
                  tr.AddNewlyCreatedDBObject(line, true);
-                 tr.Commit();
-            }
+            });
         }
     }
 }

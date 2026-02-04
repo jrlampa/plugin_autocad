@@ -407,18 +407,18 @@ namespace sisRUA
                 // Configura a ponte de comunicação JS -> C#
                 _webView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
 
-                // Envia o token de autenticação de forma segura quando a navegação completa (evita Race Condition)
-                _webView.CoreWebView2.NavigationCompleted += (s, args) =>
+                // --- Mitigação Prática: Auth Interception ---
+                // Intercepta todas as chamadas para injetar o header de forma invisível.
+                // Filtramos apenas para o domínio do backend para evitar vazamento de token para fora (ex: OSM).
+                string backendHost = new Uri(SisRuaPlugin.BackendBaseUrl).Host;
+                string filter = $"*://{backendHost}/*";
+                _webView.CoreWebView2.AddWebResourceRequestedFilter(filter, CoreWebView2WebResourceContext.All);
+                
+                _webView.CoreWebView2.WebResourceRequested += (s, args) =>
                 {
-                    if (args.IsSuccess && SisRuaPlugin.Instance != null && !string.IsNullOrWhiteSpace(SisRuaPlugin.BackendAuthToken))
+                    if (!string.IsNullOrWhiteSpace(SisRuaPlugin.BackendAuthToken))
                     {
-                        var tokenMessage = new
-                        {
-                            action = "INIT_AUTH_TOKEN",
-                            data = new { token = SisRuaPlugin.BackendAuthToken }
-                        };
-                        string json = System.Text.Json.JsonSerializer.Serialize(tokenMessage);
-                        _webView.CoreWebView2.PostWebMessageAsJson(json);
+                        args.Request.Headers.SetHeader(SisRuaPlugin.BackendAuthHeaderName, SisRuaPlugin.BackendAuthToken);
                     }
                 };
                 

@@ -68,13 +68,27 @@ class HealthService:
             latency_ms=(time.time() - ext_start) * 1000
         )
         
-        # Overall Status
-        overall = "ok"
-        if any(c.status == "down" for c in components.values()):
-            overall = "error"
-        elif any(c.status == "degraded" for c in components.values()):
-            overall = "degraded"
-            
+        # 4. GIS Core Dependencies (C-Libraries)
+        gis_start = time.time()
+        gdal_status, proj_status = "down", "down"
+        try:
+            from osgeo import gdal
+            gdal.UseExceptions()
+            gdal_status = "up"
+        except Exception: gdal_status = "down"
+        
+        try:
+            import pyproj
+            pyproj.Proj("EPSG:4326")
+            proj_status = "up"
+        except Exception: proj_status = "down"
+        
+        components["gis_core_deps"] = ComponentHealth(
+            status="up" if (gdal_status == "up" and proj_status == "up") else "down",
+            details=f"GDAL: {gdal_status}, PROJ: {proj_status}",
+            latency_ms=(time.time() - gis_start) * 1000
+        )
+        
         total_latency = (time.time() - start_time) * 1000
         
         return DeepHealthResponse(

@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-osmnx
-pyproj
-shapely
-geopandas

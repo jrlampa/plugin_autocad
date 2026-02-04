@@ -14,8 +14,10 @@ from backend.core.utils import (
 )
 from backend.core.circuit_breaker import CircuitBreaker
 from backend.core.retry import Retry
-from backend.services.crs import sirgas2000_utm_epsg
+from backend.gis_core.crs import sirgas2000_utm_epsg
 from backend.core.logger import get_logger
+from backend.gis_core.topology import TopologyHealer
+from backend.gis_core.geometry import apply_local_offset, snap_to_edge, get_bounding_offset
 
 logger = get_logger(__name__)
 
@@ -250,6 +252,29 @@ def prepare_osm_compute(
 
     except Exception as ex:
         logger.error("elevation_injection_failed", error=str(ex))
+
+    # HEAL TOPOLOGY (Proprietary IP)
+    healer = TopologyHealer()
+    features = healer.heal_network(features)
+    
+    # PRECISION HARDENING: Local Offset Strategy
+    # Using the first point as origin to keep coordinates near [0,0]
+    origin_x, origin_y = get_bounding_offset(features)
+    
+    for f in features:
+        # Brand Signature (Invisible Metadata)
+        f.original_geojson_properties["sys_sisrua_integrity"] = healer.get_integrity_signature(features)
+        f.original_geojson_properties["sys_sisrua_origin"] = [origin_x, origin_y]
+        
+        if f.feature_type == "Polyline" and f.coords_xy:
+            # Shift to local origin
+            local_coords = apply_local_offset(f.coords_xy, origin_x, origin_y)
+            # Deterministic Snap-on-Edge
+            f.coords_xy = snap_to_edge(local_coords)
+            
+        elif f.feature_type == "Point" and f.insertion_point_xy:
+            # Shift point to local origin
+            f.insertion_point_xy = [f.insertion_point_xy[0] - origin_x, f.insertion_point_xy[1] - origin_y]
 
     # BIM-LITE: Offload geometric cleaning to backend for SaaS scalability
     from backend.core.utils import clean_geometry

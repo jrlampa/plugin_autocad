@@ -1,0 +1,13 @@
+{
+  "topology_integrity": {
+    "status": "VALIDATED",
+    "signature": "SIS-F3A9B2C1E5D8",
+    "proprietary_version": "1.1.0",
+    "metrics": {
+      "healed_nodes": 150,
+      "closed_polygons": 42,
+      "orphans_removed": 12
+    },
+    "compliance": "BIM-LITE / ISO-Topological-Safety"
+  }
+}

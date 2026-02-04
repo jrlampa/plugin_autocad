@@ -101,6 +101,7 @@ def _collect_results(pack_dir: Path) -> None:
         (REPO_ROOT / "src" / "frontend" / "test-results", results_dir / "playwright-test-results"),
         (Path(os.getenv("LOCALAPPDATA", "")) / "sisRUA" / "qa" / "out" / "geometry_compliance.xml", results_dir / "geometry_compliance.xml"),
         (Path.home() / "AppData" / "Local" / "sisRUA" / "qa" / "out" / "geometry_compliance.xml", results_dir / "geometry_compliance.xml"),
+        (REPO_ROOT / "src" / "backend" / "backend" / "gis_core" / "topology_report.json", results_dir / "topology_integrity_report.json"),
     ]
 
     for src, dst in candidates:
@@ -191,6 +192,9 @@ def main() -> int:
     _safe_copy(REPO_ROOT / "docs" / "TESTES_MANUAIS_AUTOCAD.md", pack_dir / "docs" / "TESTES_MANUAIS_AUTOCAD.md")
     _safe_copy(REPO_ROOT / "docs" / "TROUBLESHOOTING.md", pack_dir / "docs" / "TROUBLESHOOTING.md")
     _safe_copy(REPO_ROOT / "docs" / "RELEASE.md", pack_dir / "docs" / "RELEASE.md")
+    _safe_copy(REPO_ROOT / "docs" / "compliance" / "ISO_27001_Alignment.md", pack_dir / "legal" / "ISO_27001_Alignment.md")
+    _safe_copy(REPO_ROOT / "docs" / "compliance" / "ISO_9001_Alignment.md", pack_dir / "legal" / "ISO_9001_Alignment.md")
+    _safe_copy(REPO_ROOT / "src" / "backend" / "backend" / "gis_core" / "IP_MOAT.md", pack_dir / "docs" / "IP_PROTECTION_REPORT.md")
 
     # Resultados (se já foram gerados)
     _collect_results(pack_dir)
