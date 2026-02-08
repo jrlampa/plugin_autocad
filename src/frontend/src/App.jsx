@@ -320,7 +320,7 @@ export default function App() {
     }
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (window.chrome && window.chrome.webview) {
       const message = {
         action: 'GENERATE_OSM',
@@ -333,7 +333,37 @@ export default function App() {
       // Importante: enviar OBJETO. Se enviar string, o C# recebe como JSON-string e o parse quebra.
       window.chrome.webview.postMessage(message);
     } else {
-      alert('Esta funcionalidade está disponível apenas ao rodar o sisRUA dentro do AutoCAD.');
+      // Standalone Mode (Electron / Browser)
+      try {
+        setHostJob({ status: 'processing', progress: 0.1, message: 'Baixando dados do OpenStreetMap...' });
+
+        // 1. Prepare OSM Data
+        const data = await api.prepareOsm(coords.lat, coords.lng, radius);
+
+        setHostJob({ status: 'processing', progress: 0.5, message: 'Gerando DXF...' });
+
+        // 2. Convert to DXF
+        const blob = await api.exportDxf(data.features);
+
+        // 3. Trigger Download
+        setHostJob({ status: 'processing', progress: 0.9, message: 'Iniciando download...' });
+
+        const url = window.URL.createObjectURL(new Blob([blob]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'sisrua_export.dxf');
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+
+        setHostJob({ status: 'completed', progress: 1.0, message: 'Exportação DXF Concluída!' });
+        setTimeout(() => setHostJob(null), 4000);
+
+      } catch (err) {
+        console.error(err);
+        setHostJob({ status: 'failed', message: 'Erro na exportação: ' + (err.message || 'Desconhecido') });
+        setTimeout(() => setHostJob(null), 5000);
+      }
     }
   };
 
@@ -455,7 +485,7 @@ export default function App() {
             <Zap className="text-white fill-white" />
           )}
           <span className="absolute left-full ml-4 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-            Gerar Projeto (OSM)
+            {!(window.chrome && window.chrome.webview) ? 'Exportar DXF (Download)' : 'Gerar Projeto (OSM)'}
           </span>
         </button>
       </div>

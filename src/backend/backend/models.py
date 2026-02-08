@@ -98,3 +98,6 @@ class WebhookRegistrationRequest(FrozenBaseModel):
 class InternalEvent(FrozenBaseModel):
     event_type: str = Field(..., description="Type of the internal event", example="project_saved")
     payload: Dict[str, Any] = Field(..., description="Event payload data")
+
+class DxfExportRequest(FrozenBaseModel):
+    geojson: Any = Field(..., description="GeoJSON FeatureCollection or Feature to export to DXF")

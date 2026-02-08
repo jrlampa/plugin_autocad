@@ -127,4 +127,32 @@ export const api = {
   exportGeoPackage: (projectId) => {
     window.open(`${API_BASE}/export/geopackage/${projectId}`, '_blank');
   },
+
+  /**
+   * Standalone: Download OSM data directly (bypass Job queue for simple sync export)
+   */
+  prepareOsm: async (lat, lon, radius) => {
+    return await ResilienceService.executeWithTracing('PREPARE_OSM', async (context) => {
+      const response = await axios.post(`${API_BASE}/prepare/osm`, {
+        latitude: lat,
+        longitude: lon,
+        radius: radius
+      }, {
+        headers: { 'X-Trace-ID': context.traceId }
+      });
+      return response.data;
+    });
+  },
+
+  /**
+   * Standalone: Convert GeoJSON to DXF and download
+   */
+  exportDxf: async (geojson) => {
+    const response = await axios.post(`${API_BASE}/export/dxf`, {
+      geojson: geojson
+    }, {
+      responseType: 'blob'
+    });
+    return response.data;
+  },
 };

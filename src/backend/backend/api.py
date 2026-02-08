@@ -110,7 +110,7 @@ from backend.models import (
     PrepareResponse, JobStatusResponse, ElevationQueryRequest, 
     ElevationProfileRequest, CadFeature, HealthResponse,
     ElevationPointResponse, ElevationProfileResponse, WebhookRegistrationRequest,
-    InternalEvent
+    InternalEvent, DxfExportRequest
 )
 from backend.services.jobs import (
     job_store, init_job, update_job, check_cancellation, 
@@ -600,6 +600,9 @@ async def export_geopackage(
             media_type="application/geopackage+sqlite3",
             filename=f"sisrua_{project_id}.gpkg"
         )
+    except Exception as e:
+        logger.error("export_geopackage_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 @app.post("/api/v1/sync/cloud", tags=["Enterprise"])
 async def sync_to_cloud(
     x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
@@ -620,7 +623,7 @@ async def sync_to_cloud(
         "cloud_node": "enterprise-gis-01.sisrua.com",
         "timestamp": time.time()
     }
-        raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoPackage: {str(e)}")
+
 
 @app.get("/api/v1/export/geojson/{project_id}", tags=["Enterprise"])
 async def export_geojson(
@@ -643,6 +646,46 @@ async def export_geojson(
     except Exception as e:
         logger.error("export_geojson_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoJSON: {str(e)}")
+
+@app.post("/api/v1/export/dxf", tags=["Enterprise"])
+async def export_dxf(
+    req: DxfExportRequest,
+    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
+):
+    """
+    Exporta GeoJSON para DXF.
+    Feature dedicada para o modo "Standalone" (Electron).
+    """
+    _require_token(x_sisrua_token)
+    from fastapi.responses import StreamingResponse
+    from io import BytesIO
+    from backend.gis_core.dxf_export import DxfExporter
+
+    try:
+        exporter = DxfExporter()
+        
+        # Normalize Data
+        features = []
+        if isinstance(req.geojson, dict):
+            if req.geojson.get("type") == "FeatureCollection":
+                features = req.geojson.get("features", [])
+            elif req.geojson.get("type") == "Feature":
+                features = [req.geojson]
+        elif isinstance(req.geojson, list):
+            features = req.geojson
+            
+        exporter.add_features(features)
+        
+        dxf_content = exporter.get_stream()
+        
+        return StreamingResponse(
+            BytesIO(dxf_content.encode("utf-8")),
+            media_type="application/dxf",
+            headers={"Content-Disposition": "attachment; filename=sisrua_export.dxf"}
+        )
+    except Exception as e:
+        logger.error("export_dxf_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- Audit Log Routes ---
 from backend.audit_routes import audit_bp
