@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using Autodesk.AutoCAD.Geometry;
 
 namespace sisRUA.Engine
 {
@@ -24,22 +22,26 @@ namespace sisRUA.Engine
             Operations.Add($"EnsureLayer: {layerName} ({colorIndex})");
         }
 
-        public void InsertBlock(string blockName, Point3d position, double rotation, double scale, string layerName)
+        public void InsertBlock(string blockName, SisRuaPoint position, double rotation, double scale, string layerName, Dictionary<string, string> metadata = null)
         {
-            Operations.Add($"InsertBlock: {blockName} at {position} on {layerName}");
+            Operations.Add($"InsertBlock: {blockName} at {position} on {layerName} (meta: {metadata?.Count ?? 0})");
             if (!BlockCounts.ContainsKey(blockName)) BlockCounts[blockName] = 0;
             BlockCounts[blockName]++;
         }
 
-        public void DrawLine(Point3d start, Point3d end, string layerName)
+        public void DrawLine(SisRuaPoint start, SisRuaPoint end, string layerName)
         {
              Operations.Add($"DrawLine: {start}->{end} on {layerName}");
+        }
+
+        public void DrawPolyline(IEnumerable<SisRuaPoint> points, string layerName, double? constantWidth, double? elevation, string color, Dictionary<string, string> metadata = null)
+        {
+            Operations.Add($"DrawPolyline: {layerName} (meta: {metadata?.Count ?? 0})");
         }
 
         public void WriteMessage(string message)
         {
             // No-op or Console.WriteLine for tests
-            // Console.WriteLine(message); 
         }
     }
 }

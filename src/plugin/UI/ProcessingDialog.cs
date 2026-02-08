@@ -93,6 +93,22 @@ namespace sisRUA.UI
         }
 
         public bool WasCancelled { get; private set; }
+        private System.Threading.CancellationTokenSource _cts = new System.Threading.CancellationTokenSource();
+        public System.Threading.CancellationToken CancellationToken => _cts.Token;
+
+        public void SetProgress(int value)
+        {
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action<int>(SetProgress), value);
+                return;
+            }
+            if (_progressBar.Style == ProgressBarStyle.Marquee)
+            {
+                 _progressBar.Style = ProgressBarStyle.Continuous;
+            }
+            _progressBar.Value = Math.Min(100, Math.Max(0, value));
+        }
 
         private void InitializeTimer()
         {
@@ -120,6 +136,8 @@ namespace sisRUA.UI
         {
             _timer?.Stop();
             _timer?.Dispose();
+            _cts?.Cancel(); 
+            _cts?.Dispose();
             base.OnFormClosing(e);
         }
     }

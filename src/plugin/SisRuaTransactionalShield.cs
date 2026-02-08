@@ -2,6 +2,7 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace sisRUA
 {
@@ -103,11 +104,13 @@ namespace sisRUA
 
         private static void CheckGeoreference(Database db)
         {
+            /*
             if (db.GeoLocationDataId == ObjectId.Null)
             {
                 SisRuaLog.Warn("TransactionalShield: O desenho atual NÃO possui dados de Georeferenciamento (GEOLOCALIZACAO).");
                 // Futuro: Impedir modificações GIS se ausente?
             }
+            */
         }
     }
 }

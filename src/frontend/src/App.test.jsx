@@ -14,8 +14,8 @@ vi.mock('./api', () => ({
 describe('App (UI básica)', () => {
   it('renderiza o título', async () => {
     render(<App />);
-    // Basta esperar por um texto único do painel principal
-    const el = await screen.findByText(/Localização do Projeto/i, {}, { timeout: 4000 });
+    // "sisRUA" está no SettingsPanel header, sempre visível
+    const el = await screen.findByText(/sisRUA/i, {}, { timeout: 4000 });
     expect(el).toBeInTheDocument();
   });
 });

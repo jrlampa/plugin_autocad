@@ -21,6 +21,7 @@ using System.Data.SQLite; // Add this using for ProjectRepository
 namespace sisRUA
 {
     using sisRUA.UI; // Import UI namespace for ProcessingDialog
+    using Exception = System.Exception;
 
     /// <summary>
     /// Contém os comandos do AutoCAD e a lógica de negócio para interagir com o desenho e o backend.
@@ -984,14 +985,16 @@ namespace sisRUA
                                 )).ToList();
 
                                 double? widthUnits = TryGetRoadWidthUnits(f, metersToDrawingUnits);
-                                Engine.DrawPolyline(agnosticPoints, layerName, (widthUnits.HasValue && widthUnits.Value > 0.05) ? widthUnits : null, f.Elevation.HasValue ? (double?)(f.Elevation.Value * metersToDrawingUnits) : null, f.Color);
+                                var polyMeta = ExtractMetadata(f);
+                                Engine.DrawPolyline(agnosticPoints, layerName, (widthUnits.HasValue && widthUnits.Value > 0.05) ? widthUnits : null, f.Elevation.HasValue ? (double?)(f.Elevation.Value * metersToDrawingUnits) : null, f.Color, polyMeta);
                                 createdPolylines++;
                                 break;
 
                             case CadFeatureType.Point:
                                 if (f.InsertionPointXy == null || f.InsertionPointXy.Count < 2 || string.IsNullOrWhiteSpace(f.BlockName) || string.IsNullOrWhiteSpace(f.BlockFilePath)) continue;
                                 var insPt = new SisRuaPoint((f.InsertionPointXy[0] + originX) * metersToDrawingUnits, (f.InsertionPointXy[1] + originY) * metersToDrawingUnits, f.Elevation.HasValue ? f.Elevation.Value * metersToDrawingUnits : 0.0);
-                                Engine.InsertBlock(f.BlockName, insPt, f.Rotation ?? 0.0, f.Scale ?? 1.0, layerName);
+                                var blockMeta = ExtractMetadata(f);
+                                Engine.InsertBlock(f.BlockName, insPt, f.Rotation ?? 0.0, f.Scale ?? 1.0, layerName, blockMeta);
                                 createdBlocks++;
                                 break;
                         }
@@ -1007,9 +1010,36 @@ namespace sisRUA
             ed.WriteMessage($"\n[sisRUA] Sucesso! {createdPolylines} polylines e {createdBlocks} blocos criados.");
             
             // AUDIT INTEGRITY: Inject OID to mark drawing as "Certified Padrão sisRUA"
-            EnsurePadrãoSisRuaMetadata(database);
+            EnsurePadrãoSisRuaMetadata(db);
             
             ed.Regen();
+        }
+
+        private static Dictionary<string, string> ExtractMetadata(CadFeature f)
+        {
+            var meta = new Dictionary<string, string>();
+            if (!string.IsNullOrEmpty(f.Name)) meta["name"] = f.Name;
+            if (!string.IsNullOrEmpty(f.Highway)) meta["highway"] = f.Highway;
+            if (f.WidthMeters.HasValue) meta["width_m"] = f.WidthMeters.Value.ToString(CultureInfo.InvariantCulture);
+            
+            if (f.OriginalGeoJsonProperties != null)
+            {
+                foreach (var kvp in f.OriginalGeoJsonProperties)
+                {
+                    if (kvp.Value is JsonElement je)
+                    {
+                        if (je.ValueKind == JsonValueKind.String || je.ValueKind == JsonValueKind.Number || je.ValueKind == JsonValueKind.True || je.ValueKind == JsonValueKind.False)
+                        {
+                            meta[kvp.Key] = je.ToString();
+                        }
+                    }
+                    else if (kvp.Value != null)
+                    {
+                        meta[kvp.Key] = kvp.Value.ToString();
+                    }
+                }
+            }
+            return meta;
         }
 
         private static void EnsurePadrãoSisRuaMetadata(Database db)
@@ -1027,7 +1057,7 @@ namespace sisRUA
                         tr.AddNewlyCreatedDBObject(sisruaDict, true);
                         
                         // Injetamos um XRecord com o ID do projeto (UUID) e Timestamp
-                        var xRec = new XRecord();
+                        var xRec = new Xrecord();
                         xRec.Data = new ResultBuffer(
                             new TypedValue((int)DxfCode.Text, Guid.NewGuid().ToString()),
                             new TypedValue((int)DxfCode.Text, DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")),

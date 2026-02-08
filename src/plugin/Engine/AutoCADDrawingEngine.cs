@@ -28,6 +28,7 @@ namespace sisRUA.Engine
         public void SaveProject(string projectId, string projectName, string crs, IEnumerable<object> features)
         {
              // implementation delegated to repository usually, but engine can coordinate
+             // Unused in current context but required by interface
         }
 
         public void EnsureLayer(string layerName, short colorIndex)
@@ -48,21 +49,38 @@ namespace sisRUA.Engine
             });
         }
 
-        public void InsertBlock(string blockName, SisRuaPoint position, double rotation, double scale, string layerName)
+        public void InsertBlock(string blockName, SisRuaPoint position, double rotation, double scale, string layerName, Dictionary<string, string> metadata = null)
         {
-             var doc = Application.DocumentManager.MdiActiveDocument;
-             if (doc == null) return;
-             var db = doc.Database;
-             var acadPos = new Point3d(position.X, position.Y, position.Z);
-             
-             using (doc.LockDocument())
-             using (var tr = db.TransactionManager.StartTransaction())
+             SisRuaTransactionalShield.Execute((doc, db, tr) =>
              {
-                 // Implementation...
-             }
+                 var bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
+                 if (!bt.Has(blockName))
+                 {
+                     WriteMessage($"Bloco '{blockName}' não encontrado.");
+                     return;
+                 }
+
+                 var ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
+                 var acadPos = new Point3d(position.X, position.Y, position.Z);
+                 
+                 using (var bref = new BlockReference(acadPos, bt[blockName]))
+                 {
+                     bref.Rotation = rotation;
+                     bref.ScaleFactors = new Scale3d(scale);
+                     bref.Layer = layerName;
+                     
+                     ms.AppendEntity(bref);
+                     tr.AddNewlyCreatedDBObject(bref, true);
+
+                     if (metadata != null && metadata.Count > 0)
+                     {
+                         CadFeatureFactory.AttachMetadata(bref, metadata, tr);
+                     }
+                 }
+             });
         }
         
-        public void DrawPolyline(IEnumerable<SisRuaPoint> points, string layerName, double? constantWidth, double? elevation, string color)
+        public void DrawPolyline(IEnumerable<SisRuaPoint> points, string layerName, double? constantWidth, double? elevation, string color, Dictionary<string, string> metadata = null)
         {
             SisRuaTransactionalShield.Execute((doc, db, tr) =>
             {
@@ -86,6 +104,7 @@ namespace sisRUA.Engine
                 if (constantWidth.HasValue) pline.ConstantWidth = constantWidth.Value;
                 if (elevation.HasValue) pline.Elevation = elevation.Value;
                 
+                // Color parsing simplified
                 if (!string.IsNullOrWhiteSpace(color))
                 {
                     // Logic to parse color string... for now simplified
@@ -93,6 +112,11 @@ namespace sisRUA.Engine
 
                 ms.AppendEntity(pline);
                 tr.AddNewlyCreatedDBObject(pline, true);
+
+                if (metadata != null && metadata.Count > 0)
+                {
+                    CadFeatureFactory.AttachMetadata(pline, metadata, tr);
+                }
             });
         }
 
