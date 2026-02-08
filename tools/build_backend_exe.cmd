@@ -151,6 +151,13 @@ if errorlevel 1 (
   exit /b 1
 )
 
+echo [IP-PROTECT] Running Obfuscation Engine (sisRUA GIS Core)...
+"%PY%" "%ROOT%\tools\obfuscate_backend.py"
+if errorlevel 1 (
+  echo ERRO: Falha na ofuscacao do codigo. Abortando build para proteger IP.
+  exit /b 1
+)
+
 echo Gerando sisrua_backend.exe...
 REM Gera em uma pasta temporária e só substitui no final (mais seguro).
 if exist "%DIST_TMP%" rmdir /s /q "%DIST_TMP%" 2>nul
