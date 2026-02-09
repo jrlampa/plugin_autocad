@@ -273,6 +273,42 @@ async def startup_event():
     cleanup_thread = threading.Thread(target=run_cleanup, daemon=True)
     cleanup_thread.start()
 
+    # Privacy by Design: Data Lifecycle Management
+    def run_housekeeping():
+        from backend.services.housekeeper import housekeeper_service
+        # Define targets relative to project root or user data
+        # Assuming logs are at project_root/logs or similar
+        # For now, we'll try to find them dynamically or use known paths
+        
+        targets = []
+        try:
+            # logs dir
+            logs_dir = Path("logs").resolve()
+            if logs_dir.exists(): targets.append(logs_dir)
+            
+            # cache dir
+            cache_dir = Path("cache").resolve()
+            if cache_dir.exists(): targets.append(cache_dir)
+            
+            housekeeper_service.run_daily_cleanup(targets)
+        except Exception as e:
+            print(f"[housekeeper] Error: {e}")
+
+    threading.Thread(target=run_housekeeping, daemon=True).start()
+
+    # Secure IPC (Phase 10 Recovery)
+    if os.environ.get("SISRUA_TESTING") != "true":
+        try:
+            from backend.core.ipc import IpcServer
+            # existing AUTH_TOKEN from env or generated
+            ipc_server = IpcServer(AUTH_TOKEN)
+            ipc_server.start()
+            print(f"[startup] IPC Server started on {IpcServer.PIPE_NAME}")
+        except ImportError:
+            print("[startup] Warning: pywin32 not installed, IPC disabled.")
+        except Exception as e:
+            print(f"[startup] IPC Server failed: {e}")
+
     # Pre-calculate or pre-import anything that doesn't depend on heavy GIS libs
     # (Heavy GIS libs are deferred to usage time now)
     print("[startup] sisRUA API ready.")
@@ -600,6 +636,10 @@ async def export_geopackage(
             media_type="application/geopackage+sqlite3",
             filename=f"sisrua_{project_id}.gpkg"
         )
+    except Exception as e:
+        logger.error("export_geopackage_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoPackage: {str(e)}")
+
 @app.post("/api/v1/sync/cloud", tags=["Enterprise"])
 async def sync_to_cloud(
     x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
@@ -620,7 +660,6 @@ async def sync_to_cloud(
         "cloud_node": "enterprise-gis-01.sisrua.com",
         "timestamp": time.time()
     }
-        raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoPackage: {str(e)}")
 
 @app.get("/api/v1/export/geojson/{project_id}", tags=["Enterprise"])
 async def export_geojson(
@@ -643,6 +682,27 @@ async def export_geojson(
     except Exception as e:
         logger.error("export_geojson_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoJSON: {str(e)}")
+
+@app.post("/api/v1/management/shutdown", tags=["Infrastructure"], response_model=HealthResponse)
+async def shutdown_server(
+    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
+):
+    """
+    **Graceful Shutdown**: Requests the server to terminate itself.
+    Used by the plugin to stop the backend cleanly without force-killing.
+    Requires Master Token.
+    """
+    _require_token(x_sisrua_token)
+    
+    # Schedule shutdown in a separate thread/task to allow response to be sent
+    def self_terminate():
+        time.sleep(1.0) # Give time for the response to flush
+        logger.warning("api_shutdown_requested_by_client")
+        import signal
+        os.kill(os.getpid(), signal.SIGINT)
+
+    threading.Thread(target=self_terminate, daemon=True).start()
+    return HealthResponse(status="shutting_down")
 
 # --- Audit Log Routes ---
 from backend.audit_routes import audit_bp

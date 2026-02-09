@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+using sisRUA.Core.DTOs;
 
 namespace sisRUA
 {
@@ -52,10 +53,10 @@ namespace sisRUA
         private static string TestRemoveDuplicatePolylines_ExactMatch()
         {
             var coords = new List<List<double>> { new List<double>{0,0}, new List<double>{1,1} };
-            var features = new List<CadFeature>
+            var features = new List<CadFeatureDto>
             {
-                new CadFeature { FeatureType = CadFeatureType.Polyline, Layer = "Road", CoordsXy = coords },
-                new CadFeature { FeatureType = CadFeatureType.Polyline, Layer = "Road", CoordsXy = coords } // Duplicate
+                new CadFeatureDto { FeatureType = CadFeatureDtoType.Polyline, Layer = "Road", CoordsXy = coords },
+                new CadFeatureDto { FeatureType = CadFeatureDtoType.Polyline, Layer = "Road", CoordsXy = coords } // Duplicate
             };
 
             var clean = GeometryCleaner.RemoveDuplicatePolylines(features).ToList();
@@ -67,10 +68,10 @@ namespace sisRUA
 
         private static string TestMergeContiguousPolylines_Success()
         {
-            var features = new List<CadFeature>
+            var features = new List<CadFeatureDto>
             {
-                new CadFeature { FeatureType = CadFeatureType.Polyline, Layer = "Test", CoordsXy = new List<List<double>> { new List<double>{0,0}, new List<double>{10,10} } },
-                new CadFeature { FeatureType = CadFeatureType.Polyline, Layer = "Test", CoordsXy = new List<List<double>> { new List<double>{10,10}, new List<double>{20,20} } }
+                new CadFeatureDto { FeatureType = CadFeatureDtoType.Polyline, Layer = "Test", CoordsXy = new List<List<double>> { new List<double>{0,0}, new List<double>{10,10} } },
+                new CadFeatureDto { FeatureType = CadFeatureDtoType.Polyline, Layer = "Test", CoordsXy = new List<List<double>> { new List<double>{10,10}, new List<double>{20,20} } }
             };
 
             var merged = GeometryCleaner.MergeContiguousPolylines(features).ToList();
@@ -93,7 +94,7 @@ namespace sisRUA
                 new List<double>{20, -0.1}, 
                 new List<double>{30, 0.05} 
             };
-            var features = new List<CadFeature> { new CadFeature { FeatureType = CadFeatureType.Polyline, CoordsXy = coords } };
+            var features = new List<CadFeatureDto> { new CadFeatureDto { FeatureType = CadFeatureDtoType.Polyline, CoordsXy = coords } };
 
             var simplified = GeometryCleaner.SimplifyPolylines(features, 0.5).ToList();
             var resultPoints = simplified[0].CoordsXy.Count;

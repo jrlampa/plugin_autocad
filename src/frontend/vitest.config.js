@@ -21,5 +21,10 @@ export default defineConfig({
     outputFile: {
       junit: process.env.VITEST_JUNIT_OUTPUT_FILE || defaultJunitPath,
     },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      reportsDirectory: path.join(repoRoot, 'qa', 'out', 'coverage', 'frontend'),
+    },
   },
 });

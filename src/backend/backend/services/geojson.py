@@ -9,7 +9,7 @@ from backend.core.utils import (
     sanitize_jsonable, 
     get_layer_name
 )
-from backend.services.crs import sirgas2000_utm_epsg
+from backend.gis_core.crs import sirgas2000_utm_epsg
 
 def first_lonlat(obj) -> Tuple[float, float]:
     if not obj:

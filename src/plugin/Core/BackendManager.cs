@@ -79,12 +79,26 @@ namespace sisRUA.Core
             
             try
             {
+                // 1. Attempt Graceful Shutdown via API
+                if (IsBackendHealthy() && IsBackendAuthorized())
+                {
+                    if (ShutdownBackendGracefully())
+                    {
+                        Log("Backend finalizado graciosamente via API.");
+                        _pythonProcess?.Dispose();
+                        _pythonProcess = null;
+                        return;
+                    }
+                }
+
+                // 2. Force Kill if graceful failed or not running
                 if (_pythonProcess != null && !_pythonProcess.HasExited)
                 {
+                    Log("Graceful shutdown falhou ou timeout. Forçando encerramento...");
                     KillProcessTree(_pythonProcess.Id);
                     _pythonProcess.Dispose();
                     _pythonProcess = null;
-                    Log("Backend do sisRUA finalizado.");
+                    Log("Backend do sisRUA finalizado (Force Kill).");
                     return;
                 }
 
@@ -103,6 +117,34 @@ namespace sisRUA.Core
             catch (Exception ex)
             {
                 Log($"[ERROR] Exceção ao tentar finalizar o backend: {ex.Message}");
+            }
+        }
+
+        private bool ShutdownBackendGracefully()
+        {
+            try
+            {
+                Log("Enviando comando de shutdown para API...");
+                var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/api/v1/management/shutdown");
+                request.Headers.Add(AuthHeaderName, AuthToken);
+                
+                var response = _healthClient.SendAsync(request).Result;
+                if (response.IsSuccessStatusCode)
+                {
+                    // Wait for it to actually exit
+                    if (_pythonProcess != null)
+                    {
+                        return _pythonProcess.WaitForExit(3000); // Wait up to 3 seconds
+                    }
+                    return true;
+                }
+                Log($"Falha no shutdown via API: {response.StatusCode}");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Log($"Erro ao tentar shutdown gracioso: {ex.Message}");
+                return false;
             }
         }
 
@@ -189,13 +231,26 @@ namespace sisRUA.Core
                 WindowStyle = ProcessWindowStyle.Hidden,
                 Arguments = $"--host 127.0.0.1 --port {Port} --log-level warning"
             };
-            psi.EnvironmentVariables[AuthEnvVarName] = AuthToken;
+            // Secure IPC: Token is NO LONGER passed via Env Var
+            // psi.EnvironmentVariables[AuthEnvVarName] = AuthToken;
 
             _pythonProcess = Process.Start(psi);
             if (_pythonProcess == null || _pythonProcess.HasExited)
                 throw new InvalidOperationException("Falha ao iniciar sisrua_backend.exe");
             
             PersistBackendPid(_pythonProcess.Id);
+
+            // Wait for Pipe Server to be up
+            if (WaitForPipeServer(TimeSpan.FromSeconds(10)))
+            {
+                string token = GetTokenFromIpc();
+                if (!string.IsNullOrEmpty(token))
+                {
+                    AuthToken = token;
+                    PersistBackendToken(AuthToken);
+                    Log("Token recuperado com sucesso via Secure IPC (EXE).");
+                }
+            }
             
             if (!WaitForBackendHealthy(TimeSpan.FromSeconds(20))) Log("Aviso: Backend (EXE) iniciou mas health check falhou.");
         }
@@ -219,13 +274,77 @@ namespace sisRUA.Core
                  UseShellExecute = false,
                  CreateNoWindow = false
              };
-             psi.EnvironmentVariables[AuthEnvVarName] = AuthToken;
+             // Secure IPC: Token is NO LONGER passed via Env Var
+             // psi.EnvironmentVariables[AuthEnvVarName] = AuthToken;
 
              _pythonProcess = Process.Start(psi);
              PersistBackendPid(_pythonProcess.Id);
 
+             // Wait for Pipe Server to be up
+             if (!WaitForPipeServer(TimeSpan.FromSeconds(10)))
+             {
+                 Log("Aviso: IPC Pipe não disponível. Tentando fallback ou aguardando HTTP...");
+             }
+             else
+             {
+                 // Retrieve Token from Backend via Pipe
+                 string token = GetTokenFromIpc();
+                 if (!string.IsNullOrEmpty(token))
+                 {
+                     AuthToken = token;
+                     PersistBackendToken(AuthToken); // Sync to local file just in case
+                     Log("Token recuperado com sucesso via Secure IPC.");
+                 }
+             }
+
              if (!WaitForBackendHealthy(TimeSpan.FromSeconds(20))) Log("Aviso: Backend (Python) iniciou mas health check falhou.");
         }
+        
+        private bool WaitForPipeServer(TimeSpan timeout)
+        {
+            var sw = Stopwatch.StartNew();
+            while (sw.Elapsed < timeout)
+            {
+                if (File.Exists(@"\\.\pipe\sisrua_backend")) return true; // Simple check if pipe exists
+                // Note: File.Exists might not work for pipes on all .NET versions, 
+                // but attempting connection is robust.
+                try 
+                { 
+                    using (var client = new System.IO.Pipes.NamedPipeClientStream(".", "sisrua_backend", System.IO.Pipes.PipeDirection.InOut))
+                    {
+                        client.Connect(100);
+                        return true;
+                    }
+                } 
+                catch { Thread.Sleep(500); }
+            }
+            return false;
+        }
+
+        private string GetTokenFromIpc()
+        {
+            try
+            {
+                using (var client = new System.IO.Pipes.NamedPipeClientStream(".", "sisrua_backend", System.IO.Pipes.PipeDirection.InOut))
+                {
+                    client.Connect(2000);
+                    // Send Request
+                    byte[] request = Encoding.UTF8.GetBytes("GET_TOKEN");
+                    client.Write(request, 0, request.Length);
+                    
+                    // Read Response
+                    byte[] buffer = new byte[4096];
+                    int bytesRead = client.Read(buffer, 0, buffer.Length);
+                    return Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"Erro no Secure IPC: {ex.Message}");
+                return null;
+            }
+        }
+
         
         private void KillProcessTree(int pid)
         {

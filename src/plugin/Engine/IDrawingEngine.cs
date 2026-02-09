@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using sisRUA.Core.DTOs;
 using Autodesk.AutoCAD.Geometry;
 
 namespace sisRUA.Engine
@@ -8,11 +10,11 @@ namespace sisRUA.Engine
     /// </summary>
     public interface IDrawingEngine
     {
-        void SaveProject(string projectId, string projectName, string crs, IEnumerable<object> features);
+        void SaveProject(string projectId, string projectName, string crs, IEnumerable<CadFeatureDto> features);
         void ClearModelSpace();
         void EnsureLayer(string layerName, short colorIndex);
         void InsertBlock(string blockName, SisRuaPoint position, double rotation, double scale, string layerName, Dictionary<string, string> metadata = null);
-        void DrawLine(SisRuaPoint start, SisRuaPoint end, string layerName);
+        void DrawLine(SisRuaPoint start, SisRuaPoint end, string layerName, Dictionary<string, string> metadata = null);
         void DrawPolyline(IEnumerable<SisRuaPoint> points, string layerName, double? constantWidth, double? elevation, string color, Dictionary<string, string> metadata = null);
         void WriteMessage(string message);
     }

@@ -21,6 +21,7 @@ using System.Data.SQLite; // Add this using for ProjectRepository
 namespace sisRUA
 {
     using sisRUA.UI; // Import UI namespace for ProcessingDialog
+    using sisRUA.Core.DTOs; // Import Core DTOs
     using Exception = System.Exception;
 
     /// <summary>
@@ -44,7 +45,7 @@ namespace sisRUA
         public static sisRUA.Engine.IDrawingEngine Engine { get; set; } = new sisRUA.Engine.AutoCADDrawingEngine();
 
         // BIM-LITE: Cache the last imported features to allow explicit saving
-        private static List<CadFeature> _lastImportedFeatures = new List<CadFeature>();
+        private static List<CadFeatureDto> _lastImportedFeatures = new List<CadFeatureDto>();
         private static string _lastCrs = "EPSG:31983"; // Default for development
 
         private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
@@ -54,7 +55,7 @@ namespace sisRUA
         };
         private static ProjectRepository _projectRepository = new ProjectRepository(); // Instantiate the repository
 
-        private static IEnumerable<CadFeature> _lastDrawnFeatures; // Store features from last drawing operation
+        private static IEnumerable<CadFeatureDto> _lastDrawnFeatures; // Store features from last drawing operation
         private static string _lastDrawnCrsOut; // Store CRS from last drawing operation
 
         [CommandMethod("SISRUA_SAVE_PROJECT", CommandFlags.Session)]
@@ -146,7 +147,7 @@ namespace sisRUA
                     {
                         Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
                         Engine.WriteMessage($"Reloading project {selectedProjectId}...");
-                        await DrawCadFeatures(features, dlg);
+                        await DrawCadFeatureDtos(features, dlg);
                     }
                     
                     _lastDrawnFeatures = features;
@@ -387,7 +388,7 @@ namespace sisRUA
             public string CrsOut { get; set; }
 
             [JsonPropertyName("features")]
-            public List<CadFeature> Features { get; set; }
+            public List<CadFeatureDto> Features { get; set; }
         }
 
         private sealed class PrepareJobRequest
@@ -594,7 +595,7 @@ namespace sisRUA
             return map;
         }
 
-        private static (string layerName, short? aci) GetLayerStyleForFeature(CadFeature f)
+        private static (string layerName, short? aci) GetLayerStyleForFeature(CadFeatureDto f)
         {
             if (f == null) return ("SISRUA_VIAS", null);
 
@@ -749,7 +750,7 @@ namespace sisRUA
                         }
 
                         ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
-                        await DrawCadFeatures(prepareResponse.Features, dlg);
+                        await DrawCadFeatureDtos(prepareResponse.Features, dlg);
 
                         // Store last drawn features for saving
                         _lastDrawnFeatures = prepareResponse.Features;
@@ -805,7 +806,7 @@ namespace sisRUA
                         }
 
                         ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
-                        await DrawCadFeatures(prepareResponse.Features, dlg);
+                        await DrawCadFeatureDtos(prepareResponse.Features, dlg);
                         EnsureOsmAttributionMText(prepareResponse.Features);
 
                         // Store last drawn features for saving
@@ -826,13 +827,13 @@ namespace sisRUA
             });
         }
 
-        private static async Task DrawCadFeatures(IEnumerable<CadFeature> features, ProcessingDialog dlg)
+        private static async Task DrawCadFeatureDtos(IEnumerable<CadFeatureDto> features, ProcessingDialog dlg)
         {
-            Log("INFO: DrawCadFeatures started.");
+            Log("INFO: DrawCadFeatureDtos started.");
             Document doc = Application.DocumentManager.MdiActiveDocument;
             if (doc == null)
             {
-                Log("WARN: DocumentManager.MdiActiveDocument is null in DrawCadFeatures.");
+                Log("WARN: DocumentManager.MdiActiveDocument is null in DrawCadFeatureDtos.");
                 return;
             }
 
@@ -911,7 +912,7 @@ namespace sisRUA
             dynamic processingResult = processingResultRaw; // simplified way to access properties of anonymous type
             
             // Extract typed values to avoid dynamic dispatch issues (CS8133)
-            IEnumerable<CadFeature> finalFeatures = (IEnumerable<CadFeature>)processingResult.Features;
+            IEnumerable<CadFeatureDto> finalFeatures = (IEnumerable<CadFeatureDto>)processingResult.Features;
             int duplicatesRemoved = (int)processingResult.DuplicatesRemoved;
             int mergedCount = (int)processingResult.MergedCount;
             double finalTolerance = (double)processingResult.Tolerance;
@@ -976,7 +977,7 @@ namespace sisRUA
 
                         switch (f.FeatureType)
                         {
-                            case CadFeatureType.Polyline:
+                            case CadFeatureDtoType.Polyline:
                                 if (f.CoordsXy == null || f.CoordsXy.Count < 2) continue;
                                 var agnosticPoints = f.CoordsXy.Select(pt => new SisRuaPoint(
                                     (pt[0] + originX) * metersToDrawingUnits,
@@ -990,7 +991,7 @@ namespace sisRUA
                                 createdPolylines++;
                                 break;
 
-                            case CadFeatureType.Point:
+                            case CadFeatureDtoType.Point:
                                 if (f.InsertionPointXy == null || f.InsertionPointXy.Count < 2 || string.IsNullOrWhiteSpace(f.BlockName) || string.IsNullOrWhiteSpace(f.BlockFilePath)) continue;
                                 var insPt = new SisRuaPoint((f.InsertionPointXy[0] + originX) * metersToDrawingUnits, (f.InsertionPointXy[1] + originY) * metersToDrawingUnits, f.Elevation.HasValue ? f.Elevation.Value * metersToDrawingUnits : 0.0);
                                 var blockMeta = ExtractMetadata(f);
@@ -1015,7 +1016,7 @@ namespace sisRUA
             ed.Regen();
         }
 
-        private static Dictionary<string, string> ExtractMetadata(CadFeature f)
+        private static Dictionary<string, string> ExtractMetadata(CadFeatureDto f)
         {
             var meta = new Dictionary<string, string>();
             if (!string.IsNullOrEmpty(f.Name)) meta["name"] = f.Name;
@@ -1076,7 +1077,7 @@ namespace sisRUA
             }
         }
 
-        private static void EnsureOsmAttributionMText(IEnumerable<CadFeature> features)
+        private static void EnsureOsmAttributionMText(IEnumerable<CadFeatureDto> features)
         {
             // ODbL exige atribuição. Além da atribuição no mapa (frontend),
             // colocamos uma anotação no DWG para quando o arquivo for compartilhado.
@@ -1174,7 +1175,7 @@ namespace sisRUA
             }
         }
 
-        private static double? TryGetRoadWidthUnits(CadFeature f, double metersToDrawingUnits)
+        private static double? TryGetRoadWidthUnits(CadFeatureDto f, double metersToDrawingUnits)
         {
             try
             {

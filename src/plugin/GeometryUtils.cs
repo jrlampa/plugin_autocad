@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Autodesk.AutoCAD.Geometry;
+using sisRUA.Core.DTOs;
 
 namespace sisRUA
 {
@@ -37,16 +39,16 @@ namespace sisRUA
         }
 
         /// <summary>
-        /// Calculates total mileage in kilometers for a collection of CadFeatures.
+        /// Calculates total mileage in kilometers for a collection of CadFeatureDtos.
         /// </summary>
-        public static double CalculateTotalMileageKm(IEnumerable<CadFeature> features)
+        public static double CalculateTotalMileageKm(IEnumerable<CadFeatureDto> features)
         {
             if (features == null) return 0;
 
             double totalMeters = 0;
             foreach (var feature in features)
             {
-                if (feature.FeatureType == CadFeatureType.Polyline && feature.CoordsXy != null)
+                if (feature.FeatureType == CadFeatureDtoType.Polyline && feature.CoordsXy != null)
                 {
                     totalMeters += CalculateLength(feature.CoordsXy);
                 }

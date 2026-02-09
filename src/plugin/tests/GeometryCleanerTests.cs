@@ -9,24 +9,24 @@ namespace sisRUA.Tests
     [TestFixture]
     public class GeometryCleanerTests
     {
-        // Helper to create a simple CadFeature Polyline
-        private CadFeature CreatePolylineFeature(string layer, string name, List<List<double>> coords)
+        // Helper to create a simple CadFeatureDto Polyline
+        private CadFeatureDto CreatePolylineFeature(string layer, string name, List<List<double>> coords)
         {
-            return new CadFeature
+            return new CadFeatureDto
             {
-                FeatureType = CadFeatureType.Polyline,
+                FeatureType = CadFeatureDtoType.Polyline,
                 Layer = layer,
                 Name = name,
                 CoordsXy = coords
             };
         }
 
-        // Helper to create a simple CadFeature Point (should not be affected by polyline cleaning)
-        private CadFeature CreatePointFeature(string layer, string name, List<double> insertionPoint)
+        // Helper to create a simple CadFeatureDto Point (should not be affected by polyline cleaning)
+        private CadFeatureDto CreatePointFeature(string layer, string name, List<double> insertionPoint)
         {
-            return new CadFeature
+            return new CadFeatureDto
             {
-                FeatureType = CadFeatureType.Point,
+                FeatureType = CadFeatureDtoType.Point,
                 Layer = layer,
                 Name = name,
                 InsertionPointXy = insertionPoint,
@@ -39,7 +39,7 @@ namespace sisRUA.Tests
         [Test]
         public void TestRemoveDuplicatePolylines_NoDuplicates()
         {
-            var features = new List<CadFeature>
+            var features = new List<CadFeatureDto>
             {
                 CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 0, 0 }, new List<double> { 1, 1 } }),
                 CreatePolylineFeature("L1", "P2", new List<List<double>> { new List<double> { 2, 2 }, new List<double> { 3, 3 } })
@@ -55,7 +55,7 @@ namespace sisRUA.Tests
         public void TestRemoveDuplicatePolylines_WithDuplicates()
         {
             var p1 = CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 0, 0 }, new List<double> { 1, 1 } });
-            var features = new List<CadFeature>
+            var features = new List<CadFeatureDto>
             {
                 p1,
                 p1, // Duplicate
@@ -77,7 +77,7 @@ namespace sisRUA.Tests
             var p1 = CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 0, 0 }, new List<double> { 1, 1 } });
             var b1 = CreatePointFeature("L_BLOCK", "B1", new List<double> { 10, 10 });
 
-            var features = new List<CadFeature>
+            var features = new List<CadFeatureDto>
             {
                 p1,
                 p1, // Duplicate polyline
@@ -90,8 +90,8 @@ namespace sisRUA.Tests
 
             // Expect 2 unique polylines + 2 point features (duplicates of non-polylines are not removed by this method)
             Assert.That(cleaned.Count(), Is.EqualTo(4));
-            Assert.That(cleaned.Count(f => f.FeatureType == CadFeatureType.Polyline), Is.EqualTo(2));
-            Assert.That(cleaned.Count(f => f.FeatureType == CadFeatureType.Point), Is.EqualTo(2));
+            Assert.That(cleaned.Count(f => f.FeatureType == CadFeatureDtoType.Polyline), Is.EqualTo(2));
+            Assert.That(cleaned.Count(f => f.FeatureType == CadFeatureDtoType.Point), Is.EqualTo(2));
         }
 
         #endregion
@@ -101,7 +101,7 @@ namespace sisRUA.Tests
         [Test]
         public void TestMergeContiguousPolylines_NoMergePossible()
         {
-            var features = new List<CadFeature>
+            var features = new List<CadFeatureDto>
             {
                 CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 0, 0 }, new List<double> { 1, 1 } }),
                 CreatePolylineFeature("L1", "P2", new List<List<double>> { new List<double> { 2, 2 }, new List<double> { 3, 3 } })
@@ -118,7 +118,7 @@ namespace sisRUA.Tests
         {
             var p1 = CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 0, 0 }, new List<double> { 1, 1 } });
             var p2 = CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 1, 1 }, new List<double> { 2, 2 } });
-            var features = new List<CadFeature> { p1, p2 };
+            var features = new List<CadFeatureDto> { p1, p2 };
 
             var merged = GeometryCleaner.MergeContiguousPolylines(features);
 
@@ -135,7 +135,7 @@ namespace sisRUA.Tests
             var p1 = CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 0, 0 }, new List<double> { 1, 1 } });
             var p2 = CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 1, 1 }, new List<double> { 2, 2 } });
             var p3 = CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 2, 2 }, new List<double> { 3, 3 } });
-            var features = new List<CadFeature> { p1, p2, p3 };
+            var features = new List<CadFeatureDto> { p1, p2, p3 };
 
             var merged = GeometryCleaner.MergeContiguousPolylines(features);
 
@@ -151,7 +151,7 @@ namespace sisRUA.Tests
         {
             var p1 = CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 0, 0 }, new List<double> { 1, 1 } });
             var p2 = CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 2, 2 }, new List<double> { 1, 1 } }); // p2's end connects to p1's end
-            var features = new List<CadFeature> { p1, p2 };
+            var features = new List<CadFeatureDto> { p1, p2 };
 
             var merged = GeometryCleaner.MergeContiguousPolylines(features);
 
@@ -168,13 +168,13 @@ namespace sisRUA.Tests
             var p1 = CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 0, 0 }, new List<double> { 1, 1 } });
             var p2 = CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 1, 1 }, new List<double> { 2, 2 } });
             var b1 = CreatePointFeature("L_BLOCK", "B1", new List<double> { 10, 10 });
-            var features = new List<CadFeature> { p1, p2, b1 };
+            var features = new List<CadFeatureDto> { p1, p2, b1 };
 
             var merged = GeometryCleaner.MergeContiguousPolylines(features);
 
             Assert.That(merged.Count(), Is.EqualTo(2)); // One merged polyline, one point feature
-            Assert.That(merged.Any(f => f.FeatureType == CadFeatureType.Polyline), Is.True);
-            Assert.That(merged.Any(f => f.FeatureType == CadFeatureType.Point), Is.True);
+            Assert.That(merged.Any(f => f.FeatureType == CadFeatureDtoType.Polyline), Is.True);
+            Assert.That(merged.Any(f => f.FeatureType == CadFeatureDtoType.Point), Is.True);
         }
 
         #endregion
@@ -184,7 +184,7 @@ namespace sisRUA.Tests
         [Test]
         public void TestSimplifyPolylines_NoSimplificationNeeded()
         {
-            var features = new List<CadFeature>
+            var features = new List<CadFeatureDto>
             {
                 CreatePolylineFeature("L1", "P1", new List<List<double>> { new List<double> { 0, 0 }, new List<double> { 1, 1 } }),
                 CreatePolylineFeature("L1", "P2", new List<List<double>> { new List<double> { 2, 2 }, new List<double> { 3, 3 } })

@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using sisRUA.Core.DTOs;
 using System.Threading.Tasks;
 namespace sisRUA
 {
@@ -91,9 +92,9 @@ namespace sisRUA
                     command.ExecuteNonQuery();
                     SisRuaLog.Info("DEBUG: 'Projects' table ensured.");
 
-                    // Tabela CadFeatures
+                    // Tabela CadFeatureDtos
                     command.CommandText = @"
-                        CREATE TABLE IF NOT EXISTS CadFeatures (
+                        CREATE TABLE IF NOT EXISTS CadFeatureDtos (
                             feature_id TEXT PRIMARY KEY NOT NULL,
                             project_id TEXT NOT NULL,
                             feature_type TEXT NOT NULL,
@@ -114,13 +115,13 @@ namespace sisRUA
                             FOREIGN KEY (project_id) REFERENCES Projects (project_id)
                         );";
                     command.ExecuteNonQuery();
-                    SisRuaLog.Info("DEBUG: 'CadFeatures' table ensured.");
+                    SisRuaLog.Info("DEBUG: 'CadFeatureDtos' table ensured.");
                 }
             }
         }
 
         // Placeholder for SaveProject
-        public void SaveProject(string projectId, string projectName, string crsOut, IEnumerable<CadFeature> features)
+        public void SaveProject(string projectId, string projectName, string crsOut, IEnumerable<CadFeatureDto> features)
         {
             SisRuaLog.Info($"INFO: Attempting to save project {projectId} - {projectName}.");
             using (var connection = GetConnection())
@@ -161,10 +162,10 @@ namespace sisRUA
                                     VALUES (@srsName, @srsId, 'EPSG', @srsId, 'PROJCS[]');
                                     
                                     INSERT OR REPLACE INTO gpkg_contents (table_name, data_type, identifier, description, srs_id)
-                                    VALUES ('CadFeatures', 'features', @projId, @projName, @srsId);
+                                    VALUES ('CadFeatureDtos', 'features', @projId, @projName, @srsId);
                                     
                                     INSERT OR REPLACE INTO gpkg_geometry_columns (table_name, column_name, geometry_type_name, srs_id, z, m)
-                                    VALUES ('CadFeatures', 'geometry_blob', 'GEOMETRY', @srsId, 0, 0);
+                                    VALUES ('CadFeatureDtos', 'geometry_blob', 'GEOMETRY', @srsId, 0, 0);
                                 ";
                                 command.Parameters.Clear();
                                 command.Parameters.AddWithValue("@srsName", "SIRGAS 2000 / UTM");
@@ -180,19 +181,19 @@ namespace sisRUA
                         // Delete existing features for this project before re-inserting
                         using (var command = connection.CreateCommand())
                         {
-                            command.CommandText = "DELETE FROM CadFeatures WHERE project_id = @projectId;";
+                            command.CommandText = "DELETE FROM CadFeatureDtos WHERE project_id = @projectId;";
                             command.Parameters.AddWithValue("@projectId", projectId);
                             command.ExecuteNonQuery();
                             SisRuaLog.Info($"DEBUG: Existing features for project '{projectId}' cleared.");
                         }
 
-                        // Insert CadFeatures
+                        // Insert CadFeatureDtos
                         foreach (var feature in features)
                         {
                             using (var command = connection.CreateCommand())
                             {
                                 command.CommandText = @"
-                                    INSERT INTO CadFeatures (
+                                    INSERT INTO CadFeatureDtos (
                                         feature_id, project_id, feature_type, layer, name, highway, width_m,
                                         coords_xy_json, insertion_point_xy_json, block_name, block_filepath,
                                         rotation, scale, color, elevation, slope, original_geojson_properties_json
@@ -256,12 +257,12 @@ namespace sisRUA
         }
 
         // Placeholder for LoadProject
-        public (string projectName, string crsOut, List<CadFeature> features) LoadProject(string projectId)
+        public (string projectName, string crsOut, List<CadFeatureDto> features) LoadProject(string projectId)
         {
             SisRuaLog.Info($"INFO: Attempting to load project '{projectId}'.");
             string projectName = null;
             string crsOut = null;
-            List<CadFeature> features = new List<CadFeature>();
+            List<CadFeatureDto> features = new List<CadFeatureDto>();
 
             using (var connection = GetConnection())
             {
@@ -285,17 +286,17 @@ namespace sisRUA
                     }
                 }
 
-                // Load CadFeatures
+                // Load CadFeatureDtos
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = "SELECT * FROM CadFeatures WHERE project_id = @projectId;";
+                    command.CommandText = "SELECT * FROM CadFeatureDtos WHERE project_id = @projectId;";
                     command.Parameters.AddWithValue("@projectId", projectId);
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            CadFeature feature = new CadFeature();
-                            feature.FeatureType = (CadFeatureType)Enum.Parse(typeof(CadFeatureType), reader.GetString(reader.GetOrdinal("feature_type")));
+                            CadFeatureDto feature = new CadFeatureDto();
+                            feature.FeatureType = (CadFeatureDtoType)Enum.Parse(typeof(CadFeatureDtoType), reader.GetString(reader.GetOrdinal("feature_type")));
                             feature.Layer = reader.IsDBNull(reader.GetOrdinal("layer")) ? null : reader.GetString(reader.GetOrdinal("layer"));
                             feature.Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name"));
                             feature.Highway = reader.IsDBNull(reader.GetOrdinal("highway")) ? null : reader.GetString(reader.GetOrdinal("highway"));

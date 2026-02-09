@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional
 from backend.models import PrepareJobRequest, PrepareResponse
 from backend.core.interfaces import IEventBus, ICache
 from backend.services.jobs import update_job, check_cancellation
-from backend.services.osm import prepare_osm_compute
+from backend.gis_core.osm import prepare_osm_compute
 from backend.services.geojson import prepare_geojson_compute
 from backend.services.elevation import ElevationService
 from backend.core.utils import sanitize_jsonable

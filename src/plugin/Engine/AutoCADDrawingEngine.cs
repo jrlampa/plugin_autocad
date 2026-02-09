@@ -6,6 +6,7 @@ using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Colors;
 using Autodesk.AutoCAD.EditorInput;
 using System.IO;
+using sisRUA.Core.DTOs;
 
 namespace sisRUA.Engine
 {
@@ -25,7 +26,7 @@ namespace sisRUA.Engine
             // Implementation left as future exercise or copy from Commands
         }
 
-        public void SaveProject(string projectId, string projectName, string crs, IEnumerable<object> features)
+        public void SaveProject(string projectId, string projectName, string crs, IEnumerable<CadFeatureDto> features)
         {
              // implementation delegated to repository usually, but engine can coordinate
              // Unused in current context but required by interface
@@ -87,19 +88,7 @@ namespace sisRUA.Engine
                 var bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
                 var ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
 
-                var pline = new Polyline();
-                int i = 0;
-                foreach (var pt in points)
-                {
-                    pline.AddVertexAt(i++, new Point2d(pt.X, pt.Y), 0, 0, 0);
-                }
-
-                if (pline.NumberOfVertices < 2)
-                {
-                    pline.Dispose();
-                    return;
-                }
-
+                var pline = CadFeatureFactory.CreatePolyline(points, false);
                 pline.Layer = layerName;
                 if (constantWidth.HasValue) pline.ConstantWidth = constantWidth.Value;
                 if (elevation.HasValue) pline.Elevation = elevation.Value;
@@ -120,20 +109,22 @@ namespace sisRUA.Engine
             });
         }
 
-        public void DrawLine(SisRuaPoint start, SisRuaPoint end, string layerName) 
+        public void DrawLine(SisRuaPoint start, SisRuaPoint end, string layerName, Dictionary<string, string> metadata = null) 
         {
-            var acadStart = new Point3d(start.X, start.Y, start.Z);
-            var acadEnd = new Point3d(end.X, end.Y, end.Z);
-
             SisRuaTransactionalShield.Execute((doc, db, tr) =>
             {
                  var bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
                  var ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
                  
-                 var line = new Line(acadStart, acadEnd);
+                 var line = CadFeatureFactory.CreateLine(start, end);
                  line.Layer = layerName;
                  ms.AppendEntity(line);
                  tr.AddNewlyCreatedDBObject(line, true);
+
+                 if (metadata != null && metadata.Count > 0)
+                 {
+                     CadFeatureFactory.AttachMetadata(line, metadata, tr);
+                 }
             });
         }
     }

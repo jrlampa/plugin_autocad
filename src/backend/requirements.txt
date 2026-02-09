@@ -13,3 +13,4 @@ sentry-sdk[fastapi]
 groq>=0.4.0
 structlog
 # prometheus-fastapi-instrumentator (removed: local plugin does not need real-time metrics scraping)
+pywin32

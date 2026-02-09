@@ -45,4 +45,8 @@
     <Compile Remove="tests\**" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\sisRUA.Core\sisRUA.Core.csproj" />
+  </ItemGroup>
+
 </Project>

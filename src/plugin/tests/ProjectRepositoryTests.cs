@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
+using sisRUA.Core.DTOs;
 using NUnit.Framework; // Using NUnit as a common C# testing framework
 using sisRUA;
 
 
-// Assuming CadFeature, CadFeatureType, ProjectRepository are in sisRUA namespace
+// Assuming CadFeatureDto, CadFeatureDtoType, ProjectRepository are in sisRUA namespace
 // For a proper test project setup, these would be referenced or included.
 // For now, we'll assume direct access or mock them if necessary.
 
@@ -63,8 +64,8 @@ namespace sisRUA.Tests
                     command.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='Projects';";
                     Assert.That(command.ExecuteScalar(), Is.EqualTo("Projects"), "Projects table should exist.");
 
-                    command.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='CadFeatures';";
-                    Assert.That(command.ExecuteScalar(), Is.EqualTo("CadFeatures"), "CadFeatures table should exist.");
+                    command.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='CadFeatureDtos';";
+                    Assert.That(command.ExecuteScalar(), Is.EqualTo("CadFeatureDtos"), "CadFeatureDtos table should exist.");
                 }
             }
         }
@@ -76,20 +77,20 @@ namespace sisRUA.Tests
             string projectName = "My Test Project";
             string crsOut = "EPSG:31984";
 
-            var features = new List<CadFeature>
+            var features = new List<CadFeatureDto>
             {
-                new CadFeature
+                new CadFeatureDto
                 {
-                    FeatureType = CadFeatureType.Polyline,
+                    FeatureType = CadFeatureDtoType.Polyline,
                     Layer = "ROAD",
                     Name = "Test Road",
                     Highway = "residential",
                     WidthMeters = 5.0,
                     CoordsXy = new List<List<double>> { new List<double> { 10.0, 20.0 }, new List<double> { 30.0, 40.0 } }
                 },
-                new CadFeature
+                new CadFeatureDto
                 {
-                    FeatureType = CadFeatureType.Polyline,
+                    FeatureType = CadFeatureDtoType.Polyline,
                     Layer = "SIDEWALK",
                     Name = "Test Sidewalk",
                     CoordsXy = new List<List<double>> { new List<double> { 11.0, 21.0 }, new List<double> { 31.0, 41.0 } }
@@ -105,8 +106,8 @@ namespace sisRUA.Tests
             Assert.That(loadedFeatures, Is.Not.Null);
             Assert.That(loadedFeatures.Count, Is.EqualTo(2));
 
-            CadFeature loadedF0 = loadedFeatures[0];
-            Assert.That(loadedF0.FeatureType, Is.EqualTo(CadFeatureType.Polyline));
+            CadFeatureDto loadedF0 = loadedFeatures[0];
+            Assert.That(loadedF0.FeatureType, Is.EqualTo(CadFeatureDtoType.Polyline));
             Assert.That(loadedF0.Layer, Is.EqualTo("ROAD"));
             Assert.That(loadedF0.Name, Is.EqualTo("Test Road"));
             Assert.That(loadedF0.CoordsXy.Count, Is.EqualTo(2));
@@ -121,11 +122,11 @@ namespace sisRUA.Tests
             string projectName = "My Block Project";
             string crsOut = "EPSG:31984";
 
-            var features = new List<CadFeature>
+            var features = new List<CadFeatureDto>
             {
-                new CadFeature
+                new CadFeatureDto
                 {
-                    FeatureType = CadFeatureType.Point,
+                    FeatureType = CadFeatureDtoType.Point,
                     Layer = "POLE",
                     Name = "Power Pole 1",
                     InsertionPointXy = new List<double> { 100.0, 200.0 },
@@ -145,8 +146,8 @@ namespace sisRUA.Tests
             Assert.That(loadedFeatures, Is.Not.Null);
             Assert.That(loadedFeatures.Count, Is.EqualTo(1));
 
-            CadFeature loadedF0 = loadedFeatures[0];
-            Assert.That(loadedF0.FeatureType, Is.EqualTo(CadFeatureType.Point));
+            CadFeatureDto loadedF0 = loadedFeatures[0];
+            Assert.That(loadedF0.FeatureType, Is.EqualTo(CadFeatureDtoType.Point));
             Assert.That(loadedF0.Layer, Is.EqualTo("POLE"));
             Assert.That(loadedF0.Name, Is.EqualTo("Power Pole 1"));
             Assert.That(loadedF0.InsertionPointXy.Count, Is.EqualTo(2));
@@ -160,8 +161,8 @@ namespace sisRUA.Tests
         [Test]
         public void TestListProjects()
         {
-            _repository.SaveProject("PROJ001", "Project A", "EPSG:31984", new List<CadFeature>());
-            _repository.SaveProject("PROJ002", "Project B", "EPSG:31984", new List<CadFeature>());
+            _repository.SaveProject("PROJ001", "Project A", "EPSG:31984", new List<CadFeatureDto>());
+            _repository.SaveProject("PROJ002", "Project B", "EPSG:31984", new List<CadFeatureDto>());
 
             var projects = _repository.ListProjects();
 
@@ -178,8 +179,8 @@ namespace sisRUA.Tests
             string oldProjectName = "Old Name";
             string newProjectName = "New Name";
 
-            _repository.SaveProject(projectId, oldProjectName, "EPSG:31984", new List<CadFeature> { new CadFeature { FeatureType = CadFeatureType.Polyline, CoordsXy = new List<List<double>> { new List<double> { 0.0, 0.0 }, new List<double> { 1.0, 1.0 } } } });
-            _repository.SaveProject(projectId, newProjectName, "EPSG:31984", new List<CadFeature> { new CadFeature { FeatureType = CadFeatureType.Polyline, CoordsXy = new List<List<double>> { new List<double> { 2.0, 2.0 }, new List<double> { 3.0, 3.0 } } } });
+            _repository.SaveProject(projectId, oldProjectName, "EPSG:31984", new List<CadFeatureDto> { new CadFeatureDto { FeatureType = CadFeatureDtoType.Polyline, CoordsXy = new List<List<double>> { new List<double> { 0.0, 0.0 }, new List<double> { 1.0, 1.0 } } } });
+            _repository.SaveProject(projectId, newProjectName, "EPSG:31984", new List<CadFeatureDto> { new CadFeatureDto { FeatureType = CadFeatureDtoType.Polyline, CoordsXy = new List<List<double>> { new List<double> { 2.0, 2.0 }, new List<double> { 3.0, 3.0 } } } });
 
             var (loadedProjectName, _, loadedFeatures) = _repository.LoadProject(projectId);
             var projects = _repository.ListProjects();

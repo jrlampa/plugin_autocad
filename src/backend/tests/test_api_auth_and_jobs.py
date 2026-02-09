@@ -137,6 +137,12 @@ def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
             else:
                 self._tags = {}
         
+        def _asdict(self):
+            # Return tags dictionary directly
+            if hasattr(self, '_tags'):
+                return self._tags.copy()
+            return {}
+
         def get(self, key, default=None):
             # First try as attribute
             if hasattr(self, key) and not key.startswith('_'):
@@ -258,16 +264,16 @@ def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
     assert f_point_poste_a is not None
     assert f_point_poste_a["feature_type"] == "Point"
     assert "insertion_point_xy" in f_point_poste_a
-    assert f_point_poste_a["block_name"] == "POSTE"
-    assert f_point_poste_a["layer"] == "SISRUA_OSM_PONTOS"
+    assert f_point_poste_a["block_name"] == "POSTE_ILUMINACAO"
+    assert f_point_poste_a["layer"] == "SISRUA_Infraestrutura_Pontos"
 
     f_point_poste_b = next((f for f in point_features if f["name"] == "Poste B"), None)
     assert f_point_poste_b is not None
-    assert f_point_poste_b["block_name"] == "POSTE"
+    assert f_point_poste_b["block_name"] == "POSTE_ENERGIA"
 
     f_point_banco_c = next((f for f in point_features if f["name"] == "Banco C"), None)
     assert f_point_banco_c is not None
-    assert f_point_banco_c["block_name"] == "BANCO"
+    assert f_point_banco_c["block_name"] == "MOBILIARIO_BANCO"
 
 
     # Verifica se ainda existem features de polilinha

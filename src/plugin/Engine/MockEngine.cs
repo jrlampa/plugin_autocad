@@ -1,4 +1,7 @@
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using sisRUA.Core.DTOs;
 
 namespace sisRUA.Engine
 {
@@ -7,7 +10,7 @@ namespace sisRUA.Engine
         public List<string> Operations { get; private set; } = new List<string>();
         public Dictionary<string, int> BlockCounts { get; private set; } = new Dictionary<string, int>();
 
-        public void SaveProject(string projectId, string projectName, string crs, IEnumerable<object> features)
+        public void SaveProject(string projectId, string projectName, string crs, IEnumerable<CadFeatureDto> features)
         {
             Operations.Add($"SaveProject: {projectId}");
         }
@@ -29,9 +32,9 @@ namespace sisRUA.Engine
             BlockCounts[blockName]++;
         }
 
-        public void DrawLine(SisRuaPoint start, SisRuaPoint end, string layerName)
+        public void DrawLine(SisRuaPoint start, SisRuaPoint end, string layerName, Dictionary<string, string> metadata = null)
         {
-             Operations.Add($"DrawLine: {start}->{end} on {layerName}");
+             Operations.Add($"DrawLine: {start}->{end} on {layerName} (meta: {metadata?.Count ?? 0})");
         }
 
         public void DrawPolyline(IEnumerable<SisRuaPoint> points, string layerName, double? constantWidth, double? elevation, string color, Dictionary<string, string> metadata = null)

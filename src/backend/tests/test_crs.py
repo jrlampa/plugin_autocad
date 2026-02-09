@@ -1,5 +1,5 @@
 import pytest
-from backend.services.crs import utm_zone, sirgas2000_utm_epsg
+from backend.gis_core.crs import utm_zone, sirgas2000_utm_epsg
 
 def test_utm_zone_calculation():
     # Test cases for UTM zones
