@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Literal, Any, Dict
 
 class FrozenBaseModel(BaseModel):
-    model_config = ConfigDict(frozen=False)
+    model_config = ConfigDict(frozen=True)
 
 class HealthResponse(FrozenBaseModel):
     status: str = Field(..., description="Operational status of the API", example="ok")

@@ -1,8 +1,15 @@
-import requests
 import os
 import json
+import unittest
+import sys
+from pathlib import Path
+from fastapi.testclient import TestClient
 
-BASE_URL = "http://127.0.0.1:8000"
+# Add src to path
+sys.path.append(str(Path("src/backend").absolute()))
+
+from backend.api import app
+
 # Use the AUTH_HEADER_NAME found in C# (SisRuaPlugin.cs)
 AUTH_HEADER_NAME = "X-SisRua-Token"
 AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN", "test-token")
@@ -11,18 +18,25 @@ HEADERS = {AUTH_HEADER_NAME: AUTH_TOKEN}
 def test_backward_compatibility():
     print("--- Phase 20: Backward Compatibility Test ---")
     
-    # 1. Test /api/v1/health (no auth)
-    print("\n[1/4] Testing /health (no auth)...")
-    r = requests.get(f"{BASE_URL}/api/v1/health")
-    print(f"Status: {r.status_code}, Body: {r.json()}")
-    assert r.status_code == 200
-    assert r.json()["status"] == "ok"
+    import unittest.mock
+    # Patch AUTH_TOKEN to match our test-token
+    with unittest.mock.patch("backend.api.AUTH_TOKEN", "test-token"):
+        client = TestClient(app)
+        
+        # 1. Test /api/v1/health (no auth)
+        print("\n[1/4] Testing /health (no auth)...")
+        r = client.get("/api/v1/health")
+        print(f"Status: {r.status_code}, Body: {r.json()}")
+        assert r.status_code == 200
+        assert r.json()["status"] == "ok"
 
-    # 2. Test /api/v1/auth/check (v0.4.0 headers)
-    print("\n[2/4] Testing /auth/check (X-SisRua-Token header)...")
-    r = requests.get(f"{BASE_URL}/api/v1/auth/check", headers=HEADERS)
-    print(f"Status: {r.status_code}, Body: {r.json()}")
-    assert r.status_code == 200
+        # 2. Test /api/v1/auth/check (v0.4.0 headers)
+        print("\n[2/4] Testing /auth/check (X-SisRua-Token header)...")
+        r = client.get("/api/v1/auth/check", headers=HEADERS)
+        print(f"Status: {r.status_code}, Body: {r.json()}")
+        assert r.status_code == 200
+
+        # ... rest of the function ...
 
     # 3. Test Sync OSM Preparation (Legacy MVP Flow)
     print("\n[3/4] Testing sync /prepare/osm (Legacy MVP Payload)...")
@@ -31,7 +45,7 @@ def test_backward_compatibility():
         "longitude": -41.3235,
         "radius": 100.0
     }
-    r = requests.post(f"{BASE_URL}/api/v1/prepare/osm", json=payload, headers=HEADERS)
+    r = client.post("/api/v1/prepare/osm", json=payload, headers=HEADERS)
     print(f"Status: {r.status_code}")
     assert r.status_code == 200
     data = r.json()

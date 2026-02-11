@@ -44,6 +44,8 @@ MIGRATIONS = {
     2: (
         "v0.5.0 - Add color, elevation, and slope columns",
         [
+            "ALTER TABLE CadFeatures ADD COLUMN color TEXT",
+            "ALTER TABLE CadFeatures ADD COLUMN elevation REAL",
             "ALTER TABLE CadFeatures ADD COLUMN slope REAL",
         ]
     ),

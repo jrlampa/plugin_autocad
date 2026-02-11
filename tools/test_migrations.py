@@ -52,7 +52,7 @@ def test_migration_flow():
         # This will trigger migrations again. They should skip the ALTER TABLEs because columns exist.
         applied = migrate_database(db_path)
         print(f"Applied {applied} migrations (should have skipped actual SQL errors).")
-        assert applied == 2
+        assert applied == CURRENT_VERSION
         
         # Verify final state
         conn = sqlite3.connect(str(db_path))
@@ -72,7 +72,13 @@ def test_migration_flow():
         print("\n--- PASSED: Migrations are idempotent and tested. ---")
 
     finally:
-        shutil.rmtree(temp_dir)
+        # SQLite connections can sometimes keep the file locked if not garbage collected
+        import gc
+        gc.collect() 
+        try:
+            shutil.rmtree(temp_dir)
+        except PermissionError:
+            print(f"Warning: Could not delete temp dir {temp_dir} (locked).")
 
 if __name__ == "__main__":
     test_migration_flow()

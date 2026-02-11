@@ -16,9 +16,8 @@
     <AppVersion Condition="'$(AppVersion)' == '' And Exists('$(VersionTextPath)')">$([System.IO.File]::ReadAllText('$(VersionTextPath)').Trim())</AppVersion>
     <AppVersion Condition="'$(AppVersion)' == ''">0.0.0</AppVersion>
     <Version>$(AppVersion)</Version>
-    <AssemblyVersion>0.7.0.0</AssemblyVersion>
-    <FileVersion>0.7.0.0</FileVersion>
-    <Version>0.7.0</Version>
+    <AssemblyVersion>$(AppVersion).0</AssemblyVersion>
+    <FileVersion>$(AppVersion).0</FileVersion>
     <InformationalVersion>$(AppVersion)</InformationalVersion>
   </PropertyGroup>
 

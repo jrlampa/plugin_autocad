@@ -4,6 +4,7 @@ Supports context-local storage for request correlation (trace_id).
 """
 import sys
 import logging
+from pathlib import Path
 import structlog
 from contextvars import ContextVar
 
@@ -96,10 +97,27 @@ def configure_logging():
     # Configure Standard Library Logging to rely on Structlog
     # This captures logs from uvicorn/fastapi/etc if customized
     # but for now we focus on application logs
+    # Configure Standard Library Logging to rely on Structlog
+    root_logger = logging.getLogger()
+    
+    # Console Handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    
+    # File Handler with Rotation (LGPD/Enterprise Requirement)
+    from logging.handlers import TimedRotatingFileHandler
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+    file_handler = TimedRotatingFileHandler(
+        log_dir / "sisrua_backend.log",
+        when="D",
+        interval=1,
+        backupCount=7
+    )
+    
     logging.basicConfig(
         format="%(message)s",
-        stream=sys.stdout,
-        level=logging.INFO
+        level=logging.INFO,
+        handlers=[console_handler, file_handler]
     )
 
 def get_logger(name: str):

@@ -17,7 +17,7 @@ def run_suite():
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
 
-    # List of critical v0.7.0 tests
+    # List of critical v1.1.0 tests
     test_files = [
         # Chaos / Resilience
         'test_circuit_breaker_logic.py',
@@ -49,16 +49,16 @@ def run_suite():
         except Exception as e:
             print(f"  [-] Failed to load {filename}: {e}")
 
-    print("\nRunning Suite v0.7.0 Release Candidate...\n" + "="*40)
+    print("\nRunning Suite v1.1.0 Release Candidate...\n" + "="*40)
     
     runner = unittest.TextTestRunner(verbosity=2)
     result = runner.run(suite)
     
     if result.wasSuccessful():
-        print("\n" + "="*40 + "\n✅ PIPELINE GREEN: All checks passed.")
+        print("\n" + "="*40 + "\nSUCCESS: PIPELINE GREEN: All checks passed.")
         sys.exit(0)
     else:
-        print("\n" + "="*40 + "\n❌ PIPELINE RED: Failures detected.")
+        print("\n" + "="*40 + "\nFAILURE: PIPELINE RED: Failures detected.")
         sys.exit(1)
 
 if __name__ == "__main__":

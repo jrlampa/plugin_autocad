@@ -91,6 +91,13 @@ class HealthService:
         
         total_latency = (time.time() - start_time) * 1000
         
+        # Calculate overall status
+        overall = "up"
+        if any(c.status == "down" for c in components.values()):
+            overall = "down"
+        elif any(c.status == "degraded" for c in components.values()):
+            overall = "degraded"
+
         return DeepHealthResponse(
             status=overall,
             components=components,
