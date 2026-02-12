@@ -25,7 +25,7 @@ class IpcServer:
         self.running = True
         self.thread = threading.Thread(target=self._server_loop, daemon=True)
         self.thread.start()
-        logger.info("ipc_server_started", pipe=PIPE_NAME)
+        logger.info("ipc_server_started", pipe=self.PIPE_NAME)
 
     def stop(self):
         self.running = False
@@ -46,8 +46,8 @@ class IpcServer:
                     win32pipe.PIPE_ACCESS_DUPLEX,
                     win32pipe.PIPE_TYPE_MESSAGE | win32pipe.PIPE_READMODE_MESSAGE | win32pipe.PIPE_WAIT,
                     1, # Max instances (1 for now, or ensure usage pattern)
-                    BUFFER_SIZE,
-                    BUFFER_SIZE,
+                    self.BUFFER_SIZE,
+                    self.BUFFER_SIZE,
                     0,
                     None
                 )
@@ -63,7 +63,7 @@ class IpcServer:
                 try:
                     # Read Request (Expect "GET_TOKEN")
                     # Peek or Just Read
-                    resp = win32file.ReadFile(pipe, BUFFER_SIZE)
+                    resp = win32file.ReadFile(pipe, self.BUFFER_SIZE)
                     msg = resp[1].decode('utf-8').strip()
                     
                     if msg == "GET_TOKEN":
