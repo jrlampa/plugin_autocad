@@ -31,7 +31,7 @@ class IpcServer:
         self.running = False
         # Connect to self to unblock Accept
         try:
-            with open(PIPE_NAME, 'r+b') as f:
+            with open(self.PIPE_NAME, 'r+b') as f:
                 pass
         except:
             pass
@@ -64,13 +64,17 @@ class IpcServer:
                     # Read Request (Expect "GET_TOKEN")
                     # Peek or Just Read
                     resp = win32file.ReadFile(pipe, self.BUFFER_SIZE)
-                    msg = resp[1].decode('utf-8').strip()
+                    raw_msg = resp[1]
+                    msg = raw_msg.decode('utf-8').strip()
+                    logger.info(f"IPC Received: {msg!r}")
                     
                     if msg == "GET_TOKEN":
                         # Send Token
                         logger.info("ipc_token_requested")
                         response_bytes = self.auth_token.encode('utf-8')
                         win32file.WriteFile(pipe, response_bytes)
+                        win32file.FlushFileBuffers(pipe)
+                        logger.info("IPC Token sent and flushed.")
                     else:
                         logger.warning("ipc_invalid_request", msg=msg)
                 

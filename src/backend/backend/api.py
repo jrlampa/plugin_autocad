@@ -123,8 +123,14 @@ from backend.services.geojson import prepare_geojson_compute
 from backend.core.utils import sanitize_jsonable
 from backend.core.rate_limit import RateLimiter
 from fastapi import Depends
+import uuid
 
-AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN") or ""
+# Security: If no token provided (EXE mode), generate one for IPC handshake.
+AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN")
+if not AUTH_TOKEN:
+    AUTH_TOKEN = uuid.uuid4().hex
+    # We do NOT log this token to console for security, it is available via Secure IPC.
+
 AUTH_HEADER_NAME = "X-SisRua-Token"
 
 # --- Session Token Management (ISO 27001 Hardening) ---
