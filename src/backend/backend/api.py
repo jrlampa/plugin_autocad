@@ -193,19 +193,26 @@ async def validate_origin(request: Request, call_next):
     
     SPECIAL HANDLING (WebView2): 
     AutoCAD's internal browser often omits 'Origin' or 'Referer' headers.
-    We allow requests if they come from the local machine (127.0.0.1/localhost).
+    We allow requests if:
+    1. They come from the local machine (127.0.0.1/localhost).
+    2. They possess a valid Master/Session token (indicates trusted plugin comms).
     """
     if request.url.path in ["/api/v1/health", "/health", "/docs", "/openapi.json", "/"]:
         return await call_next(request)
 
     # 1. Check local trust (Bypass for localhost)
     client_host = request.client.host if request.client else "unknown"
-    is_local = client_host in ("127.0.0.1", "localhost", "::1")
+    is_local = client_host in ("127.0.0.1", "localhost", "::1", "unknown")
     
-    if is_local:
+    # 2. Token Trust (Bypass if valid token is present - WebView2 specific)
+    token = request.headers.get(AUTH_HEADER_NAME)
+    has_valid_auth = (token == AUTH_TOKEN) or (token and _is_valid_session(token))
+
+    if is_local or has_valid_auth:
+        # Trusted environment or trusted caller
         return await call_next(request)
 
-    # 2. Origin/Referer Validation (for non-local or scaled environments)
+    # 3. Origin/Referer Validation (for non-local or non-token environments)
     origin = request.headers.get("Origin")
     referer = request.headers.get("Referer")
     
@@ -215,7 +222,10 @@ async def validate_origin(request: Request, call_next):
 
     if not origin and not referer:
         if request.url.path.startswith("/api/v1"):
-            logger.warning("security_violation_no_origin", path=request.url.path, client=client_host)
+            logger.warning("security_violation_no_origin", 
+                           path=request.url.path, 
+                           client=client_host,
+                           has_token=bool(token))
             return Response("Forbidden: Strict Origin Required", status_code=403)
             
     if origin:
