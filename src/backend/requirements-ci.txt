@@ -8,4 +8,6 @@ rasterio
 numpy
 requests
 groq
+structlog
+sentry-sdk[fastapi]
 
