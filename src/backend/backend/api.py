@@ -738,19 +738,23 @@ def _maybe_mount_frontend():
     # Preferimos resolver o caminho do bundle via executável.
     if getattr(sys, "frozen", False):
         # Em produção (EXE)
+        # Tenta primeiro no _MEIPASS (embutido)
         if hasattr(sys, "_MEIPASS"):
-            # Caso o frontend esteja embutido no EXE (PyInstaller --add-data)
-            dist_dir = Path(sys._MEIPASS) / "frontend" / "dist"
-        else:
-            # Fallback para pasta externa (Contents/frontend/dist)
+            candidate = Path(sys._MEIPASS) / "frontend" / "dist"
+            if candidate.exists():
+                dist_dir = candidate
+        
+        # Se não achou embutido (ou dist_dir ainda None), tenta na pasta externa (Contents/frontend/dist)
+        if not dist_dir:
             contents_dir = Path(sys.executable).resolve().parent.parent
             dist_dir = contents_dir / "frontend" / "dist"
-    # Em desenvolvimento...
-    current_file = Path(__file__).resolve()
-    # BIM-LITE: Evitamos caminhos estáticos profundos que podem confundir auditors.
-    # Buscamos a raiz do workspace dinamicamente.
-    repo_root = current_file.parent.parent.parent
-    dist_dir = repo_root / "src" / "frontend" / "dist"
+    else:
+        # Em desenvolvimento...
+        current_file = Path(__file__).resolve()
+        # BIM-LITE: Evitamos caminhos estáticos profundos que podem confundir auditors.
+        # Buscamos a raiz do workspace dinamicamente.
+        repo_root = current_file.parent.parent.parent
+        dist_dir = repo_root / "src" / "frontend" / "dist"
     
     if not dist_dir.exists():
         # Fallback para layout de bundle (Contents/frontend/dist)
