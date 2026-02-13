@@ -65,7 +65,10 @@ const registry = new CircuitBreakerRegistry();
 export const ResilienceService = {
   // Tracing Wrapper
   async executeWithTracing(operationName, action) {
-    const traceId = crypto.randomUUID();
+    // Generate UUID with fallback for non-secure contexts (WebView2 sometimes lacks crypto.randomUUID)
+    const traceId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : Math.random().toString(36).substring(2, 11);
     console.log(`[Trace:${traceId}] Starting ${operationName}`);
     const start = performance.now();
 

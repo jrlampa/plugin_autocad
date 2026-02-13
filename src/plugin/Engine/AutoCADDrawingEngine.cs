@@ -7,6 +7,7 @@ using Autodesk.AutoCAD.Colors;
 using Autodesk.AutoCAD.EditorInput;
 using System.IO;
 using sisRUA.Core.DTOs;
+using sisRUA;
 
 namespace sisRUA.Engine
 {
@@ -57,6 +58,9 @@ namespace sisRUA.Engine
                  var bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
                  if (!bt.Has(blockName))
                  {
+                     // #region agent log
+                     SisRuaLog.WriteDebugLine("AutoCADDrawingEngine.cs:InsertBlock", "blockNotFound", new { blockName }, "H1", "run1");
+                     // #endregion
                      WriteMessage($"Bloco '{blockName}' não encontrado.");
                      return;
                  }

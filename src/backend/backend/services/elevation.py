@@ -176,16 +176,13 @@ class ElevationService:
         """
         import rasterio
         import numpy as np
-        import matplotlib.pyplot as plt
+        from skimage import measure
 
         tif_path = self.get_elevation_grid(min_lat, min_lon, max_lat, max_lon)
         
         with rasterio.open(tif_path) as src:
             # Read data for the requested window
-            # Convert lat/lon window to pixel window
             window = rasterio.windows.from_bounds(min_lon, min_lat, max_lon, max_lat, transform=src.transform)
-            
-            # Read elevation data as numpy array
             data = src.read(1, window=window)
             
             # Handle nodata
@@ -195,7 +192,6 @@ class ElevationService:
             z_min = np.nanmin(data)
             z_max = np.nanmax(data)
             
-            # Align levels to interval (e.g., 0, 10, 20...)
             start = math.floor(z_min / interval) * interval
             end = math.ceil(z_max / interval) * interval
             levels = np.arange(start, end + interval, interval)
@@ -206,29 +202,23 @@ class ElevationService:
             results = []
             transform = src.window_transform(window)
 
-            # Use origin='upper' so that y-coordinate 0 matches row 0 (North).
-            contours_obj = plt.contour(data, levels=levels, origin='upper')
-            
-            # Use allsegs to get simplified access to vertices
-            # allsegs is a list of segments for each level
-            # allsegs[i] -> list of polygons/lines
-            for i, segs in enumerate(contours_obj.allsegs):
-                if i >= len(levels): break
-                level_elev = float(levels[i])
+            for level_elev in levels:
+                # find_contours returns a list of (row, col) coordinates for the given level
+                contours_list = measure.find_contours(data, level_elev)
                 
-                for verts in segs:
-                    # verts is numpy array of (x, y) -> (col, row) pixels
+                for verts in contours_list:
+                    # verts is (row, col)
                     coords_latlon = []
-                    for x_px, y_px in verts:
-                        # Apply transform: transform * (col, row) -> (lon, lat)
-                        lon, lat = transform * (x_px, y_px)
+                    for row_px, col_px in verts:
+                        # transform * (col, row) -> (lon, lat)
+                        lon, lat = transform * (col_px, row_px)
                         coords_latlon.append((lat, lon))
                     
                     if len(coords_latlon) >= 2:
                         results.append({
-                            'elevation': level_elev,
-                            'geometry': coords_latlon # List of (lat, lon)
+                            'elevation': float(level_elev),
+                            'geometry': coords_latlon
                         })
             
-            plt.close()
+            return results
             return results
