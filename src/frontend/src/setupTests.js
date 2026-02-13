@@ -19,7 +19,7 @@ vi.mock('leaflet', async () => {
   // Mock mínimo para não quebrar import do App.
   const L = {
     icon: () => ({}),
-    Marker: function Marker() {},
+    Marker: function Marker() { },
   };
   L.Marker.prototype = { options: {} };
   return { default: L };
@@ -38,9 +38,9 @@ vi.mock('react-leaflet', async () => {
     GeoJSON: () => null,
     Polyline: () => null,
     useMap: () => ({
-      getContainer: () => ({ addEventListener: () => {}, removeEventListener: () => {} }),
-      on: () => {},
-      flyTo: () => {},
+      getContainer: () => ({ addEventListener: () => { }, removeEventListener: () => { } }),
+      on: () => { },
+      flyTo: () => { },
       mouseEventToLatLng: () => ({ lat: 0, lng: 0 }),
     }),
   };
@@ -51,5 +51,22 @@ vi.mock('./api', () => ({
   api: {
     checkHealth: vi.fn(() => Promise.resolve(true)),
     smartGeocode: vi.fn(),
+  },
+}));
+
+// Mock do SdkService para evitar fetch failed no SdkTest component
+vi.mock('./services/SdkService', () => ({
+  SdkService: {
+    checkHealth: vi.fn(() => Promise.resolve({ status: 'ok' })),
+    checkHealthDetailed: vi.fn(() =>
+      Promise.resolve({
+        status: 'healthy',
+        components: {
+          database: { status: 'healthy', latency_ms: 10 },
+          cache: { status: 'healthy', latency_ms: 5 },
+          external_apis: { status: 'healthy', details: {} },
+        },
+      })
+    ),
   },
 }));
