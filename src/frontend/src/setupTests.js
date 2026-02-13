@@ -19,7 +19,7 @@ vi.mock('leaflet', async () => {
   // Mock mínimo para não quebrar import do App.
   const L = {
     icon: () => ({}),
-    Marker: function Marker() { },
+    Marker: function Marker() {},
   };
   L.Marker.prototype = { options: {} };
   return { default: L };
@@ -38,9 +38,9 @@ vi.mock('react-leaflet', async () => {
     GeoJSON: () => null,
     Polyline: () => null,
     useMap: () => ({
-      getContainer: () => ({ addEventListener: () => { }, removeEventListener: () => { } }),
-      on: () => { },
-      flyTo: () => { },
+      getContainer: () => ({ addEventListener: () => {}, removeEventListener: () => {} }),
+      on: () => {},
+      flyTo: () => {},
       mouseEventToLatLng: () => ({ lat: 0, lng: 0 }),
     }),
   };
