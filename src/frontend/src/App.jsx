@@ -106,9 +106,12 @@ export default function App() {
     }
 
     const handleWebViewMessage = (event) => {
+      console.log('App: Received WebView Message:', event);
       if (typeof event.data === 'string') {
         try {
           const message = JSON.parse(event.data);
+          console.log('App: Parsed Message:', message);
+
           // Auth handled in useFileProcessing or here?
           // Auth is critical, let's keep it here or shared.
           if (message.action === 'INIT_AUTH_TOKEN' && message.data.token) {
@@ -116,6 +119,7 @@ export default function App() {
             api.setupSecurity(message.data.token);
           }
           if (message.action === 'JOB_PROGRESS' && message.data) {
+            console.log('App: Setting Host Job:', message.data);
             setHostJob(message.data);
           }
           if (message.action === 'GEOLOCATION_SYNC' && message.data) {
@@ -126,8 +130,10 @@ export default function App() {
             );
           }
         } catch (e) {
-          console.error(e);
+          console.error('App: Error parsing message:', e);
         }
+      } else {
+        console.warn('App: Received non-string message data:', typeof event.data, event.data);
       }
     };
 

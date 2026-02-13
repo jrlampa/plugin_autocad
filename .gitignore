@@ -63,3 +63,13 @@ bundle-template/sisRUA.bundle/Contents/backend/sisrua_backend.exe
 # ===== Local SDKs (BIG FILES) =====
 dll_autocad_*/
 
+# ===== Test Artifacts (Transient) =====
+test_out.txt
+test_concurrency.db
+PRINT_ERROS/
+test-results/
+playwright-report/
+logs/
+*_output.txt
+*_output_*.txt
+

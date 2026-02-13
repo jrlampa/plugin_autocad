@@ -5,7 +5,10 @@ export default function JobOverlay({ uiJob }) {
   if (!uiJob) return null;
 
   return (
-    <div className="bg-white/60 rounded-3xl border border-white/80 p-6 flex flex-col gap-4 shadow-lg animate-enter ring-1 ring-black/5 mt-4">
+    <div
+      data-testid="job-overlay"
+      className="bg-white/60 rounded-3xl border border-white/80 p-6 flex flex-col gap-4 shadow-lg animate-enter ring-1 ring-black/5 mt-4"
+    >
       <div className="flex justify-between items-start pb-3 border-b border-slate-200/50">
         <div className="flex items-center gap-3">
           <div
