@@ -190,12 +190,22 @@ async def validate_origin(request: Request, call_next):
     """
     ISO 27001: Strict Origin Validation.
     Blocks requests from external domains or malformed origins.
-    Allow localhost/127.0.0.1 with any port for plugin dynamic allocation.
-    Allow TestClient (testserver) for CI.
+    
+    SPECIAL HANDLING (WebView2): 
+    AutoCAD's internal browser often omits 'Origin' or 'Referer' headers.
+    We allow requests if they come from the local machine (127.0.0.1/localhost).
     """
     if request.url.path in ["/api/v1/health", "/health", "/docs", "/openapi.json", "/"]:
         return await call_next(request)
 
+    # 1. Check local trust (Bypass for localhost)
+    client_host = request.client.host if request.client else "unknown"
+    is_local = client_host in ("127.0.0.1", "localhost", "::1")
+    
+    if is_local:
+        return await call_next(request)
+
+    # 2. Origin/Referer Validation (for non-local or scaled environments)
     origin = request.headers.get("Origin")
     referer = request.headers.get("Referer")
     
@@ -203,18 +213,16 @@ async def validate_origin(request: Request, call_next):
     if request.base_url.hostname == "testserver":
         return await call_next(request)
 
-    # WebView2 and local environments often send Origin or Referer.
     if not origin and not referer:
         if request.url.path.startswith("/api/v1"):
-            logger.warning("security_violation_no_origin", path=request.url.path)
+            logger.warning("security_violation_no_origin", path=request.url.path, client=client_host)
             return Response("Forbidden: Strict Origin Required", status_code=403)
             
-    # Allow ANY localhost or 127.0.0.1 origin (dynamic ports)
     if origin:
         if origin.startswith("http://localhost:") or origin.startswith("http://127.0.0.1:"):
              return await call_next(request)
         if origin not in ALLOWED_ORIGINS:
-            logger.warning("security_violation_invalid_origin", origin=origin)
+            logger.warning("security_violation_invalid_origin", origin=origin, client=client_host)
             return Response("Forbidden: Invalid Origin", status_code=403)
         
     return await call_next(request)
@@ -751,10 +759,9 @@ def _maybe_mount_frontend():
     else:
         # Em desenvolvimento...
         current_file = Path(__file__).resolve()
-        # BIM-LITE: Evitamos caminhos estáticos profundos que podem confundir auditors.
-        # Buscamos a raiz do workspace dinamicamente.
-        repo_root = current_file.parent.parent.parent
-        dist_dir = repo_root / "src" / "frontend" / "dist"
+        # BIM-LITE: O src/backend/backend/api.py -> parent.parent.parent -> src/
+        repo_src = current_file.parent.parent.parent
+        dist_dir = repo_src / "frontend" / "dist"
     
     if not dist_dir.exists():
         # Fallback para layout de bundle (Contents/frontend/dist)

@@ -37,28 +37,28 @@ class PrepareJobRequest(FrozenBaseModel):
     radius: Optional[float] = Field(None, description="Required for kind='osm'")
     geojson: Any | None = Field(None, description="Required for kind='geojson'")
 
-class CadFeature(FrozenBaseModel):
+class CadFeature(BaseModel):
     feature_type: Literal["Polyline", "Point"] = Field("Polyline", description="CAD entity type")
-    layer: Optional[str] = Field(None, description="Target AutoCAD layer name")
+    layer: str = Field("0", description="Target AutoCAD layer name")
     name: Optional[str] = Field(None, description="Display name for the feature")
     highway: Optional[str] = Field(None, description="OSM highway tag value")
     width_m: Optional[float] = Field(None, description="Estimated width in meters")
 
     # For Polyline features
-    coords_xy: Optional[List[List[float]]] = Field(None, description="Coordinates in projected CRS (SIRGAS 2000)")
+    coords_xy: Optional[List[List[float]]] = Field(default_factory=list, description="Coordinates in projected CRS (SIRGAS 2000)")
 
     # For Point features (blocks)
-    insertion_point_xy: Optional[List[float]] = Field(None, description="Insertion point in projected CRS")
+    insertion_point_xy: Optional[List[float]] = Field(default_factory=list, description="Insertion point in projected CRS")
     block_name: Optional[str] = Field(None, description="Name of the AutoCAD block")
     block_filepath: Optional[str] = Field(None, description="Path to the block definition file")
-    rotation: Optional[float] = Field(None, description="Rotation in radians")
-    scale: Optional[float] = Field(None, description="Scale factor")
+    rotation: float = Field(0.0, description="Rotation in radians")
+    scale: float = Field(1.0, description="Scale factor")
 
     # Phase 2 fields
     color: Optional[str] = Field(None, description="ACI color code or RGB string")
     elevation: Optional[float] = Field(None, description="Elevation (Z value) in meters")
     slope: Optional[float] = Field(None, description="Calculated slope percentage")
-    original_geojson_properties: Optional[Dict[str, Any]] = Field(None, description="Original GeoJSON properties for portability")
+    original_geojson_properties: Dict[str, Any] = Field(default_factory=dict, description="Original GeoJSON properties for portability")
 
 class PrepareResponse(FrozenBaseModel):
     crs_out: Optional[str] = Field(None, description="Projected Coordinate Reference System", example="EPSG:31983")

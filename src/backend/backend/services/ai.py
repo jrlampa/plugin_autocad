@@ -12,7 +12,10 @@ class AiService:
     def __init__(self):
         self.api_key = os.environ.get("GROQ_API_KEY")
         if not self.api_key:
-            logger.warning("GROQ_API_KEY not set. AI features will be disabled/mocked.")
+            # BIM-LITE: Use single-time logging to avoid spamming while in standalone mode.
+            if not getattr(AiService, "_notified_missing_key", False):
+                logger.warning("GROQ_API_KEY not set. AI features will be disabled/mocked.")
+                AiService._notified_missing_key = True
             self.client = None
         else:
             self.client = Groq(api_key=self.api_key)
