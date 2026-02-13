@@ -5,17 +5,20 @@ export function useDrawingCanvas(setPreviewGeoJson) {
   const [drawingPoints, setDrawingPoints] = useState([]);
 
   const toggleDrawing = useCallback(() => {
-    setIsDrawing(prev => {
+    setIsDrawing((prev) => {
       if (prev) setDrawingPoints([]); // Clear on cancel
       return !prev;
     });
   }, []);
 
-  const addPoint = useCallback((latlng) => {
-    if (isDrawing) {
-      setDrawingPoints(prev => [...prev, [latlng.lng, latlng.lat]]);
-    }
-  }, [isDrawing]);
+  const addPoint = useCallback(
+    (latlng) => {
+      if (isDrawing) {
+        setDrawingPoints((prev) => [...prev, [latlng.lng, latlng.lat]]);
+      }
+    },
+    [isDrawing]
+  );
 
   const finishDrawing = useCallback(() => {
     if (drawingPoints.length < 2) return;
@@ -26,25 +29,26 @@ export function useDrawingCanvas(setPreviewGeoJson) {
         name: 'Rua Desenhada Manualmente',
         highway: 'residential',
         layer: 'V_LOCAL',
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
       },
       geometry: { type: 'LineString', coordinates: drawingPoints },
     };
 
-    setPreviewGeoJson(prev => {
+    setPreviewGeoJson((prev) => {
       const base = prev || { type: 'FeatureCollection', features: [] };
       const existing = base.type === 'FeatureCollection' ? base.features : [base];
 
       // Avoid duplicates
-      const isDuplicate = existing.some(f =>
-        JSON.stringify(f.geometry.coordinates) === JSON.stringify(newFeature.geometry.coordinates)
+      const isDuplicate = existing.some(
+        (f) =>
+          JSON.stringify(f.geometry.coordinates) === JSON.stringify(newFeature.geometry.coordinates)
       );
 
       if (isDuplicate) return base;
 
       return {
         type: 'FeatureCollection',
-        features: [...existing, newFeature]
+        features: [...existing, newFeature],
       };
     });
 
@@ -57,6 +61,6 @@ export function useDrawingCanvas(setPreviewGeoJson) {
     drawingPoints,
     toggleDrawing,
     addPoint,
-    finishDrawing
+    finishDrawing,
   };
 }

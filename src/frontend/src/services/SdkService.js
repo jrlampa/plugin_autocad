@@ -74,7 +74,7 @@ export const SdkService = {
    * @param {string} jobId - Job ID
    * @returns {Promise<JobStatusResponse>}
    */
-  async getJob(_jobId) {
+  async getJob() {
     return await ResilienceService.executeWithTracing('SDK_GET_JOB', async () => {
       // Note: SDK has path parameter {job_id} - would need to fix SDK generation
       // TODO: Pass jobId to SDK once path parameters are properly implemented
@@ -87,7 +87,7 @@ export const SdkService = {
    * @param {string} jobId - Job ID
    * @returns {Promise<any>}
    */
-  async cancelJob(_jobId) {
+  async cancelJob() {
     return await ResilienceService.executeWithTracing('SDK_CANCEL_JOB', async () => {
       // TODO: Pass jobId to SDK once path parameters are properly implemented
       return await sdkClient.cancelJobEndpointApiV1JobsJobIdDelete();
@@ -141,7 +141,7 @@ export const SdkService = {
       // IPC Orchestration: Delegate to C# Host
       window.chrome.webview.postMessage({
         action: 'GENERATE_OSM',
-        data: { latitude, longitude, radius }
+        data: { latitude, longitude, radius },
       });
       return { status: 'orchestrated' };
     }
@@ -163,7 +163,7 @@ export const SdkService = {
       // IPC Orchestration: Delegate to C# Host
       window.chrome.webview.postMessage({
         action: 'IMPORT_GEOJSON',
-        data: geojson
+        data: geojson,
       });
       return { status: 'orchestrated' };
     }
@@ -224,7 +224,7 @@ export const SdkService = {
    * @param {string} auditId - Audit log ID
    * @returns {Promise<any>}
    */
-  async getAuditLog(_auditId) {
+  async getAuditLog() {
     return await ResilienceService.executeWithTracing('SDK_AUDIT_GET', async () => {
       // TODO: Pass auditId to SDK once path parameters are properly implemented
       return await sdkClient.getAuditLogApiAuditAuditIdGet();
@@ -236,7 +236,7 @@ export const SdkService = {
    * @param {string} auditId - Audit log ID
    * @returns {Promise<any>}
    */
-  async verifyAuditLog(_auditId) {
+  async verifyAuditLog() {
     return await ResilienceService.executeWithTracing('SDK_AUDIT_VERIFY', async () => {
       // TODO: Pass auditId to SDK once path parameters are properly implemented
       return await sdkClient.verifyAuditLogApiAuditAuditIdVerifyGet();

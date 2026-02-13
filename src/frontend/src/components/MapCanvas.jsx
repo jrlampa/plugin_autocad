@@ -12,7 +12,7 @@ const MapLoadingFallback = () => (
 );
 
 export default function MapCanvas({
-  MapView,
+  MapView, // eslint-disable-line no-unused-vars
   coords,
   baseLayer,
   tileProviders,
@@ -21,7 +21,7 @@ export default function MapCanvas({
   isDrawing,
   drawingPoints,
   mapLogic,
-  handleMapClick
+  handleMapClick,
 }) {
   return (
     <div className="flex-1 relative z-0">

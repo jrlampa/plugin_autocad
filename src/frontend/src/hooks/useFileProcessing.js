@@ -8,7 +8,7 @@ export function useFileProcessing() {
   // Helper to show errors (replace with Toast system later)
   const showError = (msg) => {
     console.error(msg);
-    // For now, we might rely on the parent to handle toasts, 
+    // For now, we might rely on the parent to handle toasts,
     // or expose an error state. Let's expose an error state/callback.
     setToastMessage({ type: 'error', message: msg });
   };
@@ -22,7 +22,7 @@ export function useFileProcessing() {
         try {
           const message = JSON.parse(event.data);
 
-          // INIT_AUTH_TOKEN is handled elsewhere (or we can keep it here?) 
+          // INIT_AUTH_TOKEN is handled elsewhere (or we can keep it here?)
           // App.jsx usually handles auth. We focus on FILES here.
 
           if (message.action === 'FILE_DROPPED_KML' && message.data.content) {
@@ -41,8 +41,7 @@ export function useFileProcessing() {
             } catch (err) {
               showError(`Erro ao processar KML: ${err.message}`);
             }
-          }
-          else if (message.action === 'FILE_DROPPED_GEOJSON' && message.data.content) {
+          } else if (message.action === 'FILE_DROPPED_GEOJSON' && message.data.content) {
             console.log('GeoJSON received from C# host.');
             setPreviewGeoJson(null); // Clear previous
             try {
@@ -56,7 +55,7 @@ export function useFileProcessing() {
               showError(`Erro ao processar GeoJSON do C#: ${err.message}`);
             }
           }
-        } catch (error) {
+        } catch {
           // Ignore non-JSON messages or unrelated events?
           // console.error('Error parsing WebView message in useFileProcessing:', error);
         }
@@ -134,6 +133,6 @@ export function useFileProcessing() {
     handleDragLeave,
     handleImportGeoJson,
     clearPreview,
-    setPreviewGeoJson // Exposed for manual drawing additions
+    setPreviewGeoJson, // Exposed for manual drawing additions
   };
 }

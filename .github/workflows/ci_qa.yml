@@ -67,6 +67,11 @@ jobs:
         run: |
           mkdir -p ../../qa/out/test-reports
           npm test -- --run --coverage
+
+      - name: Build Frontend
+        working-directory: src/frontend
+        run: npm run build
+
       - name: Install Playwright browsers
         if: ${{ hashFiles('src/frontend/playwright.config.*') != '' }}
         working-directory: src/frontend

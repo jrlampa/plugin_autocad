@@ -16,7 +16,9 @@ import Toast from './components/Toast';
 
 // Lazy load heavy components for faster TTI
 const MapView = lazy(() => import('./components/MapView'));
-const AiAssistant = lazy(() => import('./components/AiAssistant').then(mod => ({ default: mod.AiAssistant })));
+const AiAssistant = lazy(() =>
+  import('./components/AiAssistant').then((mod) => ({ default: mod.AiAssistant }))
+);
 
 // --- APP PRINCIPAL ---
 export default function App() {
@@ -32,16 +34,11 @@ export default function App() {
     handleImportGeoJson,
     setPreviewGeoJson,
     toastMessage: fileToast,
-    clearToast: clearFileToast
+    clearToast: clearFileToast,
   } = useFileProcessing();
 
-  const {
-    isDrawing,
-    drawingPoints,
-    toggleDrawing,
-    finishDrawing,
-    addPoint
-  } = useDrawingCanvas(setPreviewGeoJson);
+  const { isDrawing, drawingPoints, toggleDrawing, finishDrawing, addPoint } =
+    useDrawingCanvas(setPreviewGeoJson);
 
   // ** Estado de Carregamento Inicial (Backend Health Check) **
   const [isBackendReady, setIsBackendReady] = useState(false);
@@ -56,7 +53,6 @@ export default function App() {
   const [hostJob, setHostJob] = useState(null);
   const uiJob = hostJob;
   const loading = uiJob && !['completed', 'failed'].includes(uiJob.status);
-  const error = uiJob?.status === 'failed' ? uiJob.error || uiJob.message || 'Falhou.' : null;
 
   const [baseLayer, setBaseLayer] = useState('satellite');
   const [radius, setRadius] = useState(500);
@@ -86,7 +82,9 @@ export default function App() {
       }
     };
     checkBackend();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // ** Global Error Listener **
@@ -111,7 +109,7 @@ export default function App() {
       if (typeof event.data === 'string') {
         try {
           const message = JSON.parse(event.data);
-          // Auth handled in useFileProcessing or here? 
+          // Auth handled in useFileProcessing or here?
           // Auth is critical, let's keep it here or shared.
           if (message.action === 'INIT_AUTH_TOKEN' && message.data.token) {
             console.log('Master token received from host. Establishing secure session...');
@@ -123,9 +121,13 @@ export default function App() {
           if (message.action === 'GEOLOCATION_SYNC' && message.data) {
             console.log('Geolocation sync received from C#:', message.data);
             setCoords({ lat: message.data.latitude, lng: message.data.longitude });
-            setInputText(`${message.data.latitude.toFixed(6)}, ${message.data.longitude.toFixed(6)}`);
+            setInputText(
+              `${message.data.latitude.toFixed(6)}, ${message.data.longitude.toFixed(6)}`
+            );
           }
-        } catch (e) { console.error(e); }
+        } catch (e) {
+          console.error(e);
+        }
       }
     };
 
@@ -138,7 +140,6 @@ export default function App() {
       }
     };
   }, [isBackendReady]);
-
 
   // ** Actions **
   const handleGeocode = async () => {
@@ -197,7 +198,8 @@ export default function App() {
     },
     osm: {
       url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>',
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>',
     },
   };
 
@@ -235,10 +237,17 @@ export default function App() {
       {/* GLOBAL ERROR BANNER */}
       {globalError && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[4000] animate-in slide-in-from-top duration-300">
-          <div className={`px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border ${globalError.type === 'RATE_LIMIT' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-red-100 text-red-800 border-red-200'}`}>
+          <div
+            className={`px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border ${globalError.type === 'RATE_LIMIT' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-red-100 text-red-800 border-red-200'}`}
+          >
             {globalError.type === 'RATE_LIMIT' ? <Clock size={20} /> : <AlertTriangle size={20} />}
             <span className="text-xs font-bold">{globalError.message}</span>
-            <button onClick={() => setGlobalError(null)} className="ml-2 hover:bg-black/5 rounded-full p-1"><X size={14} /></button>
+            <button
+              onClick={() => setGlobalError(null)}
+              className="ml-2 hover:bg-black/5 rounded-full p-1"
+            >
+              <X size={14} />
+            </button>
           </div>
         </div>
       )}
@@ -310,56 +319,63 @@ export default function App() {
       {/* For simplicity/safety, I'll keep the Modal rendering block here or create a Modal component if needed, 
           but simpler to keep it if it's small. Actually, it's quite verbose. Let's start with this. */}
 
-      {
-        mapLogic.isModalOpen && (
-          <div className="absolute inset-0 z-[2000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in zoom-in duration-200">
-            {/* ... Modal Content ... */}
-            {/* I should probably extract this to SymbolModal.jsx later, but for now I will inline or use existing logic if possible.
+      {mapLogic.isModalOpen && (
+        <div className="absolute inset-0 z-[2000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in zoom-in duration-200">
+          {/* ... Modal Content ... */}
+          {/* I should probably extract this to SymbolModal.jsx later, but for now I will inline or use existing logic if possible.
                  Wait, I can't inline "existing logic" if I overwrite App.jsx.
                  I must write the full content.
              */}
-            <div className="modal-glass p-8 w-96">
-              <div className="flex justify-between items-center mb-6">
-                {/* ... header ... */}
-                <h3 className="font-black text-slate-800 flex items-center gap-3 text-lg">
-                  <span className="bg-blue-100 p-2 rounded-xl text-blue-600">
-                    {/* icon? */}
-                  </span>
-                  Novo {mapLogic.currentDrop?.type}
-                </h3>
-                <button onClick={mapLogic.cancelMarker}>
-                  <X size={20} className="text-slate-400 hover:text-red-500 transition-colors" />
-                </button>
+          <div className="modal-glass p-8 w-96">
+            <div className="flex justify-between items-center mb-6">
+              {/* ... header ... */}
+              <h3 className="font-black text-slate-800 flex items-center gap-3 text-lg">
+                <span className="bg-blue-100 p-2 rounded-xl text-blue-600">{/* icon? */}</span>
+                Novo {mapLogic.currentDrop?.type}
+              </h3>
+              <button onClick={mapLogic.cancelMarker}>
+                <X size={20} className="text-slate-400 hover:text-red-500 transition-colors" />
+              </button>
+            </div>
+            {/* Body */}
+            <div className="space-y-5">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">
+                  Descrição Técnica
+                </label>
+                <input
+                  className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-700"
+                  autoFocus
+                  placeholder="Ex: Poste Bifásico..."
+                  value={mapLogic.metaInput.desc}
+                  onChange={(e) =>
+                    mapLogic.setMetaInput({ ...mapLogic.metaInput, desc: e.target.value })
+                  }
+                />
               </div>
-              {/* Body */}
-              <div className="space-y-5">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Descrição Técnica</label>
-                  <input
-                    className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-700"
-                    autoFocus
-                    placeholder="Ex: Poste Bifásico..."
-                    value={mapLogic.metaInput.desc}
-                    onChange={(e) => mapLogic.setMetaInput({ ...mapLogic.metaInput, desc: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Altura</label>
-                  <input
-                    className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-700"
-                    placeholder="Ex: 12m"
-                    value={mapLogic.metaInput.altura}
-                    onChange={(e) => mapLogic.setMetaInput({ ...mapLogic.metaInput, altura: e.target.value })}
-                  />
-                </div>
-                <button onClick={mapLogic.confirmMarker} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-sm flex justify-center gap-2 transition-all shadow-lg shadow-blue-500/30">
-                  SALVAR PONTO
-                </button>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">
+                  Altura
+                </label>
+                <input
+                  className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-700"
+                  placeholder="Ex: 12m"
+                  value={mapLogic.metaInput.altura}
+                  onChange={(e) =>
+                    mapLogic.setMetaInput({ ...mapLogic.metaInput, altura: e.target.value })
+                  }
+                />
               </div>
+              <button
+                onClick={mapLogic.confirmMarker}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-sm flex justify-center gap-2 transition-all shadow-lg shadow-blue-500/30"
+              >
+                SALVAR PONTO
+              </button>
             </div>
           </div>
-        )
-      }
+        </div>
+      )}
 
       <AiAssistant />
     </div>

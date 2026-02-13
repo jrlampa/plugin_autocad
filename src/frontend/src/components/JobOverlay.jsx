@@ -29,19 +29,15 @@ export default function JobOverlay({ uiJob }) {
                   ? 'Processando'
                   : 'Concluído'}
             </span>
-            {uiJob.message &&
-              uiJob.status !== 'completed' &&
-              uiJob.status !== 'failed' && (
-                <span className="text-[10px] text-slate-500 font-medium animate-pulse">
-                  {uiJob.message}
-                </span>
-              )}
+            {uiJob.message && uiJob.status !== 'completed' && uiJob.status !== 'failed' && (
+              <span className="text-[10px] text-slate-500 font-medium animate-pulse">
+                {uiJob.message}
+              </span>
+            )}
           </div>
         </div>
         <div className="text-[10px] font-mono text-slate-500">
-          {typeof uiJob.progress === 'number'
-            ? `${Math.round(uiJob.progress * 100)}%`
-            : ''}
+          {typeof uiJob.progress === 'number' ? `${Math.round(uiJob.progress * 100)}%` : ''}
         </div>
       </div>
 

@@ -1,4 +1,25 @@
-import { CadFeature, ChatRequest, ChatResponse, ComponentHealth, DeepHealthResponse, ElevationPointResponse, ElevationProfileRequest, ElevationProfileResponse, ElevationQueryRequest, HTTPValidationError, HealthResponse, InternalEvent, JobStatusResponse, PrepareGeoJsonRequest, PrepareJobRequest, PrepareOsmRequest, PrepareResponse, ProjectUpdateRequest, ValidationError, WebhookRegistrationRequest } from './types';
+import {
+  CadFeature,
+  ChatRequest,
+  ChatResponse,
+  ComponentHealth,
+  DeepHealthResponse,
+  ElevationPointResponse,
+  ElevationProfileRequest,
+  ElevationProfileResponse,
+  ElevationQueryRequest,
+  HTTPValidationError,
+  HealthResponse,
+  InternalEvent,
+  JobStatusResponse,
+  PrepareGeoJsonRequest,
+  PrepareJobRequest,
+  PrepareOsmRequest,
+  PrepareResponse,
+  ProjectUpdateRequest,
+  ValidationError,
+  WebhookRegistrationRequest,
+} from './types';
 
 export class SisRuaClient {
   private baseUrl: string;
@@ -30,7 +51,10 @@ export class SisRuaClient {
   }
 
   async updateProjectApiV1ProjectsProjectIdPut(body: any): Promise<any> {
-    return this.request('/api/v1/projects/{project_id}', { method: 'PUT', body: JSON.stringify(body) });
+    return this.request('/api/v1/projects/{project_id}', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
   }
 
   async createPrepareJobApiV1JobsPreparePost(body: any): Promise<any> {
@@ -46,11 +70,17 @@ export class SisRuaClient {
   }
 
   async queryElevationApiV1ToolsElevationQueryPost(body: any): Promise<any> {
-    return this.request('/api/v1/tools/elevation/query', { method: 'POST', body: JSON.stringify(body) });
+    return this.request('/api/v1/tools/elevation/query', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
   }
 
   async queryProfileApiV1ToolsElevationProfilePost(body: any): Promise<any> {
-    return this.request('/api/v1/tools/elevation/profile', { method: 'POST', body: JSON.stringify(body) });
+    return this.request('/api/v1/tools/elevation/profile', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
   }
 
   async chatWithAiApiV1AiChatPost(body: any): Promise<any> {
@@ -66,7 +96,10 @@ export class SisRuaClient {
   }
 
   async registerWebhookApiV1WebhooksRegisterPost(body: any): Promise<any> {
-    return this.request('/api/v1/webhooks/register', { method: 'POST', body: JSON.stringify(body) });
+    return this.request('/api/v1/webhooks/register', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
   }
 
   async emitEventApiV1EventsEmitPost(body: any): Promise<any> {
@@ -100,5 +133,4 @@ export class SisRuaClient {
   async rootGet(): Promise<any> {
     return this.request('/', { method: 'GET' });
   }
-
 }

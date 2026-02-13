@@ -8,7 +8,7 @@ export default function Sidebar({
   loading,
   onToggleDrawing,
   onFinishDrawing,
-  onGenerate
+  onGenerate,
 }) {
   return (
     <div className="absolute left-4 top-4 bottom-4 w-20 z-[1000] flex flex-col items-center py-6 gap-5 bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl transition-all hover:bg-white/20 hover:scale-[1.01]">
