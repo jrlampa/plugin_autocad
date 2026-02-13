@@ -113,14 +113,14 @@ jobs:
           name: qa-frontend
           path: qa/out
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@v5
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Needed to get PR information, if any
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.organization=sisrua
-            -Dsonar.projectKey=sisrua_plugin
+            -Dsonar.organization=jrlampa
+            -Dsonar.projectKey=jrlampa_plugin_autocad
             -Dsonar.python.coverage.reportPaths=qa/out/coverage/backend-coverage.xml
             -Dsonar.javascript.lcov.reportPaths=qa/out/coverage/frontend/lcov.info
             -Dsonar.sources=src/backend/backend,src/frontend/src,src/plugin
