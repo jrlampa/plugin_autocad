@@ -1,16 +1,13 @@
 fastapi
 uvicorn
-osmnx
 pyproj
 shapely
-geopandas
 rasterio
 numpy
 requests
-matplotlib
+scikit-image
+networkx
 sentry-sdk[fastapi]
-# redis (removed: using local file-cache for standalone plugin)
 groq>=0.4.0
 structlog
-# prometheus-fastapi-instrumentator (removed: local plugin does not need real-time metrics scraping)
 pywin32
