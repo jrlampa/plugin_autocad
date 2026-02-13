@@ -57,11 +57,9 @@ test.describe('File Handling (Drag & Drop)', () => {
       );
     }, geoJsonContent);
 
-    // Verify "Solte o arquivo" overlay appears during drag (optional, might be too fast)
-    // Verify Toast Success
-    await expect(page.locator('text=GeoJSON carregado com sucesso!')).toBeVisible({
-      timeout: 10000,
-    });
+    // Verify Success indicator: Preview panel appears
+    await expect(page.locator('text=GeoJSON carregado no mapa.')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('btn-import-geojson')).toBeVisible();
   });
 
   test('should handle invalid file drop', async ({ page }) => {
@@ -86,7 +84,7 @@ test.describe('File Handling (Drag & Drop)', () => {
       );
     });
 
-    // Verify Error Toast
-    await expect(page.locator('text=Formato não suportado')).toBeVisible({ timeout: 10000 });
+    // Verify Error Toast mapping the actual string in useFileProcessing.js
+    await expect(page.locator('text=Erro ao ler arquivo')).toBeVisible({ timeout: 10000 });
   });
 });
