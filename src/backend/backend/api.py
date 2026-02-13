@@ -475,9 +475,12 @@ async def create_prepare_job(
             logger.info("job_creation_skipped_dedup", job_id=job_id)
             
         return get_job(job_id)
+    except (ValueError, TypeError, json.JSONDecodeError) as e:
+        logger.error("create_job_invalid_payload", error=str(e))
+        raise HTTPException(status_code=422, detail="Invalid job payload")
     except Exception as e:
-        logger.error("create_job_failed", error=str(e), traceback=True)
-        raise e
+        logger.error("create_job_system_failure", error=str(e), traceback=True)
+        raise HTTPException(status_code=500, detail="Internal server error during job creation")
 
 @app.get("/api/v1/jobs/{job_id}", tags=["Jobs"], response_model=JobStatusResponse)
 async def get_job_endpoint(
@@ -534,8 +537,11 @@ async def query_elevation(
         svc = ElevationService(cache=cache_service)
         z = svc.get_elevation_at_point(req.latitude, req.longitude)
         return ElevationPointResponse(latitude=req.latitude, longitude=req.longitude, elevation=z)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("elevation_query_failed", error=str(e))
+        raise HTTPException(status_code=500, detail="Error retrieving elevation data")
 
 @app.post("/api/v1/tools/elevation/profile", tags=["Tools"], response_model=ElevationProfileResponse)
 async def query_profile(
@@ -551,8 +557,11 @@ async def query_profile(
         coords = [(p[0], p[1]) for p in req.path]
         elevations = svc.get_elevation_profile(coords)
         return ElevationProfileResponse(elevations=elevations)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("elevation_profile_failed", error=str(e))
+        raise HTTPException(status_code=500, detail="Error generating elevation profile")
 
 from backend.services.ai import AiService
 from pydantic import BaseModel
@@ -578,7 +587,8 @@ async def chat_with_ai(
         reply = ai_service.generate_response(req.message, req.context, req.job_id)
         return ChatResponse(response=reply)
     except Exception as e:
-        # Graceful degradation
+        # Graceful degradation with logging
+        logger.error("ai_chat_failed", error=str(e))
         return ChatResponse(response="AI unavailable.")
 
 
@@ -661,6 +671,8 @@ async def export_geopackage(
             media_type="application/geopackage+sqlite3",
             filename=f"sisrua_{project_id}.gpkg"
         )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error("export_geopackage_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoPackage: {str(e)}")
@@ -704,6 +716,8 @@ async def export_geojson(
             media_type="application/geo+json",
             filename=f"sisrua_{project_id}.geojson"
         )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error("export_geojson_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoJSON: {str(e)}")

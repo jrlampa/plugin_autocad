@@ -27,7 +27,9 @@ class ElevationService:
     def _get_cache_path(self, bounds):
         """Generates a cache filename based on bounds."""
         bounds_str = f"{bounds[0]}_{bounds[1]}_{bounds[2]}_{bounds[3]}"
-        hash_digest = hashlib.md5(bounds_str.encode()).hexdigest()
+        # Use SHA256 (Bandit B324 fix)
+        import hashlib
+        hash_digest = hashlib.sha256(bounds_str.encode()).hexdigest()
         return self.cache_dir / f"srtm_{hash_digest}.tif"
 
     def _find_local_coverage(self, s, n, w, e) -> Optional[Path]:
