@@ -7,4 +7,5 @@ shapely
 rasterio
 numpy
 requests
+groq
 
