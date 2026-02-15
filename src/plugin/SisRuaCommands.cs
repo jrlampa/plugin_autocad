@@ -1,34 +1,34 @@
 using Autodesk.AutoCAD.ApplicationServices;
-using Autodesk.AutoCAD.Colors;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
-using Autodesk.AutoCAD.Runtime; // Validated
+using Autodesk.AutoCAD.Runtime;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Data.SQLite; // Add this using for ProjectRepository
+using sisRUA.UI;
+using sisRUA.Core.DTOs;
+using sisRUA.Engine;
 
 namespace sisRUA
 {
-    using sisRUA.UI; // Import UI namespace for ProcessingDialog
-    using sisRUA.Core.DTOs; // Import Core DTOs
-    using Exception = System.Exception;
-
-    /// <summary>
-    /// Contém os comandos do AutoCAD e a lógica de negócio para interagir com o desenho e o backend.
-    /// </summary>
     public class SisRuaCommands
     {
+        // Dependency Injection for the Engine
+        public static IDrawingEngine Engine { get; set; } = new AutoCADDrawingEngine();
+
+        private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        private static ProjectRepository _projectRepository = new ProjectRepository();
+
+        private static IEnumerable<CadFeatureDto> _lastDrawnFeatures;
+        private static string _lastDrawnCrsOut;
+
         [CommandMethod("SISRUA_RUN_QA", CommandFlags.Session)]
         public static void SisRuaRunQaCommand()
         {
@@ -41,29 +41,11 @@ namespace sisRUA
             });
         }
 
-        // Dependency Injection for Testing
-        public static sisRUA.Engine.IDrawingEngine Engine { get; set; } = new sisRUA.Engine.AutoCADDrawingEngine();
-
-        // BIM-LITE: Cache the last imported features to allow explicit saving
-        private static List<CadFeatureDto> _lastImportedFeatures = new List<CadFeatureDto>();
-        private static string _lastCrs = "EPSG:31983"; // Default for development
-
-        private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
-        private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        };
-        private static ProjectRepository _projectRepository = new ProjectRepository(); // Instantiate the repository
-
-        private static IEnumerable<CadFeatureDto> _lastDrawnFeatures; // Store features from last drawing operation
-        private static string _lastDrawnCrsOut; // Store CRS from last drawing operation
-
         [CommandMethod("SISRUA_SAVE_PROJECT", CommandFlags.Session)]
         public static void SisRuaSaveProjectCommand()
         {
             if (_lastDrawnFeatures == null || !_lastDrawnFeatures.Any())
             {
-                Log("WARN: SISRUA_SAVE_PROJECT called but no features were drawn since last AutoCAD session or command.");
                 Application.ShowAlertDialog("Nenhum dado recente para salvar. Desenhe algo primeiro com SISRUA.");
                 return;
             }
@@ -71,29 +53,18 @@ namespace sisRUA
             SisRuaTransactionalShield.Execute((doc, db, tr) =>
             {
                 Editor ed = doc.Editor;
+                PromptStringOptions psoId = new PromptStringOptions("\n[sisRUA] ID do projeto (deixe em branco para gerar):") { AllowSpaces = false };
+                string projectId = ed.GetString(psoId).StringResult.Trim();
+                if (string.IsNullOrEmpty(projectId)) projectId = DateTime.Now.ToString("yyyyMMddHHmmss");
 
-                PromptStringOptions psoId = new PromptStringOptions("\n[sisRUA] Digite o ID do projeto (ex: A001, deixe em branco para gerar):")
-                {
-                    AllowSpaces = false
-                };
-                PromptResult resId = ed.GetString(psoId);
-                string projectId = resId.StringResult.Trim();
-
-                if (string.IsNullOrWhiteSpace(projectId))
-                {
-                    projectId = DateTime.Now.ToString("yyyyMMddHHmmss");
-                    ed.WriteMessage($"\n[sisRUA] ID de projeto gerado automaticamente: {projectId}");
-                }
-
-                PromptStringOptions psoName = new PromptStringOptions($"\n[sisRUA] Digite o nome do projeto (opcional, padrão: 'Projeto {projectId}'):");
-                PromptResult resName = ed.GetString(psoName);
-                string projectName = string.IsNullOrWhiteSpace(resName.StringResult) ? $"Projeto {projectId}" : resName.StringResult.Trim();
+                PromptStringOptions psoName = new PromptStringOptions($"\n[sisRUA] Nome do projeto:");
+                string projectName = ed.GetString(psoName).StringResult.Trim();
+                if (string.IsNullOrEmpty(projectName)) projectName = $"Projeto {projectId}";
 
                 _projectRepository.SaveProject(projectId, projectName, _lastDrawnCrsOut, _lastDrawnFeatures);
-                ed.WriteMessage($"\n[sisRUA] Projeto '{projectName}' (ID: {projectId}) salvo com sucesso.");
+                ed.WriteMessage($"\n[sisRUA] Projeto '{projectName}' salvo.");
                 
-                _lastDrawnFeatures = null;
-                _lastDrawnCrsOut = null;
+                Engine.InjectAuditMetadata(projectId);
             });
         }
 
@@ -102,69 +73,28 @@ namespace sisRUA
         {
             await SisRuaTransactionalShield.ExecuteAsync(async (doc, db, tr) =>
             {
-                Editor ed = doc.Editor;
+                var ed = doc.Editor;
+                var projects = _projectRepository.ListProjects();
+                if (!projects.Any()) { Application.ShowAlertDialog("Não há projetos salvos."); return; }
+
+                PromptStringOptions pso = new PromptStringOptions("\n[sisRUA] ID do projeto a carregar:") { AllowSpaces = false };
+                string selectedProjectId = ed.GetString(pso).StringResult.Trim();
                 
-                try
+                var (projectName, crsOut, features) = _projectRepository.LoadProject(selectedProjectId);
+                if (features == null || !features.Any()) { Application.ShowAlertDialog("Projeto não encontrado."); return; }
+
+                using (var dlg = new ProcessingDialog())
                 {
-                    var projects = _projectRepository.ListProjects();
-                    if (!projects.Any())
-                    {
-                        Application.ShowAlertDialog("Não há projetos salvos para carregar.");
-                        ed.WriteMessage("\n[sisRUA] Nenhum projeto salvo encontrado.");
-                        return;
-                    }
-
-                    ed.WriteMessage("\n--- Projetos Salvos ---");
-                    foreach (var p in projects)
-                    {
-                        ed.WriteMessage($"\nID: {p.projectId}, Nome: {p.projectName}, Data: {p.creationDate}");
-                    }
-                    ed.WriteMessage("\n---------------------");
-
-                    PromptStringOptions pso = new PromptStringOptions("\n[sisRUA] Digite o ID do projeto a carregar:")
-                    {
-                        AllowSpaces = false
-                    };
-                    PromptResult res = ed.GetString(pso);
-                    if (res.Status != PromptStatus.OK)
-                    {
-                        ed.WriteMessage("\n[sisRUA] Operação de carregamento cancelada.");
-                        return;
-                    }
-
-                    string selectedProjectId = res.StringResult.Trim();
-                    var (projectName, crsOut, features) = _projectRepository.LoadProject(selectedProjectId);
-
-                    if (features == null || !features.Any())
-                    {
-                        Application.ShowAlertDialog($"Projeto '{selectedProjectId}' não encontrado ou vazio.");
-                        ed.WriteMessage($"\n[sisRUA] Projeto '{selectedProjectId}' não encontrado ou vazio.");
-                        return;
-                    }
-
-                    ed.WriteMessage($"\n[sisRUA] Carregando e redesenhando projeto '{projectName}' (ID: {selectedProjectId})...");
-                    using (var dlg = new ProcessingDialog())
-                    {
-                        Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
-                        Engine.WriteMessage($"Reloading project {selectedProjectId}...");
-                        await DrawCadFeatureDtos(features, dlg);
-                    }
-                    
-                    _lastDrawnFeatures = features;
-                    _lastDrawnCrsOut = crsOut;
-
-                    ed.WriteMessage($"\n[sisRUA] Projeto '{projectName}' redesenhado com sucesso.");
+                    Application.ShowModelessDialog(dlg);
+                    await Engine.DrawFeaturesAsync(features, crsOut, dlg);
                 }
-                catch (System.Exception ex)
-                {
-                    Log($"ERROR: Failed to load project: {ex.Message}");
-                    Application.ShowAlertDialog($"Erro ao carregar projeto: {ex.Message}");
-                }
+                
+                _lastDrawnFeatures = features;
+                _lastDrawnCrsOut = crsOut;
             });
         }
 
-        [CommandMethod("SISRUA_SYNC_CLOUD", CommandFlags.Modal)]
-        public async void SisRuaSyncCloudCommand()
+        public static async Task ImportarDadosCampo(string geojsonData)
         {
             await SisRuaTransactionalShield.ExecuteAsync(async (doc, db, tr) =>
             {
@@ -172,1275 +102,90 @@ namespace sisRUA
                 string baseUrl = GetBackendBaseUrlOrAlert(ed);
                 if (baseUrl == null) return;
 
-                ed.WriteMessage("\n[sisRUA] Iniciando sincronização com sisRUA Cloud (Enterprise Node)...");
-
-                try
+                var jobPayload = new PrepareJobRequest { Kind = "geojson", GeoJson = geojsonData };
+                using (var dlg = new ProcessingDialog())
                 {
-                    using (var req = CreateAuthedJsonRequest(HttpMethod.Post, $"{baseUrl}/api/v1/sync/cloud", null))
+                    Application.ShowModelessDialog(dlg);
+                    var response = await RunPrepareJobAsync(ed, baseUrl, jobPayload, dlg);
+                    if (response?.Features != null && response.Features.Any())
                     {
-                        var resp = await _httpClient.SendAsync(req);
-                        resp.EnsureSuccessStatusCode();
-                        string text = await resp.Content.ReadAsStringAsync();
-                        var syncResult = JsonSerializer.Deserialize<SyncToCloudResponse>(text, _jsonOptions);
-
-                        if (syncResult != null && syncResult.Status == "success")
-                        {
-                            ed.WriteMessage($"\n[sisRUA] Sucesso! {syncResult.SyncedFeatures} entidades sincronizadas com {syncResult.CloudNode}.");
-                            ed.WriteMessage("\n[sisRUA] Backup e integridade de dados verificados (Audit Grade).");
-                        }
-                        else
-                        {
-                            ed.WriteMessage("\n[sisRUA] Falha na sincronização. Verifique sua licença Enterprise.");
-                        }
+                        await Engine.DrawFeaturesAsync(response.Features, response.CrsOut, dlg);
+                        _lastDrawnFeatures = response.Features;
+                        _lastDrawnCrsOut = response.CrsOut;
                     }
-                }
-                catch (Exception ex)
-                {
-                    ed.WriteMessage($"\n[sisRUA] Erro de conexão: {ex.Message}");
-                    Log($"ERROR: Cloud Sync failed: {ex.Message}");
                 }
             });
         }
 
-
-        /// <summary>
-        /// Garante que uma definição de bloco esteja carregada no desenho.
-        /// Se não existir, carrega-a do arquivo especificado.
-        /// </summary>
-        /// <param name="tr">Transação ativa.</param>
-        /// <param name="db">Database do desenho atual.</param>
-        /// <param name="blockName">Nome do bloco na BlockTable (ex: POSTE_GENERICO).</param>
-        /// <param name="blockFilePath">Caminho completo para o arquivo DXF/DWG contendo a definição do bloco.</param>
-        /// <returns>ObjectId da definição do bloco na BlockTable.</returns>
-        private static ObjectId EnsureBlockDefinitionLoaded(Transaction tr, Database db, string blockName, string blockFilePath)
+        public static async Task GerarProjetoOsm(double lat, double lon, double rad)
         {
-            // #region agent log
-            SisRuaLog.WriteDebugLine("SisRuaCommands.cs:EnsureBlockDefinitionLoaded", "entry", new { blockName, blockFilePath, fileExists = System.IO.File.Exists(blockFilePath ?? "") }, "H1", "run1");
-            // #endregion
-            Log($"INFO: Ensuring block definition '{blockName}' from '{blockFilePath}' is loaded.");
-            BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
-
-            if (bt.Has(blockName))
+            await SisRuaTransactionalShield.ExecuteAsync(async (doc, db, tr) =>
             {
-                // #region agent log
-                SisRuaLog.WriteDebugLine("SisRuaCommands.cs:EnsureBlockDefinitionLoaded", "alreadyLoaded", new { blockName }, "H1", "run1");
-                // #endregion
-                Log($"DEBUG: Block '{blockName}' already loaded.");
-                return bt[blockName];
-            }
+                var ed = doc.Editor;
+                string baseUrl = GetBackendBaseUrlOrAlert(ed);
+                if (baseUrl == null) return;
 
-            Log($"INFO: Block '{blockName}' not found. Loading from file '{blockFilePath}'.");
-            using (Database blockDb = new Database(false, true))
-            {
-                // Tenta ler como DWG ou DXF
-                try
+                var jobPayload = new PrepareJobRequest { Kind = "osm", Latitude = lat, Longitude = lon, Radius = rad };
+                using (var dlg = new ProcessingDialog())
                 {
-                    blockDb.ReadDwgFile(blockFilePath, FileShare.Read, true, "");
-                    // #region agent log
-                    SisRuaLog.WriteDebugLine("SisRuaCommands.cs:EnsureBlockDefinitionLoaded", "ReadDwgFileOk", new { blockName }, "H2", "run1");
-                    // #endregion
-                }
-                catch (System.Exception ex)
-                {
-                    // #region agent log
-                    SisRuaLog.WriteDebugLine("SisRuaCommands.cs:EnsureBlockDefinitionLoaded", "loadFailed", new { blockName, ex = ex.Message }, "H1", "run1");
-                    // #endregion
-                    Log($"ERROR: Failed to read block file '{blockFilePath}' as DWG: {ex.Message}");
-                    try
+                    Application.ShowModelessDialog(dlg);
+                    var response = await RunPrepareJobAsync(ed, baseUrl, jobPayload, dlg);
+                    if (response?.Features != null && response.Features.Any())
                     {
-                        // Tenta ler como DXF se DWG falhar
-                        blockDb.DxfIn(blockFilePath, "");
-                    }
-                    catch (System.Exception dxfEx)
-                    {
-                        Log($"ERROR: Failed to read block file '{blockFilePath}' as DXF: {dxfEx.Message}");
-                        throw new System.Exception($"Não foi possível carregar a definição do bloco '{blockName}' do arquivo '{blockFilePath}'. Erro: {dxfEx.Message}", dxfEx);
+                        await Engine.DrawFeaturesAsync(response.Features, response.CrsOut, dlg);
+                        _lastDrawnFeatures = response.Features;
+                        _lastDrawnCrsOut = response.CrsOut;
                     }
                 }
-
-                ObjectIdCollection ids = new ObjectIdCollection();
-                // Itera sobre a BlockTable do arquivo do bloco para encontrar a definição do bloco
-                using (Transaction blockTr = blockDb.TransactionManager.StartTransaction())
-                {
-                    BlockTable blockFileBt = (BlockTable)blockTr.GetObject(blockDb.BlockTableId, OpenMode.ForRead);
-                    foreach (ObjectId btrId in blockFileBt)
-                    {
-                        BlockTableRecord btr = (BlockTableRecord)blockTr.GetObject(btrId, OpenMode.ForRead);
-                        // Ignora blocos anônimos e layout (model/paper space)
-                        if (btr.IsAnonymous || btr.IsLayout) continue;
-
-                        // Se o bloco no arquivo for nomeado como o que queremos (ou se for o *ModelSpace),
-                        // assume que a definição está lá
-                        if (string.Equals(btr.Name, blockName, StringComparison.OrdinalIgnoreCase) || btr.Name == "*Model_Space")
-                        {
-                            ids.Add(btrId);
-                        }
-                    }
-                    blockTr.Commit();
-                }
-
-                if (ids.Count == 0)
-                {
-                    throw new System.Exception($"Não foi encontrada a definição do bloco '{blockName}' dentro do arquivo '{blockFilePath}'.");
-                }
-
-                // Adiciona a definição do bloco ao desenho atual.
-                bt.UpgradeOpen();
-                // #region agent log
-                SisRuaLog.WriteDebugLine("SisRuaCommands.cs:EnsureBlockDefinitionLoaded", "preInsert", new { blockName }, "H2", "run1");
-                // #endregion
-                db.Insert(blockName, blockDb, true);
-                bt.DowngradeOpen();
-                Log($"INFO: Block definition '{blockName}' loaded successfully.");
-                return bt[blockName];
-            }
-        }
-        
-        /// <summary>
-        /// Insere uma instância de bloco no Model Space.
-        /// </summary>
-        /// <param name="tr">Transação ativa.</param>
-        /// <param name="db">Database do desenho atual.</param>
-        /// <param name="ms">BlockTableRecord do Model Space.</param>
-        /// <param name="blockName">Nome do bloco a ser inserido (deve ter a definição carregada).</param>
-        /// <param name="blockFilePath">Caminho para o arquivo DXF/DWG contendo a definição do bloco (usado se precisar carregar).</param>
-        /// <param name="insertionPoint">Ponto de inserção do bloco.</param>
-        /// <param name="rotation">Rotação do bloco em radianos.</param>
-        /// <param name="scale">Fator de escala do bloco.</param>
-        /// <param name="layerName">Nome da camada onde o bloco será inserido.</param>
-        private static void InsertBlock(Transaction tr, Database db, BlockTableRecord ms, string blockName, string blockFilePath, Autodesk.AutoCAD.Geometry.Point3d insertionPoint, double rotation, double scale, string layerName, string colorStr = null)
-        {
-            Log($"INFO: Inserting block '{blockName}' at {insertionPoint.X},{insertionPoint.Y},{insertionPoint.Z}.");
-            try
-            {
-                // Garante que a definição do bloco está carregada
-                ObjectId blockDefId = EnsureBlockDefinitionLoaded(tr, db, blockName, blockFilePath);
-
-                BlockReference br = new BlockReference(insertionPoint, blockDefId);
-                br.Rotation = rotation;
-                br.ScaleFactors = new Autodesk.AutoCAD.Geometry.Scale3d(scale);
-                br.Layer = layerName;
-                if (!string.IsNullOrWhiteSpace(colorStr))
-                {
-                    br.Color = ParseColor(colorStr);
-                }
-                else
-                {
-                    br.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256); // Sempre ByLayer
-                }
-
-                ms.AppendEntity(br);
-                tr.AddNewlyCreatedDBObject(br, true);
-                Log($"DEBUG: Block instance '{blockName}' inserted successfully.");
-            }
-            catch (System.Exception ex)
-            {
-                Log($"ERROR: Failed to insert block '{blockName}' at {insertionPoint.ToString()}: {ex.Message}");
-                // Não propaga o erro para não interromper o desenho de outras features
-            }
-        }
-
-
-        public static void Log(string message)
-        {
-            if (message.StartsWith("ERROR")) SisRuaLog.Error(message.Replace("ERROR: ", ""));
-            else if (message.StartsWith("WARN")) SisRuaLog.Warn(message.Replace("WARN: ", ""));
-            else SisRuaLog.Info(message);
-        }
-
-        private static string GetBackendBaseUrlOrAlert(Editor ed)
-        {
-            string baseUrl = SisRuaPlugin.BackendBaseUrl;
-            if (string.IsNullOrWhiteSpace(baseUrl))
-            {
-                ed?.WriteMessage("\n[sisRUA] ERRO: BackendBaseUrl não definido. O plugin inicializou corretamente?");
-                Application.ShowAlertDialog("Backend do sisRUA não foi inicializado corretamente.\nFeche e reabra o AutoCAD e execute o comando SISRUA novamente.");
-                Log("ERROR: BackendBaseUrl not defined.");
-                return null;
-            }
-
-            // Segurança extra: aguarda health por alguns segundos antes de chamar endpoints.
-            SisRuaPlugin.EnsureBackendHealthy(TimeSpan.FromSeconds(10));
-            return baseUrl;
-        }
-
-        private static HttpRequestMessage CreateAuthedJsonRequest(HttpMethod method, string url, string jsonBody)
-        {
-            var req = new HttpRequestMessage(method, url);
-            if (!string.IsNullOrWhiteSpace(SisRuaPlugin.BackendAuthToken))
-            {
-                req.Headers.TryAddWithoutValidation(SisRuaPlugin.BackendAuthHeaderName, SisRuaPlugin.BackendAuthToken);
-            }
-
-            if (jsonBody != null)
-            {
-                req.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-            }
-            return req;
-        }
-
-        private sealed class PrepareOsmRequest
-        {
-            [JsonPropertyName("latitude")]
-            public double Latitude { get; set; }
-
-            [JsonPropertyName("longitude")]
-            public double Longitude { get; set; }
-
-            [JsonPropertyName("radius")]
-            public double Radius { get; set; }
-        }
-
-        private sealed class PrepareGeoJsonRequest
-        {
-            [JsonPropertyName("geojson")]
-            public string GeoJson { get; set; }
-        }
-
-        private sealed class PrepareResponse
-        {
-            [JsonPropertyName("crs_out")]
-            public string CrsOut { get; set; }
-
-            [JsonPropertyName("features")]
-            public List<CadFeatureDto> Features { get; set; }
-        }
-
-        private sealed class PrepareJobRequest
-        {
-            [JsonPropertyName("kind")]
-            public string Kind { get; set; } // "osm" | "geojson"
-
-            [JsonPropertyName("latitude")]
-            public double? Latitude { get; set; }
-
-            [JsonPropertyName("longitude")]
-            public double? Longitude { get; set; }
-
-            [JsonPropertyName("radius")]
-            public double? Radius { get; set; }
-
-            [JsonPropertyName("geojson")]
-            public string GeoJson { get; set; }
-        }
-
-        private sealed class JobStatusResponse
-        {
-            [JsonPropertyName("job_id")]
-            public string JobId { get; set; }
-
-            [JsonPropertyName("kind")]
-            public string Kind { get; set; }
-
-            [JsonPropertyName("status")]
-            public string Status { get; set; } // queued|processing|completed|failed
-
-            [JsonPropertyName("progress")]
-            public double Progress { get; set; } // 0..1
-
-            [JsonPropertyName("message")]
-            public string Message { get; set; }
-
-            [JsonPropertyName("result")]
-            public JsonElement Result { get; set; }
-
-            [JsonPropertyName("error")]
-            public string Error { get; set; }
-        }
-
-        private sealed class SyncToCloudResponse
-        {
-            [JsonPropertyName("status")]
-            public string Status { get; set; }
-
-            [JsonPropertyName("synced_features")]
-            public int SyncedFeatures { get; set; }
-
-            [JsonPropertyName("cloud_node")]
-            public string CloudNode { get; set; }
-
-            [JsonPropertyName("timestamp")]
-            public double Timestamp { get; set; }
-        }
-
-
-
-
-        private sealed class LayerStyle
-        {
-            [JsonPropertyName("layer")]
-            public string Layer { get; set; }
-
-            [JsonPropertyName("aci")]
-            public short? Aci { get; set; }
-        }
-
-        private sealed class LayersConfig
-        {
-            [JsonPropertyName("highway")]
-            public Dictionary<string, LayerStyle> Highway { get; set; }
-        }
-
-        private static readonly Lazy<Dictionary<string, LayerStyle>> _highwayLayerMap =
-            new Lazy<Dictionary<string, LayerStyle>>(LoadHighwayLayerMap, isThreadSafe: true);
-
-        private sealed class BlockMapEntry
-        {
-            [JsonPropertyName("block_name")]
-            public string BlockName { get; set; }
-            [JsonPropertyName("block_filepath")]
-            public string BlockFilePath { get; set; } // Relative path from Contents/Blocks/
-            [JsonPropertyName("layer")]
-            public string Layer { get; set; }
-            [JsonPropertyName("scale")]
-            public double? Scale { get; set; }
-            [JsonPropertyName("rotation")]
-            public double? Rotation { get; set; }
-        }
-
-        private sealed class BlockMapConfig
-        {
-            [JsonPropertyName("default_block_path")]
-            public string DefaultBlockPath { get; set; } // Path from Contents/ to Blocks/
-            [JsonPropertyName("mappings")]
-            public Dictionary<string, BlockMapEntry> Mappings { get; set; }
-        }
-
-        private static readonly Lazy<Dictionary<string, BlockMapEntry>> _blockMapping =
-            new Lazy<Dictionary<string, BlockMapEntry>>(LoadBlockMapping, isThreadSafe: true);
-
-        private static Dictionary<string, BlockMapEntry> LoadBlockMapping()
-        {
-            var map = new Dictionary<string, BlockMapEntry>(StringComparer.OrdinalIgnoreCase);
-
-            try
-            {
-                string asmDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                if (!string.IsNullOrWhiteSpace(asmDir))
-                {
-                    // 1. Tenta "Resources/blocks_mapping.json" (estrutura Debug local)
-                    string cfgPath = Path.Combine(asmDir, "Resources", "blocks_mapping.json");
-                    
-                    // 2. Tenta "../Resources/blocks_mapping.json" (estrutura Bundle: Contents/net8.0/.. -> Contents/Resources)
-                    if (!File.Exists(cfgPath))
-                    {
-                        string bundleResources = Path.Combine(Directory.GetParent(asmDir).FullName, "Resources", "blocks_mapping.json");
-                        if (File.Exists(bundleResources))
-                        {
-                            cfgPath = bundleResources;
-                        }
-                    }
-
-                    if (File.Exists(cfgPath))
-                    {
-                        string text = File.ReadAllText(cfgPath);
-                        var cfg = JsonSerializer.Deserialize<BlockMapConfig>(text, _jsonOptions);
-                        if (cfg?.Mappings != null)
-                        {
-                            foreach (var kv in cfg.Mappings)
-                            {
-                                if (string.IsNullOrWhiteSpace(kv.Key) || kv.Value == null) continue;
-                                // Resolve block_filepath relative to the bundle's Blocks/ folder
-                                // Se DefaultBlockPath for "../Blocks", e estamos em "Contents/net8.0",
-                                // Combine(asmDir, "../Blocks") -> "Contents/Blocks".
-                                if (!string.IsNullOrWhiteSpace(cfg.DefaultBlockPath) && !Path.IsPathRooted(kv.Value.BlockFilePath))
-                                {
-                                    kv.Value.BlockFilePath = Path.Combine(asmDir, cfg.DefaultBlockPath, kv.Value.BlockFilePath);
-                                }
-                                map[kv.Key.Trim()] = kv.Value;
-                            }
-                        }
-                    }
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Log($"WARN: Error loading blocks_mapping.json: {ex.Message}");
-            }
-
-            return map;
-        }
-
-        private static Dictionary<string, LayerStyle> LoadHighwayLayerMap()
-        {
-            // Default (embutido)
-            var map = new Dictionary<string, LayerStyle>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["motorway"] = new LayerStyle { Layer = "SISRUA_OSM_MOTORWAY", Aci = 1 },
-                ["trunk"] = new LayerStyle { Layer = "SISRUA_OSM_TRUNK", Aci = 2 },
-                ["primary"] = new LayerStyle { Layer = "SISRUA_OSM_PRIMARY", Aci = 3 },
-                ["secondary"] = new LayerStyle { Layer = "SISRUA_OSM_SECONDARY", Aci = 4 },
-                ["tertiary"] = new LayerStyle { Layer = "SISRUA_OSM_TERTIARY", Aci = 5 },
-                ["residential"] = new LayerStyle { Layer = "SISRUA_OSM_RESIDENTIAL", Aci = 7 },
-                ["service"] = new LayerStyle { Layer = "SISRUA_OSM_SERVICE", Aci = 8 },
-                ["unclassified"] = new LayerStyle { Layer = "SISRUA_OSM_UNCLASSIFIED", Aci = 9 },
-                ["living_street"] = new LayerStyle { Layer = "SISRUA_OSM_LIVING", Aci = 30 },
-                ["footway"] = new LayerStyle { Layer = "SISRUA_OSM_PEDESTRIAN", Aci = 140 },
-                ["path"] = new LayerStyle { Layer = "SISRUA_OSM_PATH", Aci = 141 },
-                ["cycleway"] = new LayerStyle { Layer = "SISRUA_OSM_CYCLE", Aci = 150 },
-            };
-
-            // Override por arquivo (opcional): Contents/Resources/layers.json
-            try
-            {
-                string asmDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-                if (!string.IsNullOrWhiteSpace(asmDir))
-                {
-                    string cfgPath = Path.Combine(asmDir, "Resources", "layers.json");
-                    if (File.Exists(cfgPath))
-                    {
-                        string text = File.ReadAllText(cfgPath);
-                        var cfg = JsonSerializer.Deserialize<LayersConfig>(text, _jsonOptions);
-                        if (cfg?.Highway != null)
-                        {
-                            foreach (var kv in cfg.Highway)
-                            {
-                                if (string.IsNullOrWhiteSpace(kv.Key) || kv.Value == null) continue;
-                                map[kv.Key.Trim()] = kv.Value;
-                            }
-                        }
-                    }
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Log($"WARN: Error loading layers.json: {ex.Message}");
-            }
-
-            return map;
-        }
-
-        private static (string layerName, short? aci) GetLayerStyleForFeature(CadFeatureDto f)
-        {
-            if (f == null) return ("SISRUA_VIAS", null);
-
-            string layerName = string.IsNullOrWhiteSpace(f.Layer) ? "SISRUA_VIAS" : f.Layer.Trim();
-            string highway = f.Highway?.Trim();
-
-            if (!string.IsNullOrWhiteSpace(highway))
-            {
-                if (_highwayLayerMap.Value.TryGetValue(highway, out LayerStyle style) && style != null)
-                {
-                    if (!string.IsNullOrWhiteSpace(style.Layer)) layerName = style.Layer.Trim();
-                    return (layerName, style.Aci);
-                }
-
-                // Highway conhecido/qualquer: mantém organizado em um layer genérico
-                if (layerName.Equals("SISRUA_OSM_VIAS", StringComparison.OrdinalIgnoreCase))
-                {
-                    layerName = "SISRUA_OSM_OUTROS";
-                    return (layerName, 6);
-                }
-            }
-
-            return (layerName, null);
-        }
-
-        private static void NotifyUiJob(JobStatusResponse job)
-        {
-            try
-            {
-                SisRuaPalette.PostUiMessage(new
-                {
-                    action = "JOB_PROGRESS",
-                    data = job
-                });
-            }
-            catch (System.Exception ex)
-            {
-                Log($"WARN: Error notifying UI job progress: {ex.Message}");
-            }
+            });
         }
 
         private static async Task<PrepareResponse> RunPrepareJobAsync(Editor ed, string baseUrl, PrepareJobRequest payload, ProcessingDialog dlg)
         {
-            Log($"INFO: Running prepare job for kind: {payload.Kind}");
             string createJson = JsonSerializer.Serialize(payload, _jsonOptions);
-            using (var createReq = CreateAuthedJsonRequest(HttpMethod.Post, $"{baseUrl}/api/v1/jobs/prepare", createJson))
-            {
-                var createResp = await _httpClient.SendAsync(createReq);
-                createResp.EnsureSuccessStatusCode();
-                string createText = await createResp.Content.ReadAsStringAsync();
-                var job = JsonSerializer.Deserialize<JobStatusResponse>(createText, _jsonOptions);
-                if (job == null || string.IsNullOrWhiteSpace(job.JobId))
-                {
-                    throw new InvalidOperationException("Backend retornou resposta inválida ao criar job.");
-                }
+            var createReq = CreateAuthedJsonRequest(HttpMethod.Post, $"{baseUrl}/api/v1/jobs/prepare", createJson);
+            var createResp = await _httpClient.SendAsync(createReq);
+            createResp.EnsureSuccessStatusCode();
 
-                NotifyUiJob(job);
-
-                var sw = Stopwatch.StartNew();
-                double lastProgress = -1;
-                string lastMessage = null;
-                string lastStatus = null;
-
-                while (sw.Elapsed < TimeSpan.FromMinutes(10))
-                {
-                    if (dlg != null && dlg.WasCancelled)
-                    {
-                        Log($"INFO: Cancellation requested by user for job {job.JobId}. Sending DELETE request.");
-                        using (var cancelReq = CreateAuthedJsonRequest(HttpMethod.Delete, $"{baseUrl}/api/v1/jobs/{job.JobId}", null))
-                        {
-                            await _httpClient.SendAsync(cancelReq);
-                        }
-                        throw new OperationCanceledException("Cancelado pelo usuário.");
-                    }
-
-                    using (var pollReq = CreateAuthedJsonRequest(HttpMethod.Get, $"{baseUrl}/api/v1/jobs/{job.JobId}", jsonBody: null))
-                    {
-                        var pollResp = await _httpClient.SendAsync(pollReq);
-                        pollResp.EnsureSuccessStatusCode();
-                        string pollText = await pollResp.Content.ReadAsStringAsync();
-                        job = JsonSerializer.Deserialize<JobStatusResponse>(pollText, _jsonOptions);
-                        if (job == null)
-                        {
-                            throw new InvalidOperationException("Backend retornou resposta inválida no polling do job.");
-                        }
-
-                        if (!string.Equals(lastStatus, job.Status, StringComparison.OrdinalIgnoreCase) ||
-                            Math.Abs(lastProgress - job.Progress) > 0.0001 ||
-                            !string.Equals(lastMessage, job.Message, StringComparison.Ordinal))
-                        {
-                            lastStatus = job.Status;
-                            lastProgress = job.Progress;
-                            lastMessage = job.Message;
-
-                            ed?.WriteMessage($"\n[sisRUA] Job {job.JobId}: {job.Status} {job.Progress:P0} - {job.Message}");
-                            NotifyUiJob(job);
-                        }
-
-                        if (string.Equals(job.Status, "completed", StringComparison.OrdinalIgnoreCase))
-                        {
-                            if (job.Result.ValueKind == JsonValueKind.Undefined || job.Result.ValueKind == JsonValueKind.Null)
-                            {
-                                throw new InvalidOperationException("Job concluído sem result.");
-                            }
-                            var result = job.Result.Deserialize<PrepareResponse>(_jsonOptions);
-                            Log($"INFO: Job {job.JobId} completed successfully.");
-                            return result;
-                        }
-
-                        if (string.Equals(job.Status, "failed", StringComparison.OrdinalIgnoreCase))
-                        {
-                            Log($"ERROR: Job {job.JobId} failed. Status: {job.Status}. Error: {job.Error ?? job.Message}");
-                            if (job.Error == "CANCELLED")
-                                throw new OperationCanceledException("Job cancelado pelo usuário no backend.");
-                            throw new InvalidOperationException(job.Error ?? job.Message ?? "Job falhou no backend.");
-                        }
-                    }
-
-                    await Task.Delay(500);
-                }
-
-                Log($"ERROR: Job {job.JobId} timed out after {sw.Elapsed.TotalMinutes} minutes.");
-                throw new TimeoutException("Tempo limite excedido aguardando job do backend.");
-            }
-        }
-
-        public static async Task ImportarDadosCampo(string geojsonData)
-        {
-            await SisRuaTransactionalShield.ExecuteAsync(async (doc, db, tr) =>
-            {
-                Editor ed = doc.Editor;
-                Log("INFO: ImportarDadosCampo called with GeoJSON data.");
-                ed.WriteMessage("\n[sisRUA] GeoJSON recebido. Preparando importação (sem DXF)...");
-
-                try
-                {
-                    string baseUrl = GetBackendBaseUrlOrAlert(ed);
-                    if (string.IsNullOrWhiteSpace(baseUrl)) return;
-
-                    ed.WriteMessage("\n[sisRUA] Criando job de importação (GeoJSON) no backend...");
-                    var jobPayload = new PrepareJobRequest { Kind = "geojson", GeoJson = geojsonData };
-                    
-                    using (var dlg = new ProcessingDialog())
-                    {
-                        Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
-                        var prepareResponse = await RunPrepareJobAsync(ed, baseUrl, jobPayload, dlg);
-                        if (prepareResponse?.Features == null || prepareResponse.Features.Count == 0)
-                        {
-                            ed.WriteMessage("\n[sisRUA] Aviso: backend retornou 0 features para desenhar.");
-                            Log("WARN: Backend returned 0 features to draw.");
-                            return;
-                        }
-
-                        ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
-                        await DrawCadFeatureDtos(prepareResponse.Features, dlg);
-
-                        // Store last drawn features for saving
-                        _lastDrawnFeatures = prepareResponse.Features;
-                        _lastDrawnCrsOut = prepareResponse.CrsOut;
-                    }
-                }
-                catch (HttpRequestException httpEx)
-                {
-                    Log($"ERROR: HttpRequestException in ImportarDadosCampo: {httpEx.Message}");
-                    throw; // Shield will handle and log
-                }
-                catch (System.Exception ex)
-                {
-                    Log($"FATAL: Unexpected error in ImportarDadosCampo: {ex}");
-                    throw;
-                }
-            });
-        }
-
-        public static async Task GerarProjetoOsm(double latitude, double longitude, double radius)
-        {
-            await SisRuaTransactionalShield.ExecuteAsync(async (doc, db, tr) =>
-            {
-                Editor ed = doc.Editor;
-                Log($"INFO: GerarProjetoOsm called with Lat={latitude}, Lon={longitude}, Radius={radius}.");
-                ed.WriteMessage("\n[sisRUA] Recebida solicitação para gerar ruas do OSM (sem DXF)...");
-
-                try
-                {
-                    string baseUrl = GetBackendBaseUrlOrAlert(ed);
-                    if (string.IsNullOrWhiteSpace(baseUrl)) return;
-
-                    ed.WriteMessage($"\n[sisRUA] Parâmetros: Lat={latitude}, Lon={longitude}, Raio={radius}m");
-                    ed.WriteMessage("\n[sisRUA] Criando job OSM no backend...");
-                    var jobPayload = new PrepareJobRequest
-                    {
-                        Kind = "osm",
-                        Latitude = latitude,
-                        Longitude = longitude,
-                        Radius = radius
-                    };
-                    
-                    using (var dlg = new ProcessingDialog())
-                    {
-                        Autodesk.AutoCAD.ApplicationServices.Application.ShowModelessDialog(dlg);
-                        var prepareResponse = await RunPrepareJobAsync(ed, baseUrl, jobPayload, dlg);
-
-                        if (prepareResponse?.Features == null || prepareResponse.Features.Count == 0)
-                        {
-                            ed.WriteMessage("\n[sisRUA] Aviso: backend retornou 0 features para desenhar.");
-                            Log("WARN: Backend returned 0 features to draw.");
-                            return;
-                        }
-
-                        ed.WriteMessage($"\n[sisRUA] CRS de saída: {prepareResponse.CrsOut ?? "(desconhecido)"}");
-                        await DrawCadFeatureDtos(prepareResponse.Features, dlg);
-                        EnsureOsmAttributionMText(prepareResponse.Features);
-
-                        // Store last drawn features for saving
-                        _lastDrawnFeatures = prepareResponse.Features;
-                        _lastDrawnCrsOut = prepareResponse.CrsOut;
-                    }
-                }
-                catch (HttpRequestException httpEx)
-                {
-                    Log($"ERROR: HttpRequestException in GerarProjetoOsm: {httpEx.Message}");
-                    throw;
-                }
-                catch (System.Exception ex)
-                {
-                    Log($"FATAL: Unexpected error in GerarProjetoOsm: {ex}");
-                    throw;
-                }
-            });
-        }
-
-        private static async Task DrawCadFeatureDtos(IEnumerable<CadFeatureDto> features, ProcessingDialog dlg)
-        {
-            // #region agent log
-            SisRuaLog.WriteDebugLine("SisRuaCommands.cs:DrawCadFeatureDtos", "entry", new { featureCount = features?.Count() ?? 0 }, "H5", "run1");
-            // #endregion
-            Log("INFO: DrawCadFeatureDtos started.");
-            Document doc = Application.DocumentManager.MdiActiveDocument;
-            if (doc == null)
-            {
-                Log("WARN: DocumentManager.MdiActiveDocument is null in DrawCadFeatureDtos.");
-                return;
-            }
-
-            Database db = doc.Database;
-            Editor ed = doc.Editor;
+            var job = JsonSerializer.Deserialize<JobStatusResponse>(await createResp.Content.ReadAsStringAsync(), _jsonOptions);
             
-            // Phase 1: Read UI scalars
-            double metersToDrawingUnits = GetMetersToDrawingUnitsScale(db);
-            
-            Log("INFO: Starting background geometry processing...");
-            ed.WriteMessage("\n[sisRUA] Processando geometria em background (interface liberada)...");
-
-
-            // Phase 2: Background Processing
-
-            // Phase 2: Background Processing
-            // We capture the counts/stats to log them back on the UI thread later
-            object processingResultRaw = null; // Use object to hold anonymous type result
-
-            try
+            while (true)
             {
-                // We capture the task to await it, so the dialog stays open
-                var task = Task.Run(async () =>
+                if (dlg.WasCancelled)
                 {
-                    try
-                    {
-                        var inputCount = features.Count();
-                        
-                        // Se o usuário já cancelou no início
-                        if (dlg.WasCancelled) return null;
-
-                        // BIM-LITE / SaaS: O backend já entrega a geometria limpa e simplificada.
-                        // Otimizamos para "Thin Client" para evitar contenção de UI e CPU no plugin.
-                        // Trust-but-verify: Se necessário, a limpeza poderia ser rodada aqui apenas em dev.
-                        var finalFeatures = features.ToList();
-                        
-                        // Update Progress
-                        dlg.SetProgress(75);
-                        
-                        return new 
-                        {
-                            Features = finalFeatures,
-                            OriginalCount = inputCount,
-                            FinalCount = finalFeatures.Count,
-                            DuplicatesRemoved = 0, // Backend handled it
-                            MergedCount = 0 // Backend handled it
-                        };
-                    }
-                    catch (Exception ex)
-                    {
-                        Log($"ERROR: Background processing failed: {ex.Message}");
-                        TelemetryService.ReportErrorSync("BACKGROUND_PROCESSING", ex);
-                        throw;
-                    }
-                }, dlg.CancellationToken);
-
-                // Polling do diálogo para cancelamento local (UI lock preventer)
-                while (!task.IsCompleted)
-                {
-                    if (dlg.WasCancelled)
-                    {
-                        ed.WriteMessage("\n[sisRUA] Operação cancelada pelo usuário.");
-                        return; // Interrompe o desenho
-                    }
-                    await Task.Delay(100);
+                    await _httpClient.SendAsync(CreateAuthedJsonRequest(HttpMethod.Delete, $"{baseUrl}/api/v1/jobs/{job.JobId}", null));
+                    throw new OperationCanceledException();
                 }
 
-                processingResultRaw = await task;
+                var pollResp = await _httpClient.SendAsync(CreateAuthedJsonRequest(HttpMethod.Get, $"{baseUrl}/api/v1/jobs/{job.JobId}", null));
+                job = JsonSerializer.Deserialize<JobStatusResponse>(await pollResp.Content.ReadAsStringAsync(), _jsonOptions);
+
+                if (job.Status == "completed") return job.Result.Deserialize<PrepareResponse>(_jsonOptions);
+                if (job.Status == "failed") throw new System.Exception(job.Error ?? "Job failed");
+
+                await Task.Delay(1000);
             }
-            finally
-            {
-                // Note: we don't close/dispose dlg here anymore because it's handled in the using() block of the caller
-            }
-
-            // Cast back to dynamic/anonymous (C# trickery or just use dynamic access)
-            dynamic processingResult = processingResultRaw; // simplified way to access properties of anonymous type
-            
-            // Extract typed values to avoid dynamic dispatch issues (CS8133)
-            IEnumerable<CadFeatureDto> finalFeatures = (IEnumerable<CadFeatureDto>)processingResult.Features;
-            int duplicatesRemoved = (int)processingResult.DuplicatesRemoved;
-            int mergedCount = (int)processingResult.MergedCount;
-            double finalTolerance = (double)processingResult.Tolerance;
-
-            Log("INFO: Background processing finished. Drawing entities...");
-            
-            // Log results on UI Thread
-            if (duplicatesRemoved > 0)
-            {
-                Log($"INFO: Removed {duplicatesRemoved} duplicate polylines.");
-                ed.WriteMessage($"\n[sisRUA] Aviso: {duplicatesRemoved} polylines duplicadas removidas.");
-            }
-            if (mergedCount > 0)
-            {
-                Log($"INFO: Merged {mergedCount} polylines.");
-                ed.WriteMessage($"\n[sisRUA] Aviso: {mergedCount} polylines foram fundidas.");
-            }
-            if (finalTolerance > 0) // Just to mention tolerance
-            {
-                Log($"INFO: Simplified polylines with {finalTolerance} tolerance.");
-                ed.WriteMessage($"\n[sisRUA] Aviso: Polylines simplificadas (tolerância: {finalTolerance:F2} unidades).");
-            }
-
-            // Phase 3: Drawing (UI Thread Transaction via Shield)
-            // Phase 3: Live-Streaming Drawing (Chunked Transactions for UX)
-            if (doc.IsDisposed) return;
-
-            int createdPolylines = 0;
-            int createdBlocks = 0;
-            int chunkSize = 50;
-            var featureList = finalFeatures.ToList();
-
-            for (int i = 0; i < featureList.Count; i += chunkSize)
-            {
-                if (dlg.WasCancelled) break;
-
-                var chunk = featureList.Skip(i).Take(chunkSize);
-
-                SisRuaTransactionalShield.Execute((d, database, tr) =>
-                {
-                    LayerTable lt = (LayerTable)tr.GetObject(database.LayerTableId, OpenMode.ForRead);
-                    
-                    // Re-extracting origin only on first chunk for efficiency
-                    double originX = 0, originY = 0;
-                    var firstFeature = featureList.FirstOrDefault(f => f.OriginalGeoJsonProperties != null && f.OriginalGeoJsonProperties.ContainsKey("sys_sisrua_origin"));
-                    if (firstFeature != null)
-                    {
-                        try {
-                            var originList = firstFeature.OriginalGeoJsonProperties["sys_sisrua_origin"] as System.Text.Json.JsonElement?;
-                            if (originList.HasValue && originList.Value.ValueKind == System.Text.Json.JsonValueKind.Array) {
-                                originX = originList.Value[0].GetDouble();
-                                originY = originList.Value[1].GetDouble();
-                            }
-                        } catch { }
-                    }
-
-                    foreach (var f in chunk)
-                    {
-                        if (f == null) continue;
-                        var (layerName, aci) = GetLayerStyleForFeature(f);
-                        EnsureLayer(tr, database, lt, layerName, aci);
-
-                        switch (f.FeatureType)
-                        {
-                            case CadFeatureDtoType.Polyline:
-                                if (f.CoordsXy == null || f.CoordsXy.Count < 2) continue;
-                                var agnosticPoints = f.CoordsXy.Select(pt => new SisRuaPoint(
-                                    (pt[0] + originX) * metersToDrawingUnits,
-                                    (pt[1] + originY) * metersToDrawingUnits,
-                                    f.Elevation.HasValue ? f.Elevation.Value * metersToDrawingUnits : 0.0
-                                )).ToList();
-
-                                double? widthUnits = TryGetRoadWidthUnits(f, metersToDrawingUnits);
-                                var polyMeta = ExtractMetadata(f);
-                                Engine.DrawPolyline(agnosticPoints, layerName, (widthUnits.HasValue && widthUnits.Value > 0.05) ? widthUnits : null, f.Elevation.HasValue ? (double?)(f.Elevation.Value * metersToDrawingUnits) : null, f.Color, polyMeta);
-                                createdPolylines++;
-                                break;
-
-                            case CadFeatureDtoType.Point:
-                                if (f.InsertionPointXy == null || f.InsertionPointXy.Count < 2 || string.IsNullOrWhiteSpace(f.BlockName) || string.IsNullOrWhiteSpace(f.BlockFilePath)) continue;
-                                var insPt = new SisRuaPoint((f.InsertionPointXy[0] + originX) * metersToDrawingUnits, (f.InsertionPointXy[1] + originY) * metersToDrawingUnits, f.Elevation.HasValue ? f.Elevation.Value * metersToDrawingUnits : 0.0);
-                                var blockMeta = ExtractMetadata(f);
-                                Engine.InsertBlock(f.BlockName, insPt, f.Rotation ?? 0.0, f.Scale ?? 1.0, layerName, blockMeta);
-                                createdBlocks++;
-                                break;
-                        }
-                    }
-                });
-
-                // Progressive UI feedback
-                ed.UpdateScreen();
-                dlg.SetProgress(75 + (int)(25.0 * i / featureList.Count));
-                await Task.Delay(5); // Micro-delay allows AutoCAD to pump messages and show the drawing
-            }
-
-            ed.WriteMessage($"\n[sisRUA] Sucesso! {createdPolylines} polylines e {createdBlocks} blocos criados.");
-            
-            // AUDIT INTEGRITY: Inject OID to mark drawing as "Certified Padrão sisRUA"
-            EnsurePadrãoSisRuaMetadata(db);
-            
-            ed.Regen();
         }
 
-        private static Dictionary<string, string> ExtractMetadata(CadFeatureDto f)
+        private static string GetBackendBaseUrlOrAlert(Editor ed)
         {
-            var meta = new Dictionary<string, string>();
-            if (!string.IsNullOrEmpty(f.Name)) meta["name"] = f.Name;
-            if (!string.IsNullOrEmpty(f.Highway)) meta["highway"] = f.Highway;
-            if (f.WidthMeters.HasValue) meta["width_m"] = f.WidthMeters.Value.ToString(CultureInfo.InvariantCulture);
-            
-            if (f.OriginalGeoJsonProperties != null)
-            {
-                foreach (var kvp in f.OriginalGeoJsonProperties)
-                {
-                    if (kvp.Value is JsonElement je)
-                    {
-                        if (je.ValueKind == JsonValueKind.String || je.ValueKind == JsonValueKind.Number || je.ValueKind == JsonValueKind.True || je.ValueKind == JsonValueKind.False)
-                        {
-                            meta[kvp.Key] = je.ToString();
-                        }
-                    }
-                    else if (kvp.Value != null)
-                    {
-                        meta[kvp.Key] = kvp.Value.ToString();
-                    }
-                }
-            }
-            return meta;
+            string url = SisRuaPlugin.BackendBaseUrl;
+            if (string.IsNullOrEmpty(url)) Application.ShowAlertDialog("Backend não inicializado.");
+            return url;
         }
 
-        private static void EnsurePadrãoSisRuaMetadata(Database db)
+        private static HttpRequestMessage CreateAuthedJsonRequest(HttpMethod method, string url, string body)
         {
-            try
-            {
-                using (var tr = db.TransactionManager.StartTransaction())
-                {
-                    var nod = (DBDictionary)tr.GetObject(db.NamedObjectsDictionaryId, OpenMode.ForWrite);
-                    
-                    if (!nod.Contains("SISRUA_METADATA"))
-                    {
-                        var sisruaDict = new DBDictionary();
-                        nod.SetAt("SISRUA_METADATA", sisruaDict);
-                        tr.AddNewlyCreatedDBObject(sisruaDict, true);
-                        
-                        // Injetamos um XRecord com o ID do projeto (UUID) e Timestamp
-                        var xRec = new Xrecord();
-                        xRec.Data = new ResultBuffer(
-                            new TypedValue((int)DxfCode.Text, Guid.NewGuid().ToString()),
-                            new TypedValue((int)DxfCode.Text, DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss")),
-                            new TypedValue((int)DxfCode.Text, "Padrão sisRUA v0.8.0")
-                        );
-                        
-                        sisruaDict.SetAt("Audit_ID", xRec);
-                        tr.AddNewlyCreatedDBObject(xRec, true);
-                    }
-                    tr.Commit();
-                }
-            }
-            catch (Exception ex)
-            {
-                Log($"ERROR: Failed to inject Audit Metadata: {ex.Message}");
-            }
+            var req = new HttpRequestMessage(method, url);
+            if (!string.IsNullOrEmpty(SisRuaPlugin.BackendAuthToken))
+                req.Headers.TryAddWithoutValidation(SisRuaPlugin.BackendAuthHeaderName, SisRuaPlugin.BackendAuthToken);
+            if (body != null) req.Content = new StringContent(body, Encoding.UTF8, "application/json");
+            return req;
         }
 
-        private static void EnsureOsmAttributionMText(IEnumerable<CadFeatureDto> features)
-        {
-            // ODbL exige atribuição. Além da atribuição no mapa (frontend),
-            // colocamos uma anotação no DWG para quando o arquivo for compartilhado.
-            try
-            {
-                Document doc = Application.DocumentManager.MdiActiveDocument;
-                if (doc == null)
-                {
-                    Log("WARN: DocumentManager.MdiActiveDocument is null in EnsureOsmAttributionMText.");
-                    return;
-                }
-
-                Database db = doc.Database;
-                double metersToDrawingUnits = GetMetersToDrawingUnitsScale(db);
-
-                double minX = double.PositiveInfinity, minY = double.PositiveInfinity;
-                double maxX = double.NegativeInfinity, maxY = double.NegativeInfinity;
-
-                if (features != null)
-                {
-                    foreach (var f in features)
-                    {
-                        if (f?.CoordsXy == null) continue;
-                        foreach (var pt in f.CoordsXy)
-                        {
-                            if (pt == null || pt.Count < 2) continue;
-                            double x = pt[0] * metersToDrawingUnits;
-                            double y = pt[1] * metersToDrawingUnits;
-                            if (!IsFinite(x) || !IsFinite(y)) continue;
-                            if (x < minX) minX = x;
-                            if (y < minY) minY = y;
-                            if (x > maxX) maxX = x;
-                            if (y > maxY) maxY = y;
-                        }
-                    }
-                }
-
-                if (!IsFinite(minX) || !IsFinite(minY) || !IsFinite(maxX) || !IsFinite(maxY)) return;
-
-                double span = Math.Max(maxX - minX, maxY - minY);
-                // Altura proporcional ao tamanho do resultado (clamp).
-                double textHeight = span > 0 ? (span / 500.0) : (10.0 * metersToDrawingUnits);
-                double minHeight = 2.0 * metersToDrawingUnits;
-                double maxHeight = 50.0 * metersToDrawingUnits;
-                if (textHeight < minHeight) textHeight = minHeight;
-                if (textHeight > maxHeight) textHeight = maxHeight;
-
-                // Canto superior esquerdo (um pouco para dentro)
-                var insPt = new Autodesk.AutoCAD.Geometry.Point3d(minX + textHeight, maxY - textHeight, 0);
-
-                using (doc.LockDocument())
-                using (Transaction tr = db.TransactionManager.StartTransaction())
-                {
-                    LayerTable lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
-                    const string layerName = "SISRUA_ATTRIB";
-                    EnsureLayer(tr, db, lt, layerName, aci: 7);
-
-                    ObjectId msId = SymbolUtilityServices.GetBlockModelSpaceId(db);
-                    BlockTableRecord ms = (BlockTableRecord)tr.GetObject(msId, OpenMode.ForRead);
-
-                    // Evita duplicar se já existe uma atribuição no DWG.
-                    foreach (ObjectId id in ms)
-                    {
-                        var ent = tr.GetObject(id, OpenMode.ForRead) as Entity;
-                        if (ent is MText mt)
-                        {
-                            string t = mt.Contents ?? string.Empty;
-                            if (t.IndexOf("OpenStreetMap contributors", StringComparison.OrdinalIgnoreCase) >= 0)
-                            {
-                                return;
-                            }
-                        }
-                    }
-
-                    ms.UpgradeOpen();
-                    var mtext = new MText
-                    {
-                        Layer = layerName,
-                        Color = Color.FromColorIndex(ColorMethod.ByLayer, 256),
-                        Location = insPt,
-                        TextHeight = textHeight,
-                        // MText quebra de linha com \P
-                        Contents = "© OpenStreetMap contributors\\Phttps://www.openstreetmap.org/copyright"
-                    };
-
-                    ms.AppendEntity(mtext);
-                    tr.AddNewlyCreatedDBObject(mtext, true);
-                    tr.Commit();
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Log($"WARN: Error in EnsureOsmAttributionMText: {ex.Message}");
-                // ignore (não pode falhar o fluxo principal)
-            }
-        }
-
-        private static double? TryGetRoadWidthUnits(CadFeatureDto f, double metersToDrawingUnits)
-        {
-            try
-            {
-                // Preferência: backend já estimou width_m.
-                if (f != null && f.WidthMeters.HasValue && f.WidthMeters.Value > 0.01 && IsFinite(f.WidthMeters.Value))
-                {
-                    return f.WidthMeters.Value * metersToDrawingUnits;
-                }
-
-                // Fallback local: se width_m não veio, estimamos por tipo de via.
-                // Valores são "curb-to-curb" aproximados, em metros.
-                string h = f?.Highway?.Trim()?.ToLowerInvariant();
-                double? wMeters = null;
-                switch (h)
-                {
-                    case "motorway": wMeters = 20.0; break;
-                    case "trunk": wMeters = 16.0; break;
-                    case "primary": wMeters = 12.0; break;
-                    case "secondary": wMeters = 10.0; break;
-                    case "tertiary": wMeters = 9.0; break;
-                    case "residential": wMeters = 7.0; break;
-                    case "unclassified": wMeters = 7.0; break;
-                    case "living_street": wMeters = 6.0; break;
-                    case "service": wMeters = 5.0; break;
-                    case "footway":
-                    case "path":
-                    case "cycleway":
-                        wMeters = 2.5;
-                        break;
-                }
-                if (!wMeters.HasValue) return null;
-                return wMeters.Value * metersToDrawingUnits;
-            }
-            catch (System.Exception ex)
-            {
-                Log($"WARN: Error in TryGetRoadWidthUnits: {ex.Message}");
-                return null;
-            }
-        }
-
-        private static bool TryAppendOffsetRoadEdges(Transaction tr, BlockTableRecord ms, Polyline center, double halfWidthUnits, string layerName)
-        {
-            try
-            {
-                if (center == null)
-                {
-                    Log("WARN: TryAppendOffsetRoadEdges received null center polyline.");
-                    return false;
-                }
-                if (!IsFinite(halfWidthUnits) || halfWidthUnits <= 0.0)
-                {
-                    Log($"WARN: TryAppendOffsetRoadEdges received invalid halfWidthUnits: {halfWidthUnits}");
-                    return false;
-                }
-
-                // Offset positivo e negativo. Cada chamada pode retornar múltiplas curvas (geometrias complexas).
-                var left = center.GetOffsetCurves(+halfWidthUnits);
-                var right = center.GetOffsetCurves(-halfWidthUnits);
-
-                int appended = 0;
-                appended += AppendOffsetCurves(tr, ms, left, layerName);
-                appended += AppendOffsetCurves(tr, ms, right, layerName);
-
-                // Se não deu nada, falhou.
-                return appended >= 2;
-            }
-            catch (System.Exception ex)
-            {
-                Log($"WARN: Error in TryAppendOffsetRoadEdges: {ex.Message}");
-                return false;
-            }
-        }
-
-        private static int AppendOffsetCurves(Transaction tr, BlockTableRecord ms, DBObjectCollection curves, string layerName)
-        {
-            int appended = 0;
-            if (curves == null || curves.Count == 0) return 0;
-
-            foreach (DBObject dbo in curves)
-            {
-                try
-                {
-                    if (dbo is Entity ent)
-                    {
-                        ent.Layer = layerName;
-                        ent.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
-                        ms.AppendEntity(ent);
-                        tr.AddNewlyCreatedDBObject(ent, true);
-                        appended++;
-                    }
-                    else
-                    {
-                        dbo?.Dispose();
-                    }
-                }
-                catch (System.Exception ex)
-                {
-                    Log($"WARN: Error appending offset curve: {ex.Message}");
-                    try { dbo?.Dispose(); } catch { /* ignore */ }
-                }
-            }
-
-            return appended;
-        }
-
-        private static double GetMetersToDrawingUnitsScale(Database db)
-        {
-            try
-            {
-                // Override manual (se necessário): define um fator direto "metros -> unidades do desenho"
-                // Ex.: "1000" para mm, "1" para m
-                string overrideScale = Environment.GetEnvironmentVariable("SISRUA_M_TO_UNITS");
-                if (!string.IsNullOrWhiteSpace(overrideScale))
-                {
-                    overrideScale = overrideScale.Trim();
-                    if (double.TryParse(overrideScale, NumberStyles.Float, CultureInfo.InvariantCulture, out double forced) && forced > 0.0 && IsFinite(forced))
-                    {
-                        return forced;
-                    }
-                    // tolera vírgula decimal (pt-BR)
-                    string commaFixed = overrideScale.Replace(',', '.');
-                    if (double.TryParse(commaFixed, NumberStyles.Float, CultureInfo.InvariantCulture, out forced) && forced > 0.0 && IsFinite(forced))
-                    {
-                        return forced;
-                    }
-                }
-
-                // Override persistente (recomendado): %LOCALAPPDATA%\sisRUA\settings.json
-                // { "meters_to_units": 1000 }
-                double? persisted = SisRuaSettings.TryReadMetersToUnits();
-                if (persisted.HasValue)
-                {
-                    return persisted.Value;
-                }
-
-                object v = Application.GetSystemVariable("INSUNITS");
-                int insunits = 0;
-                if (v is short s) insunits = s;
-                else if (v is int i) insunits = i;
-                else if (v != null) int.TryParse(v.ToString(), out insunits);
-
-                // https://help.autodesk.com/ (INSUNITS): valores comuns
-                // Conversão desejada: metros -> unidade do desenho.
-                switch (insunits)
-                {
-                    case 0: // unitless
-                        try
-                        {
-                            object m = Application.GetSystemVariable("MEASUREMENT");
-                            int measurement = 0;
-                            if (m is short ms) measurement = ms;
-                            else if (m is int mi) measurement = mi;
-                            else if (m != null) int.TryParse(m.ToString(), out measurement);
-                            // 1 = métrico: por padrão, assume METROS (mais comum em Civil/Topografia).
-                            // 0 = imperial: assume inches.
-                            return measurement == 1 ? 1.0 : 39.37007874015748;
-                        }
-                        catch (System.Exception ex)
-                        {
-                            Log($"WARN: Error determining MEASUREMENT system variable: {ex.Message}");
-                            // fallback: assume metros
-                            return 1.0;
-                        }
-                    case 1: // inches
-                        return 39.37007874015748;
-                    case 2: // feet
-                        return 3.280839895013123;
-                    case 3: // miles
-                        return 0.0006213711922373339;
-                    case 4: // millimeters
-                        return 1000.0;
-                    case 5: // centimeters
-                        return 100.0;
-                    case 6: // meters
-                        return 1.0;
-                    case 7: // kilometers
-                        return 0.001;
-                    default:
-                        // desconhecido: não arrisca
-                        return 1.0;
-                }
-            }
-            catch (System.Exception ex)
-            {
-                Log($"WARN: Error in GetMetersToDrawingUnitsScale: {ex.Message}");
-            }
-            return 1.0;
-        }
-
-        private static bool IsFinite(double x)
-        {
-            return !(double.IsNaN(x) || double.IsInfinity(x));
-        }
-
-
-
-        private static Autodesk.AutoCAD.Colors.Color ParseColor(string colorStr)
-        {
-            if (string.IsNullOrWhiteSpace(colorStr)) return Color.FromColorIndex(ColorMethod.ByLayer, 256);
-
-            try
-            {
-                // Try ACI (short)
-                if (short.TryParse(colorStr, out short aci))
-                {
-                    return Color.FromColorIndex(ColorMethod.ByAci, aci);
-                }
-
-                // Try RGB (r,g,b)
-                var parts = colorStr.Split(',');
-                if (parts.Length == 3)
-                {
-                    if (byte.TryParse(parts[0], out byte r) && byte.TryParse(parts[1], out byte g) && byte.TryParse(parts[2], out byte b))
-                    {
-                        return Color.FromRgb(r, g, b);
-                    }
-                }
-            }
-            catch
-            {
-                // Fallback
-            }
-            return Color.FromColorIndex(ColorMethod.ByLayer, 256);
-        }
-
-        private static void EnsureLayer(Transaction tr, Database db, LayerTable lt, string layerName, short? aci = null)
-        {
-            if (lt.Has(layerName)) return;
-
-            try
-            {
-                lt.UpgradeOpen();
-                var ltr = new LayerTableRecord { Name = layerName };
-                if (aci.HasValue)
-                {
-                    ltr.Color = Color.FromColorIndex(ColorMethod.ByAci, aci.Value);
-                }
-                lt.Add(ltr);
-                tr.AddNewlyCreatedDBObject(ltr, true);
-                Log($"INFO: Created new layer: {layerName}");
-            }
-            catch (System.Exception ex)
-            {
-                Log($"ERROR: Failed to create layer {layerName}: {ex.Message}");
-            }
-        }
-
-        // DXF foi descontinuado no fluxo padrão (JSON → polylines).
+        // --- DTOs for Backend Communication ---
+        private sealed class PrepareJobRequest { public string Kind { get; set; } public double? Latitude { get; set; } public double? Longitude { get; set; } public double? Radius { get; set; } public string GeoJson { get; set; } }
+        private sealed class JobStatusResponse { public string JobId { get; set; } public string Status { get; set; } public double Progress { get; set; } public string Message { get; set; } public JsonElement Result { get; set; } public string Error { get; set; } }
+        private sealed class PrepareResponse { public string CrsOut { get; set; } public List<CadFeatureDto> Features { get; set; } }
     }
 }

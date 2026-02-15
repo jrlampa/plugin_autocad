@@ -44,7 +44,24 @@ namespace sisRUA.Engine
 
         public void WriteMessage(string message)
         {
-            // No-op or Console.WriteLine for tests
+            Operations.Add($"WriteMessage: {message}");
+        }
+
+        public async Task DrawFeaturesAsync(IEnumerable<CadFeatureDto> features, string crsOut, IProcessingProgress progress)
+        {
+            Operations.Add($"DrawFeaturesAsync: {features.Count()} features");
+            progress?.SetProgress(100);
+            await Task.Yield();
+        }
+
+        public void InjectAuditMetadata(string projectId)
+        {
+            Operations.Add($"InjectAuditMetadata: {projectId}");
+        }
+
+        public double GetScaleFactor()
+        {
+            return 1.0;
         }
     }
 }

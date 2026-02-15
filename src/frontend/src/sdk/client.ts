@@ -50,8 +50,8 @@ export class SisRuaClient {
     return this.request('/api/v1/health/detailed', { method: 'GET' });
   }
 
-  async updateProjectApiV1ProjectsProjectIdPut(body: any): Promise<any> {
-    return this.request('/api/v1/projects/{project_id}', {
+  async updateProjectApiV1ProjectsProjectIdPut(projectId: string, body: any): Promise<any> {
+    return this.request(`/api/v1/projects/${encodeURIComponent(projectId)}`, {
       method: 'PUT',
       body: JSON.stringify(body),
     });
@@ -61,12 +61,12 @@ export class SisRuaClient {
     return this.request('/api/v1/jobs/prepare', { method: 'POST', body: JSON.stringify(body) });
   }
 
-  async getJobEndpointApiV1JobsJobIdGet(): Promise<any> {
-    return this.request('/api/v1/jobs/{job_id}', { method: 'GET' });
+  async getJobEndpointApiV1JobsJobIdGet(jobId: string): Promise<any> {
+    return this.request(`/api/v1/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' });
   }
 
-  async cancelJobEndpointApiV1JobsJobIdDelete(): Promise<any> {
-    return this.request('/api/v1/jobs/{job_id}', { method: 'DELETE' });
+  async cancelJobEndpointApiV1JobsJobIdDelete(jobId: string): Promise<any> {
+    return this.request(`/api/v1/jobs/${encodeURIComponent(jobId)}`, { method: 'DELETE' });
   }
 
   async queryElevationApiV1ToolsElevationQueryPost(body: any): Promise<any> {
@@ -114,12 +114,12 @@ export class SisRuaClient {
     return this.request('/api/audit', { method: 'GET' });
   }
 
-  async getAuditLogApiAuditAuditIdGet(): Promise<any> {
-    return this.request('/api/audit/{audit_id}', { method: 'GET' });
+  async getAuditLogApiAuditAuditIdGet(auditId: string): Promise<any> {
+    return this.request(`/api/audit/${encodeURIComponent(auditId)}`, { method: 'GET' });
   }
 
-  async verifyAuditLogApiAuditAuditIdVerifyGet(): Promise<any> {
-    return this.request('/api/audit/{audit_id}/verify', { method: 'GET' });
+  async verifyAuditLogApiAuditAuditIdVerifyGet(auditId: string): Promise<any> {
+    return this.request(`/api/audit/${encodeURIComponent(auditId)}/verify`, { method: 'GET' });
   }
 
   async verifyAllLogsApiAuditVerifyAllPost(body: any): Promise<any> {

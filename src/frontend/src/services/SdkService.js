@@ -52,9 +52,7 @@ export const SdkService = {
    */
   async updateProject(projectId, data) {
     return await ResilienceService.executeWithTracing('SDK_UPDATE_PROJECT', async () => {
-      // Note: SDK has path parameter {project_id} - would need to fix SDK generation
-      // For now, using as-is (will need backend fix)
-      return await sdkClient.updateProjectApiV1ProjectsProjectIdPut(data);
+      return await sdkClient.updateProjectApiV1ProjectsProjectIdPut(projectId, data);
     });
   },
 
@@ -74,11 +72,9 @@ export const SdkService = {
    * @param {string} jobId - Job ID
    * @returns {Promise<JobStatusResponse>}
    */
-  async getJob() {
+  async getJob(jobId) {
     return await ResilienceService.executeWithTracing('SDK_GET_JOB', async () => {
-      // Note: SDK has path parameter {job_id} - would need to fix SDK generation
-      // TODO: Pass jobId to SDK once path parameters are properly implemented
-      return await sdkClient.getJobEndpointApiV1JobsJobIdGet();
+      return await sdkClient.getJobEndpointApiV1JobsJobIdGet(jobId);
     });
   },
 
@@ -87,10 +83,9 @@ export const SdkService = {
    * @param {string} jobId - Job ID
    * @returns {Promise<any>}
    */
-  async cancelJob() {
+  async cancelJob(jobId) {
     return await ResilienceService.executeWithTracing('SDK_CANCEL_JOB', async () => {
-      // TODO: Pass jobId to SDK once path parameters are properly implemented
-      return await sdkClient.cancelJobEndpointApiV1JobsJobIdDelete();
+      return await sdkClient.cancelJobEndpointApiV1JobsJobIdDelete(jobId);
     });
   },
 
@@ -224,10 +219,9 @@ export const SdkService = {
    * @param {string} auditId - Audit log ID
    * @returns {Promise<any>}
    */
-  async getAuditLog() {
+  async getAuditLog(auditId) {
     return await ResilienceService.executeWithTracing('SDK_AUDIT_GET', async () => {
-      // TODO: Pass auditId to SDK once path parameters are properly implemented
-      return await sdkClient.getAuditLogApiAuditAuditIdGet();
+      return await sdkClient.getAuditLogApiAuditAuditIdGet(auditId);
     });
   },
 
@@ -236,10 +230,9 @@ export const SdkService = {
    * @param {string} auditId - Audit log ID
    * @returns {Promise<any>}
    */
-  async verifyAuditLog() {
+  async verifyAuditLog(auditId) {
     return await ResilienceService.executeWithTracing('SDK_AUDIT_VERIFY', async () => {
-      // TODO: Pass auditId to SDK once path parameters are properly implemented
-      return await sdkClient.verifyAuditLogApiAuditAuditIdVerifyGet();
+      return await sdkClient.verifyAuditLogApiAuditAuditIdVerifyGet(auditId);
     });
   },
 

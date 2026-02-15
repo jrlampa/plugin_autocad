@@ -36,7 +36,6 @@ namespace sisRUA
             lock (_debugLogLock)
             {
                 try { WriteToPath(DebugLogPath, line); } catch { }
-                try { WriteToPath(@"c:\plugin_autocad\.cursor\debug.log", line); } catch { }
             }
         }
         private static void WriteToPath(string path, string line)

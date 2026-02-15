@@ -1,3 +1,4 @@
+import os
 import re
 import math
 import requests
@@ -30,7 +31,8 @@ def parse_utm(query: str) -> Optional[Tuple[float, float, str]]:
     
     # Defaults for Brazil if not specified
     # K is roughly latitude -24 to -16 (Rio/SP/Espírito Santo area)
-    zone_num = int(zone_num_str) if zone_num_str else 23 # Default to Zone 23 (Rio/MG area)
+    default_zone = os.environ.get("DEFAULT_UTM_ZONE", "23")
+    zone_num = int(zone_num_str) if zone_num_str else int(default_zone)
     
     is_northern = False
     if zone_letter:
@@ -56,7 +58,7 @@ def parse_utm(query: str) -> Optional[Tuple[float, float, str]]:
         if math.isfinite(lat) and math.isfinite(lon):
             return lat, lon, f"UTM {zone_num}{zone_letter or ''} {easting:.0f}E {northing:.0f}N"
     except Exception as e:
-        logger.error("utm_transform_failed", error=str(e), query=query)
+        logger.error(f"utm_transform_failed: {str(e)} for query: {query}")
         
     return None
 
@@ -93,8 +95,9 @@ def smart_geocode(query: str) -> Dict[str, Any]:
             "limit": 1,
             "addressdetails": 1
         }
+        user_agent = os.environ.get("NOMINATIM_USER_AGENT", "sisRUA-AutoCAD-Plugin/1.1 (enterprise-support@sisrua.com)")
         headers = {
-            "User-Agent": "sisRUA-AutoCAD-Plugin/1.1 (jonatas.lampa@im3.com.br)"
+            "User-Agent": user_agent
         }
         response = requests.get(url, params=params, headers=headers, timeout=10)
         response.raise_for_status()
@@ -108,6 +111,6 @@ def smart_geocode(query: str) -> Dict[str, Any]:
                 "display_name": item["display_name"]
             }
     except Exception as e:
-        logger.error("nominatim_failed", error=str(e), query=query)
+        logger.error(f"nominatim_failed: {str(e)} for query: {query}")
         
     raise HTTPException(status_code=404, detail=f"Localização não encontrada para: {query}")

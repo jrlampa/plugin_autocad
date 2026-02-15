@@ -4,12 +4,17 @@ using System.Windows.Forms;
 
 namespace sisRUA.UI
 {
-    public class ProcessingDialog : Form
+    public class ProcessingDialog : Form, sisRUA.Engine.IProcessingProgress
     {
         private ProgressBar _progressBar;
         private Label _lblMessage;
         private System.Windows.Forms.Timer _timer;
         private int _messageIndex = 0;
+
+        public void UpdateScreen()
+        {
+            Autodesk.AutoCAD.ApplicationServices.Application.UpdateScreen();
+        }
 
         private readonly string[] _messages = new string[]
         {
