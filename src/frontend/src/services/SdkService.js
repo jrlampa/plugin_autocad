@@ -52,7 +52,9 @@ export const SdkService = {
    */
   async updateProject(projectId, data) {
     return await ResilienceService.executeWithTracing('SDK_UPDATE_PROJECT', async () => {
-      return await sdkClient.updateProjectApiV1ProjectsProjectIdPut(projectId, data);
+      return await ResilienceService.guard('PROJECTS_API', async () => {
+        return await sdkClient.updateProjectApiV1ProjectsProjectIdPut(projectId, data);
+      });
     });
   },
 
@@ -97,7 +99,9 @@ export const SdkService = {
    */
   async queryElevation(latitude, longitude) {
     return await ResilienceService.executeWithTracing('SDK_ELEVATION_QUERY', async () => {
-      return await sdkClient.queryElevationApiV1ToolsElevationQueryPost({ latitude, longitude });
+      return await ResilienceService.guard('ELEVATION_API', async () => {
+        return await sdkClient.queryElevationApiV1ToolsElevationQueryPost({ latitude, longitude });
+      });
     });
   },
 
@@ -108,7 +112,9 @@ export const SdkService = {
    */
   async queryElevationProfile(path) {
     return await ResilienceService.executeWithTracing('SDK_ELEVATION_PROFILE', async () => {
-      return await sdkClient.queryProfileApiV1ToolsElevationProfilePost({ path });
+      return await ResilienceService.guard('ELEVATION_API', async () => {
+        return await sdkClient.queryProfileApiV1ToolsElevationProfilePost({ path });
+      });
     });
   },
 
@@ -121,7 +127,9 @@ export const SdkService = {
    */
   async chatWithAI(message, context = null, jobId = null) {
     return await ResilienceService.executeWithTracing('SDK_AI_CHAT', async () => {
-      return await sdkClient.chatWithAiApiV1AiChatPost({ message, context, job_id: jobId });
+      return await ResilienceService.guard('AI_CHAT_API', async () => {
+        return await sdkClient.chatWithAiApiV1AiChatPost({ message, context, job_id: jobId });
+      });
     });
   },
 

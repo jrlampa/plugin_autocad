@@ -57,75 +57,72 @@ namespace sisRUA.Engine
             int createdPolylines = 0;
             int createdBlocks = 0;
 
-            for (int i = 0; i < featureList.Count; i++)
+            // PERFORMANCE: Use a single transaction for all features instead of one per feature
+            await SisRuaTransactionalShield.ExecuteAsync(async (d, database, tr) =>
             {
-                var f = featureList[i];
-                if (f == null) continue;
+                var lt = (LayerTable)tr.GetObject(database.LayerTableId, OpenMode.ForRead);
+                var ms = (BlockTableRecord)tr.GetObject(SymbolUtilityServices.GetBlockModelSpaceId(database), OpenMode.ForWrite);
 
-                var (layerName, aci) = GetLayerStyle(f);
-
-                using (doc.LockDocument())
+                for (int i = 0; i < featureList.Count; i++)
                 {
-                    SisRuaTransactionalShield.Execute((d, database, tr) =>
+                    var f = featureList[i];
+                    if (f == null) continue;
+
+                    var (layerName, aci) = GetLayerStyle(f);
+                    EnsureLayerInternal(tr, database, lt, layerName, aci);
+                    
+                    switch (f.FeatureType)
                     {
-                        var lt = (LayerTable)tr.GetObject(database.LayerTableId, OpenMode.ForRead);
-                        EnsureLayerInternal(tr, database, lt, layerName, aci);
-                        
-                        var ms = (BlockTableRecord)tr.GetObject(SymbolUtilityServices.GetBlockModelSpaceId(database), OpenMode.ForWrite);
+                        case CadFeatureDtoType.Polyline:
+                            if (f.CoordsXy == null || f.CoordsXy.Count < 2) break;
+                            
+                            var points = f.CoordsXy.Select(pt => new Point3d(pt[0] * metersToUnits, pt[1] * metersToUnits, f.Elevation ?? 0)).ToList();
+                            var pline = new Polyline(points.Count);
+                            for (int j = 0; j < points.Count; j++)
+                            {
+                                pline.AddVertexAt(j, new Point2d(points[j].X, points[j].Y), 0, 0, 0);
+                            }
+                            
+                            pline.Layer = layerName;
+                            if (f.WidthMeters.HasValue) pline.ConstantWidth = f.WidthMeters.Value * metersToUnits;
+                            
+                            ms.AppendEntity(pline);
+                            tr.AddNewlyCreatedDBObject(pline, true);
+                            createdPolylines++;
 
-                        switch (f.FeatureType)
-                        {
-                            case CadFeatureDtoType.Polyline:
-                                if (f.CoordsXy == null || f.CoordsXy.Count < 2) break;
-                                
-                                var points = f.CoordsXy.Select(pt => new Point3d(pt[0] * metersToUnits, pt[1] * metersToUnits, f.Elevation ?? 0)).ToList();
-                                var pline = new Polyline(points.Count);
-                                for (int j = 0; j < points.Count; j++)
-                                {
-                                    pline.AddVertexAt(j, new Point2d(points[j].X, points[j].Y), 0, 0, 0);
-                                }
-                                
-                                pline.Layer = layerName;
-                                if (f.WidthMeters.HasValue) pline.ConstantWidth = f.WidthMeters.Value * metersToUnits;
-                                
-                                ms.AppendEntity(pline);
-                                tr.AddNewlyCreatedDBObject(pline, true);
-                                createdPolylines++;
+                            if (f.WidthMeters.HasValue && f.WidthMeters.Value > 2.0)
+                            {
+                                TryAppendOffsetEdges(tr, ms, pline, (f.WidthMeters.Value * metersToUnits) / 2.0, layerName);
+                            }
+                            break;
 
-                                if (f.WidthMeters.HasValue && f.WidthMeters.Value > 2.0)
-                                {
-                                    TryAppendOffsetEdges(tr, ms, pline, (f.WidthMeters.Value * metersToUnits) / 2.0, layerName);
-                                }
-                                break;
+                        case CadFeatureDtoType.Point:
+                            if (f.InsertionPointXy == null || f.InsertionPointXy.Count < 2) break;
+                            
+                            var insPt = new Point3d(f.InsertionPointXy[0] * metersToUnits, f.InsertionPointXy[1] * metersToUnits, f.Elevation ?? 0);
+                            var blockDefId = EnsureBlockLoaded(tr, database, f.BlockName, f.BlockFilePath);
+                            
+                            var bref = new BlockReference(insPt, blockDefId);
+                            bref.Layer = layerName;
+                            bref.ScaleFactors = new Scale3d(f.Scale ?? 1.0);
+                            bref.Rotation = f.Rotation ?? 0.0;
+                            
+                            ms.AppendEntity(bref);
+                            tr.AddNewlyCreatedDBObject(bref, true);
+                            createdBlocks++;
+                            break;
+                    }
 
-                            case CadFeatureDtoType.Point:
-                                if (f.InsertionPointXy == null || f.InsertionPointXy.Count < 2) break;
-                                
-                                var insPt = new Point3d(f.InsertionPointXy[0] * metersToUnits, f.InsertionPointXy[1] * metersToUnits, f.Elevation ?? 0);
-                                var blockDefId = EnsureBlockLoaded(tr, database, f.BlockName, f.BlockFilePath);
-                                
-                                var bref = new BlockReference(insPt, blockDefId);
-                                bref.Layer = layerName;
-                                bref.ScaleFactors = new Scale3d(f.Scale ?? 1.0);
-                                bref.Rotation = f.Rotation ?? 0.0;
-                                
-                                ms.AppendEntity(bref);
-                                tr.AddNewlyCreatedDBObject(bref, true);
-                                createdBlocks++;
-                                break;
-                        }
-                    });
+                    if (i % 50 == 0) // Reduced frequency of progress updates for speed
+                    {
+                        progress?.SetProgress(75 + (int)(25.0 * i / featureList.Count));
+                        progress?.UpdateScreen();
+                        await Task.Delay(1); // Minimal yield to keep UI responsive
+                    }
+
+                    if (progress != null && progress.WasCancelled) break;
                 }
-
-                if (i % 10 == 0)
-                {
-                    progress?.SetProgress(75 + (int)(25.0 * i / featureList.Count));
-                    progress?.UpdateScreen();
-                    await Task.Delay(5);
-                }
-
-                if (progress != null && progress.WasCancelled) break;
-            }
+            });
 
             WriteMessage($"Sucesso! {createdPolylines} polylines e {createdBlocks} blocos criados.");
         }
