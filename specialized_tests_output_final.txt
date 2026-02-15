@@ -1,0 +1,291 @@
+============================= test session starts =============================
+platform win32 -- Python 3.10.11, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\python.exe
+cachedir: .pytest_cache
+metadata: {'Python': '3.10.11', 'Platform': 'Windows-10-10.0.26200-SP0', 'Packages': {'pytest': '9.0.2', 'pluggy': '1.6.0'}, 'Plugins': {'anyio': '4.12.1', 'Faker': '40.1.2', 'cov': '7.0.0', 'html': '4.2.0', 'metadata': '3.1.1', 'timeout': '2.4.0'}}
+rootdir: C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad
+plugins: anyio-4.12.1, Faker-40.1.2, cov-7.0.0, html-4.2.0, metadata-3.1.1, timeout-2.4.0
+collecting ... collected 13 items
+
+tools/test_backward_compatibility.py::test_backward_compatibility FAILED [  7%]
+tools/test_cache.py::test_tiered_cache PASSED                            [ 15%]
+tools/test_contract_compatibility.py::TestContractCompatibility::test_job_submission_v050 PASSED [ 23%]
+tools/test_database_concurrency.py::test_wal_mode PASSED                 [ 30%]
+tools/test_database_concurrency.py::test_buffer PASSED                   [ 38%]
+tools/test_elevation.py::test_aws_tile PASSED                            [ 46%]
+tools/test_logging.py::test_structured_logging PASSED                    [ 53%]
+tools/test_migrations.py::test_migration_flow FAILED                     [ 61%]
+tools/test_offline_elevation.py::TestOfflineElevation::test_offline_fallback PASSED [ 69%]
+tools/test_optimistic_locking.py::TestOptimisticLocking::test_optimistic_locking_flow PASSED [ 76%]
+tools/test_rag.py::TestLocalRAG::test_interpretation_of_report SKIPPED   [ 84%]
+tools/test_security.py::test_security_policy PASSED                      [ 92%]
+tools/test_webhooks.py::test_webhooks PASSED                             [100%]
+
+================================== FAILURES ===================================
+_________________________ test_backward_compatibility _________________________
+
+    def test_backward_compatibility():
+        print("--- Phase 20: Backward Compatibility Test ---")
+        client = TestClient(app)
+    
+        # 1. Test /api/v1/health (no auth)
+        print("\n[1/4] Testing /health (no auth)...")
+        r = client.get("/api/v1/health")
+        print(f"Status: {r.status_code}, Body: {r.json()}")
+        assert r.status_code == 200
+        assert r.json()["status"] == "ok"
+    
+        # 2. Test /api/v1/auth/check (v0.4.0 headers)
+        print("\n[2/4] Testing /auth/check (X-SisRua-Token header)...")
+        r = client.get("/api/v1/auth/check", headers=HEADERS)
+        print(f"Status: {r.status_code}, Body: {r.json()}")
+>       assert r.status_code == 200
+E       assert 500 == 200
+E        +  where 500 = <Response [500 Internal Server Error]>.status_code
+
+tools\test_backward_compatibility.py:33: AssertionError
+---------------------------- Captured stdout call -----------------------------
+--- Phase 20: Backward Compatibility Test ---
+
+[1/4] Testing /health (no auth)...
+Status: 200, Body: {'status': 'ok'}
+
+[2/4] Testing /auth/check (X-SisRua-Token header)...
+Status: 500, Body: {'detail': 'Server Authentication Not Configured'}
+_____________________________ test_migration_flow _____________________________
+
+    def test_migration_flow():
+        print("--- Phase 22: Migration Idempotency & Flow Test ---")
+    
+        # 1. Setup temp environment
+        temp_dir = Path(tempfile.mkdtemp())
+        db_path = temp_dir / "test_projects.db"
+        print(f"Using temp DB: {db_path}")
+    
+        try:
+            # Scenario A: Clean Install (Simulating v0.4.x state before migrations)
+            print("\n[Scenario A] Clean Install...")
+            conn = sqlite3.connect(str(db_path))
+            conn.execute("CREATE TABLE Projects (project_id TEXT PRIMARY KEY, project_name TEXT)")
+            conn.execute("""
+                CREATE TABLE CadFeatures (
+                    feature_id TEXT PRIMARY KEY,
+                    project_id TEXT,
+                    feature_type TEXT,
+                    layer TEXT,
+                    name TEXT,
+                    highway TEXT
+                )
+            """)
+            conn.commit()
+            conn.close()
+    
+            applied = migrate_database(db_path)
+            print(f"Applied {applied} migrations.")
+            assert applied >= 2
+    
+            # Scenario B: Idempotency (Re-run)
+            print("\n[Scenario B] Idempotency (Immediate re-run)...")
+            applied = migrate_database(db_path)
+            print(f"Applied {applied} migrations.")
+            assert applied == 0
+    
+            # Scenario C: v0.4.x Migration (Manual half-applied state)
+            print("\n[Scenario C] v0.4.x Migration (Upgrading existing DB)...")
+            # Reset version in DB but keep columns
+            conn = sqlite3.connect(str(db_path))
+            conn.execute("DELETE FROM schema_version")
+            conn.commit()
+            conn.close()
+    
+            # This will trigger migrations again. They should skip the ALTER TABLEs because columns exist.
+            applied = migrate_database(db_path)
+            print(f"Applied {applied} migrations (should have skipped actual SQL errors).")
+            assert applied == CURRENT_VERSION
+    
+            # Verify final state
+            conn = sqlite3.connect(str(db_path))
+            v = get_schema_version(conn)
+            print(f"Final Schema Version: {v}")
+            assert v == CURRENT_VERSION
+    
+            # Check if color column exists
+            cursor = conn.execute("PRAGMA table_info(CadFeatures)")
+            columns = [row[1] for row in cursor.fetchall()]
+            print(f"Columns in CadFeatures: {columns}")
+>           assert "color" in columns
+E           AssertionError: assert 'color' in ['feature_id', 'project_id', 'feature_type', 'layer', 'name', 'highway', ...]
+
+tools\test_migrations.py:67: AssertionError
+
+During handling of the above exception, another exception occurred:
+
+    def test_migration_flow():
+        print("--- Phase 22: Migration Idempotency & Flow Test ---")
+    
+        # 1. Setup temp environment
+        temp_dir = Path(tempfile.mkdtemp())
+        db_path = temp_dir / "test_projects.db"
+        print(f"Using temp DB: {db_path}")
+    
+        try:
+            # Scenario A: Clean Install (Simulating v0.4.x state before migrations)
+            print("\n[Scenario A] Clean Install...")
+            conn = sqlite3.connect(str(db_path))
+            conn.execute("CREATE TABLE Projects (project_id TEXT PRIMARY KEY, project_name TEXT)")
+            conn.execute("""
+                CREATE TABLE CadFeatures (
+                    feature_id TEXT PRIMARY KEY,
+                    project_id TEXT,
+                    feature_type TEXT,
+                    layer TEXT,
+                    name TEXT,
+                    highway TEXT
+                )
+            """)
+            conn.commit()
+            conn.close()
+    
+            applied = migrate_database(db_path)
+            print(f"Applied {applied} migrations.")
+            assert applied >= 2
+    
+            # Scenario B: Idempotency (Re-run)
+            print("\n[Scenario B] Idempotency (Immediate re-run)...")
+            applied = migrate_database(db_path)
+            print(f"Applied {applied} migrations.")
+            assert applied == 0
+    
+            # Scenario C: v0.4.x Migration (Manual half-applied state)
+            print("\n[Scenario C] v0.4.x Migration (Upgrading existing DB)...")
+            # Reset version in DB but keep columns
+            conn = sqlite3.connect(str(db_path))
+            conn.execute("DELETE FROM schema_version")
+            conn.commit()
+            conn.close()
+    
+            # This will trigger migrations again. They should skip the ALTER TABLEs because columns exist.
+            applied = migrate_database(db_path)
+            print(f"Applied {applied} migrations (should have skipped actual SQL errors).")
+            assert applied == CURRENT_VERSION
+    
+            # Verify final state
+            conn = sqlite3.connect(str(db_path))
+            v = get_schema_version(conn)
+            print(f"Final Schema Version: {v}")
+            assert v == CURRENT_VERSION
+    
+            # Check if color column exists
+            cursor = conn.execute("PRAGMA table_info(CadFeatures)")
+            columns = [row[1] for row in cursor.fetchall()]
+            print(f"Columns in CadFeatures: {columns}")
+            assert "color" in columns
+            assert "elevation" in columns
+            assert "slope" in columns
+            conn.close()
+    
+            print("\n--- PASSED: Migrations are idempotent and tested. ---")
+    
+        finally:
+>           shutil.rmtree(temp_dir)
+
+tools\test_migrations.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+..\..\..\..\AppData\Local\Programs\Python\Python310\lib\shutil.py:750: in rmtree
+    return _rmtree_unsafe(path, onerror)
+..\..\..\..\AppData\Local\Programs\Python\Python310\lib\shutil.py:620: in _rmtree_unsafe
+    onerror(os.unlink, fullname, sys.exc_info())
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+path = WindowsPath('C:/Users/JONATA~1/AppData/Local/Temp/tmp8_a6gpxy')
+onerror = <function rmtree.<locals>.onerror at 0x000001FDDE9AA440>
+
+    def _rmtree_unsafe(path, onerror):
+        try:
+            with os.scandir(path) as scandir_it:
+                entries = list(scandir_it)
+        except OSError:
+            onerror(os.scandir, path, sys.exc_info())
+            entries = []
+        for entry in entries:
+            fullname = entry.path
+            if _rmtree_isdir(entry):
+                try:
+                    if entry.is_symlink():
+                        # This can only happen if someone replaces
+                        # a directory with a symlink after the call to
+                        # os.scandir or entry.is_dir above.
+                        raise OSError("Cannot call rmtree on a symbolic link")
+                except OSError:
+                    onerror(os.path.islink, fullname, sys.exc_info())
+                    continue
+                _rmtree_unsafe(fullname, onerror)
+            else:
+                try:
+>                   os.unlink(fullname)
+E                   PermissionError: [WinError 32] O arquivo jß estß sendo usado por outro processo: 'C:\\Users\\JONATA~1\\AppData\\Local\\Temp\\tmp8_a6gpxy\\test_projects.db'
+
+..\..\..\..\AppData\Local\Programs\Python\Python310\lib\shutil.py:618: PermissionError
+---------------------------- Captured stdout call -----------------------------
+--- Phase 22: Migration Idempotency & Flow Test ---\nUsing temp DB: C:\\Users\\JONATA~1\\AppData\\Local\\Temp\\tmp8_a6gpxy\\test_projects.db\n\n[Scenario A] Clean Install...\n[migrations] Checking database: C:\\Users\\JONATA~1\\AppData\\Local\\Temp\\tmp8_a6gpxy\\test_projects.db\n[migrations] Current schema version: 0\n  Applying migration 1: v0.5.0 - Add indexes for query optimization\n    \u2713 Migration 1 applied successfully\n  Applying migration 2: v0.5.0 - Add color, elevation, and slope columns\n    \u2713 Migration 2 applied successfully\n  Applying migration 3: v0.6.0 - Add versioning for Optimistic Locking\n    \u2713 Migration 3 applied successfully\n[migrations] Applied 3 migration(s)\nApplied 3 migrations.\n\n[Scenario B] Idempotency (Immediate re-run)...\n[migrations] Checking database: C:\\Users\\JONATA~1\\AppData\\Local\\Temp\\tmp8_a6gpxy\\test_projects.db\n[migrations] Current schema version: 3\n[migrations] Database is up to date\nApplied 0 migrations.\n\n[Scenario C] v0.4.x Migration (Upgrading existing DB)...\n[migrations] Checking database: C:\\Users\\JONATA~1\\AppData\\Local\\Temp\\tmp8_a6gpxy\\test_projects.db\n[migrations] Current schema version: 0\n  Applying migration 1: v0.5.0 - Add indexes for query optimization\n    \u2713 Migration 1 applied successfully\n  Applying migration 2: v0.5.0 - Add color, elevation, and slope columns\n    (skipped - already exists: duplicate column name: slope)\n    \u2713 Migration 2 applied successfully\n  Applying migration 3: v0.6.0 - Add versioning for Optimistic Locking\n    (skipped - already exists: duplicate column name: version)\n    \u2713 Migration 3 applied successfully\n[migrations] Applied 3 migration(s)\nApplied 3 migrations (should have skipped actual SQL errors).\nFinal Schema Version: 3\nColumns in CadFeatures: ['feature_id', 'project_id', 'feature_type', 'layer', 'name', 'highway', 'slope']
+============================== warnings summary ===============================
+src\backend\backend\models.py:9
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:9: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    status: str = Field(..., description="Operational status of the API", example="ok")
+
+src\backend\backend\models.py:26
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:26: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    latitude: float = Field(..., description="Target latitude (EPSG:4326)", example=-21.7634)
+
+src\backend\backend\models.py:27
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:27: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    longitude: float = Field(..., description="Target longitude (EPSG:4326)", example=-41.3235)
+
+src\backend\backend\models.py:28
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:28: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    radius: float = Field(..., description="Search radius in meters", example=500.0)
+
+src\backend\backend\models.py:64
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:64: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    crs_out: Optional[str] = Field(None, description="Projected Coordinate Reference System", example="EPSG:31983")
+
+src\backend\backend\models.py:95
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:95: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    url: str = Field(..., description="Target URL to receive webhook events", example="https://example.com/webhook")
+
+src\backend\backend\models.py:99
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:99: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    event_type: str = Field(..., description="Type of the internal event", example="project_saved")
+
+src\backend\backend\api.py:264
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\api.py:264: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+..\..\..\..\AppData\Local\Programs\Python\Python310\lib\site-packages\fastapi\applications.py:4576
+..\..\..\..\AppData\Local\Programs\Python\Python310\lib\site-packages\fastapi\applications.py:4576
+  C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\lib\site-packages\fastapi\applications.py:4576: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+src\backend\backend\api.py:409
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\api.py:409: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tools/test_backward_compatibility.py::test_backward_compatibility - as...
+FAILED tools/test_migrations.py::test_migration_flow - PermissionError: [WinE...
+============ 2 failed, 10 passed, 1 skipped, 11 warnings in 18.20s ============

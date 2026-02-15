@@ -1,0 +1,122 @@
+Adding 10 test files to the suite...
+  [+] Added: test_circuit_breaker_logic.py
+  [+] Added: test_circuit_breaker_gating.py
+  [+] Added: test_retry_logic.py
+  [+] Added: test_backoff_timing.py
+[webhooks] Service initialized. Static listeners: 0
+{"path": "C:\\Users\\***\\AppData\\Local\\sisRUA\\.audit_secret", "event": "audit_secret_loaded", "level": "info", "timestamp": "2026-02-11T06:47:38.039289Z"}
+[EventBus] Subscribed to job_started
+[EventBus] Subscribed to job_completed
+[EventBus] Subscribed to job_failed
+[EventBus] Subscribed to project_saved
+[EventBus] Subscribed to project_updated
+GROQ_API_KEY not set. AI features will be disabled/mocked.
+  [+] Added: test_rate_limit.py
+  [+] Added: test_deep_health.py
+  [+] Added: test_tracing_context.py
+  [+] Added: test_metrics.py
+  [+] Added: test_idempotency.py
+  [+] Added: test_graceful_shutdown.py
+
+Running Suite v0.7.0 Release Candidate...
+========================================
+{"failures": 2, "event": "circuit_opened"}
+{"previous": "open", "event": "circuit_half_open"}
+{"failures": 3, "event": "circuit_reopened"}
+test_half_open_failure (test_circuit_breaker_logic.TestCircuitBreaker) ... ok
+{"failures": 2, "event": "circuit_opened"}
+{"function": "risky_action", "event": "circuit_open_access_denied"}
+{"previous": "open", "event": "circuit_half_open"}
+{"previous": "half_open", "event": "circuit_closed"}
+test_state_transition (test_circuit_breaker_logic.TestCircuitBreaker) ... ok
+
+[Test] Triggering failures to open circuit...
+{"failures": 3, "event": "circuit_opened"}
+[Test] Circuit is OPEN. Attempting 4th call...
+{"function": "external_service_mock", "event": "circuit_open_access_denied"}
+[Test] SUCCESS: Call 4 was Gated via CircuitBreakerOpenException.
+[Test] Waiting for recovery timeout (2s)...
+[Test] Attempting 5th call (Half-Open probe)...
+{"previous": "open", "event": "circuit_half_open"}
+{"failures": 4, "event": "circuit_reopened"}
+test_gating_mechanism (test_circuit_breaker_gating.TestCircuitBreakerGating) ... ok
+[Test] SUCCESS: Probe went through and re-opened circuit.
+{"function": "persistent", "attempt": 1, "sleep_time": "0.10s", "error": "Boom", "event": "retry_backing_off"}
+{"function": "persistent", "attempt": 2, "sleep_time": "0.20s", "error": "Boom", "event": "retry_backing_off"}
+{"function": "persistent", "attempts": 3, "error": "Boom", "event": "retry_gave_up"}
+test_persistent_failure (test_retry_logic.TestRetry) ... ok
+{"function": "transient", "attempt": 1, "sleep_time": "0.10s", "error": "Transient Boom", "event": "retry_backing_off"}
+test_transient_failure (test_retry_logic.TestRetry) ... ok
+
+[Test] Testing Exponential Backoff Timing...
+{"function": "failing_service", "attempt": 1, "sleep_time": "0.50s", "error": "Simulated Failure", "event": "retry_backing_off"}
+{"function": "failing_service", "attempt": 2, "sleep_time": "1.00s", "error": "Simulated Failure", "event": "retry_backing_off"}
+{"function": "failing_service", "attempt": 3, "sleep_time": "2.00s", "error": "Simulated Failure", "event": "retry_backing_off"}
+{"function": "failing_service", "attempts": 4, "error": "Simulated Failure", "event": "retry_gave_up"}
+test_backoff_progression (test_backoff_timing.TestBackoffTiming) ... ok
+[Test] Intervals: ['0.51s', '1.01s', '2.01s']
+[Test] SUCCESS: Backoff doubled (0.5s -> 1.0s -> 2.0s) correctly.
+{"job_id": "d063814b-8af5-4051-ad6b-e301a221a672", "kind": "osm", "trace_id": "d43ecf03-a771-4487-ae37-5ce72689a514", "event": "job_created"}
+{"method": "POST", "path": "/api/v1/jobs/prepare", "status_code": 200, "duration": 0.0058612823486328125, "event": "request_processed", "trace_id": "d43ecf03-a771-4487-ae37-5ce72689a514"}
+HTTP Request: POST http://testserver/api/v1/jobs/prepare "HTTP/1.1 200 OK"
+{"key": "75a9acb5087152b02acd755331eec63dc79b8b51e7b3bec53b3ec18a7baa5669", "job_id": "d063814b-8af5-4051-ad6b-e301a221a672", "event": "job_idempotency_hit", "trace_id": "70bb5458-d410-4fa6-9823-62e6c8d9985f"}
+{"job_id": "d063814b-8af5-4051-ad6b-e301a221a672", "event": "job_creation_skipped_dedup", "trace_id": "70bb5458-d410-4fa6-9823-62e6c8d9985f"}
+{"method": "POST", "path": "/api/v1/jobs/prepare", "status_code": 200, "duration": 0.0015332698822021484, "event": "request_processed", "trace_id": "70bb5458-d410-4fa6-9823-62e6c8d9985f"}
+HTTP Request: POST http://testserver/api/v1/jobs/prepare "HTTP/1.1 200 OK"
+{"key": "75a9acb5087152b02acd755331eec63dc79b8b51e7b3bec53b3ec18a7baa5669", "job_id": "d063814b-8af5-4051-ad6b-e301a221a672", "event": "job_idempotency_hit", "trace_id": "73f668d6-3780-480d-a927-9a95d36ca0ab"}
+{"job_id": "d063814b-8af5-4051-ad6b-e301a221a672", "event": "job_creation_skipped_dedup", "trace_id": "73f668d6-3780-480d-a927-9a95d36ca0ab"}
+{"method": "POST", "path": "/api/v1/jobs/prepare", "status_code": 200, "duration": 0.0015137195587158203, "event": "request_processed", "trace_id": "73f668d6-3780-480d-a927-9a95d36ca0ab"}
+HTTP Request: POST http://testserver/api/v1/jobs/prepare "HTTP/1.1 200 OK"
+{"key": "75a9acb5087152b02acd755331eec63dc79b8b51e7b3bec53b3ec18a7baa5669", "job_id": "d063814b-8af5-4051-ad6b-e301a221a672", "event": "job_idempotency_hit", "trace_id": "8db9cc6b-6327-44d7-8e9e-767d0ab93d3a"}
+{"job_id": "d063814b-8af5-4051-ad6b-e301a221a672", "event": "job_creation_skipped_dedup", "trace_id": "8db9cc6b-6327-44d7-8e9e-767d0ab93d3a"}
+{"method": "POST", "path": "/api/v1/jobs/prepare", "status_code": 200, "duration": 0.0011534690856933594, "event": "request_processed", "trace_id": "8db9cc6b-6327-44d7-8e9e-767d0ab93d3a"}
+HTTP Request: POST http://testserver/api/v1/jobs/prepare "HTTP/1.1 200 OK"
+{"key": "75a9acb5087152b02acd755331eec63dc79b8b51e7b3bec53b3ec18a7baa5669", "job_id": "d063814b-8af5-4051-ad6b-e301a221a672", "event": "job_idempotency_hit", "trace_id": "d6da2516-726a-4528-95c2-dff1d7cecb03"}
+{"job_id": "d063814b-8af5-4051-ad6b-e301a221a672", "event": "job_creation_skipped_dedup", "trace_id": "d6da2516-726a-4528-95c2-dff1d7cecb03"}
+{"method": "POST", "path": "/api/v1/jobs/prepare", "status_code": 200, "duration": 0.002057313919067383, "event": "request_processed", "trace_id": "d6da2516-726a-4528-95c2-dff1d7cecb03"}
+HTTP Request: POST http://testserver/api/v1/jobs/prepare "HTTP/1.1 200 OK"
+{"method": "POST", "path": "/api/v1/jobs/prepare", "status_code": 429, "duration": 0.0010383129119873047, "event": "request_processed", "trace_id": "e89dda9d-b894-46ef-8a60-e5a4542d5865"}
+HTTP Request: POST http://testserver/api/v1/jobs/prepare "HTTP/1.1 429 Too Many Requests"
+test_rate_limiting (test_rate_limit.TestRateLimit) ... ok
+Rate limit hit verified (429).
+{"method": "GET", "path": "/api/v1/health/detailed", "status_code": 200, "duration": 0.07395362854003906, "event": "request_processed", "trace_id": "4ff15dd4-ac0a-4c1e-a779-9bdcb439127a"}
+HTTP Request: GET http://testserver/api/v1/health/detailed "HTTP/1.1 200 OK"
+test_deep_health (test_deep_health.TestDeepHealth) ... ok
+Deep Health Response: {'status': 'down', 'components': {'database': {'status': 'up', 'details': None, 'latency_ms': 2.052783966064453}, 'cache': {'status': 'up', 'details': 'File-based cache', 'latency_ms': 19.47164535522461}, 'external_apis': {'status': 'degraded', 'details': 'Groq: Missing, OpenTopo: OfflineMode', 'latency_ms': 0.0}, 'gis_core_deps': {'status': 'down', 'details': 'GDAL: down, PROJ: up', 'latency_ms': 50.35519599914551}}, 'system_latency_ms': 71.87962532043457}
+{"event": "request_received", "trace_id": "test-trace-123"}
+{"event": "job_processing", "trace_id": "test-trace-123"}
+test_trace_id_propagation_to_thread (test_tracing_context.TestTracingPropagation) ... ok
+Tracing Propagation Verified: Main -> Thread -> Service Log
+
+[Test] Sending Request 1...
+{"job_id": "295412b0-17a4-4c20-be0c-2b1fbfa7f0f8", "kind": "osm", "trace_id": "adcbff18-16fe-4ea6-b328-993870e455e0", "event": "job_created"}
+{"method": "POST", "path": "/api/v1/jobs/prepare", "status_code": 200, "duration": 0.0020751953125, "event": "request_processed", "trace_id": "adcbff18-16fe-4ea6-b328-993870e455e0"}
+HTTP Request: POST http://testserver/api/v1/jobs/prepare "HTTP/1.1 200 OK"
+[Test] Request 1 Job ID: 295412b0-17a4-4c20-be0c-2b1fbfa7f0f8
+[Test] Sending Request 1 (Duplicate)...
+{"key": "d9df76849fd89a42d69bec3d22a86d057c20c09554d7241fb7bdc2bdb6ec782d", "job_id": "295412b0-17a4-4c20-be0c-2b1fbfa7f0f8", "event": "job_idempotency_hit", "trace_id": "27fd905f-061a-4d0c-a89b-7d289589299b"}
+{"job_id": "295412b0-17a4-4c20-be0c-2b1fbfa7f0f8", "event": "job_creation_skipped_dedup", "trace_id": "27fd905f-061a-4d0c-a89b-7d289589299b"}
+{"method": "POST", "path": "/api/v1/jobs/prepare", "status_code": 200, "duration": 0.0015456676483154297, "event": "request_processed", "trace_id": "27fd905f-061a-4d0c-a89b-7d289589299b"}
+HTTP Request: POST http://testserver/api/v1/jobs/prepare "HTTP/1.1 200 OK"
+[Test] Request 2 Job ID: 295412b0-17a4-4c20-be0c-2b1fbfa7f0f8
+[Test] Sending Request 3 (Different Payload)...
+{"job_id": "637dc563-000a-4980-b48e-c8ef6db7c37a", "kind": "osm", "trace_id": "632cc5cd-0dd9-4619-b577-1e7709797f46", "event": "job_created"}
+{"method": "POST", "path": "/api/v1/jobs/prepare", "status_code": 200, "duration": 0.0030596256256103516, "event": "request_processed", "trace_id": "632cc5cd-0dd9-4619-b577-1e7709797f46"}
+HTTP Request: POST http://testserver/api/v1/jobs/prepare "HTTP/1.1 200 OK"
+test_idempotent_creation (test_idempotency.TestIdempotency) ... ok
+[Test] Request 3 Job ID: 637dc563-000a-4980-b48e-c8ef6db7c37a
+[Test] SUCCESS: Idempotency Verified.
+Triggering shutdown...
+{"count": 4, "timeout": 2.0, "event": "shutdown_waiting_threads", "trace_id": "test-trace-123"}
+Worker detected shutdown!
+{"event": "shutdown_threads_finished_cleanly", "trace_id": "test-trace-123"}
+test_shutdown_aborts_threads (test_graceful_shutdown.TestGracefulShutdown) ... ok
+Shutdown test passed.
+
+========================================
+SUCCESS: PIPELINE GREEN: All checks passed.
+
+----------------------------------------------------------------------
+Ran 11 tests in 8.694s
+
+OK

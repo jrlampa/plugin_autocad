@@ -8,7 +8,7 @@ export default function Sidebar({
   loading,
   onToggleDrawing,
   onFinishDrawing,
-  onGenerate
+  onGenerate,
 }) {
   return (
     <div className="absolute left-4 top-4 bottom-4 w-20 z-[1000] flex flex-col items-center py-6 gap-5 bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl transition-all hover:bg-white/20 hover:scale-[1.01]">
@@ -35,6 +35,7 @@ export default function Sidebar({
       <div className="w-10 border-t border-white/20 my-1"></div>
 
       <button
+        data-testid="btn-toggle-drawing"
         onClick={onToggleDrawing}
         className={`p-4 rounded-2xl shadow-xl transition-all active:scale-95 group relative ${isDrawing ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}`}
       >
@@ -46,6 +47,7 @@ export default function Sidebar({
 
       {isDrawing && drawingPoints.length > 1 && (
         <button
+          data-testid="btn-finish-drawing"
           onClick={onFinishDrawing}
           className="p-4 rounded-2xl shadow-xl transition-all active:scale-95 group relative bg-blue-600 hover:bg-blue-500"
         >

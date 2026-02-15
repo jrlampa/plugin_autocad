@@ -80,6 +80,7 @@ For detailed architectural decisions and roadmaps, refer to the `docs/` director
 - [Official Roadmap](docs/ROADMAP%20OFICIAL%20DE%20DESENVOLVIMENTO.txt)
 - [Architecture](docs/ARQUITETURA.md)
 - [Installation Guide](docs/INSTALACAO.md)
+- [How each role follows the project](docs/PERFIS_PROFISSIONAIS.md) (Dev Sênior, Fullstack, UI/UX, DevOps/QA, DB/SQL)
 
 ## License
 

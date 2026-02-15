@@ -241,7 +241,7 @@ namespace sisRUA.Core
             PersistBackendPid(_pythonProcess.Id);
 
             // Wait for Pipe Server to be up
-            if (WaitForPipeServer(TimeSpan.FromSeconds(10)))
+            if (WaitForPipeServer(TimeSpan.FromSeconds(45)))
             {
                 string token = GetTokenFromIpc();
                 if (!string.IsNullOrEmpty(token))
@@ -250,9 +250,17 @@ namespace sisRUA.Core
                     PersistBackendToken(AuthToken);
                     Log("Token recuperado com sucesso via Secure IPC (EXE).");
                 }
+                else
+                {
+                    Log("[ERROR] Falha ao recuperar token via IPC mesmo com servidor de pipe ativo.");
+                }
+            }
+            else
+            {
+                Log("[ERROR] Timeout aguardando Servidor de Pipe (IPC) do Backend EXE.");
             }
             
-            if (!WaitForBackendHealthy(TimeSpan.FromSeconds(20))) Log("Aviso: Backend (EXE) iniciou mas health check falhou.");
+            if (!WaitForBackendHealthy(TimeSpan.FromSeconds(60))) Log("[ERROR] Backend (EXE) iniciou mas health check falhou apos 60s.");
         }
 
         private void StartPythonBackend(string projectRoot)
@@ -281,9 +289,9 @@ namespace sisRUA.Core
              PersistBackendPid(_pythonProcess.Id);
 
              // Wait for Pipe Server to be up
-             if (!WaitForPipeServer(TimeSpan.FromSeconds(10)))
+             if (!WaitForPipeServer(TimeSpan.FromSeconds(45)))
              {
-                 Log("Aviso: IPC Pipe não disponível. Tentando fallback ou aguardando HTTP...");
+                 Log("[Aviso] IPC Pipe não disponível após 45s. Tentando fallback ou aguardando HTTP...");
              }
              else
              {
@@ -295,9 +303,13 @@ namespace sisRUA.Core
                      PersistBackendToken(AuthToken); // Sync to local file just in case
                      Log("Token recuperado com sucesso via Secure IPC.");
                  }
+                 else
+                 {
+                     Log("[ERROR] Falha ao recuperar token via IPC.");
+                 }
              }
 
-             if (!WaitForBackendHealthy(TimeSpan.FromSeconds(20))) Log("Aviso: Backend (Python) iniciou mas health check falhou.");
+             if (!WaitForBackendHealthy(TimeSpan.FromSeconds(60))) Log("[ERROR] Backend (Python) iniciou mas health check falhou apos 60s.");
         }
         
         private bool WaitForPipeServer(TimeSpan timeout)
@@ -407,7 +419,7 @@ namespace sisRUA.Core
             if (Port <= 0) return false;
             try
             {
-                var response = _healthClient.GetAsync($"{BaseUrl}/health").Result;
+                var response = _healthClient.GetAsync($"{BaseUrl}/api/v1/health").Result;
                 return response.IsSuccessStatusCode;
             }
             catch { return false; }
@@ -418,7 +430,7 @@ namespace sisRUA.Core
             if (Port <= 0 || string.IsNullOrEmpty(AuthToken)) return false;
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/auth/check");
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{BaseUrl}/api/v1/auth/check");
                 request.Headers.Add(AuthHeaderName, AuthToken);
                 var response = _healthClient.SendAsync(request).Result;
                 return response.IsSuccessStatusCode;

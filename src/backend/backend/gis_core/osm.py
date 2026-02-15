@@ -21,16 +21,103 @@ from backend.gis_core.geometry import apply_local_offset, snap_to_edge, get_boun
 
 logger = get_logger(__name__)
 
-@CircuitBreaker(failure_threshold=3, recovery_timeout=60.0)
-@Retry(max_retries=3, initial_delay=2.0)
-def _fetch_osm_graph(lat: float, lon: float, radius: float, check_cancel: Callable = None):
-    # Deferred import kept inside the safe function
-    import osmnx as ox
+def _fetch_overpass_data(lat: float, lon: float, radius: float, check_cancel: Callable = None):
+    """
+    Fetches raw OSM data using the Overpass API without heavy libraries.
+    """
+    import requests
+    from shapely.geometry import Point, LineString, mapping
+    
+    # Overpass QL query: Fetch all ways and nodes within radius
+    # We use a degree-based bounding box for the query
+    delta = radius / 111320.0 # Approximate degrees per meter
+    s, w, n, e = lat - delta, lon - delta, lat + delta, lon + delta
+    
+    query = f"""
+    [out:json][timeout:30];
+    (
+      way["highway"]({s},{w},{n},{e});
+      node["highway"~"street_light|bus_stop|traffic_signals|crossing"]({s},{w},{n},{e});
+      node["power"="pole"]({s},{w},{n},{e});
+      node["amenity"~"fire_hydrant|bench|waste_basket"]({s},{w},{n},{e});
+      node["man_made"="manhole"]({s},{w},{n},{e});
+      node["natural"="tree"]({s},{w},{n},{e});
+    );
+    out body;
+    >;
+    out skel qt;
+    """
     
     if check_cancel: check_cancel()
-    graph = ox.graph_from_point((lat, lon), dist=radius, network_type="all")
+    response = requests.post("https://overpass-api.de/api/interpreter", data={"data": query}, timeout=30)
+    response.raise_for_status()
+    data = response.json()
     if check_cancel: check_cancel()
-    return graph
+    
+    return data
+
+def _parse_overpass_to_features(data: dict, epsg_out: int):
+    """
+    Parses Overpass JSON into a simplified structure compatible with the rest of the pipeline.
+    """
+    from pyproj import Transformer
+    from shapely.geometry import Point, LineString
+    
+    nodes = {n["id"]: n for n in data.get("elements", []) if n["type"] == "node"}
+    ways = [w for w in data.get("elements", []) if w["type"] == "way"]
+    
+    transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_out}", always_xy=True)
+    
+    parsed_edges = []
+    parsed_nodes = []
+    
+    # Process Ways
+    for way in ways:
+        way_nodes = [nodes.get(node_id) for node_id in way.get("nodes", [])]
+        way_nodes = [n for n in way_nodes if n]
+        if len(way_nodes) < 2: continue
+        
+        coords = [(n["lon"], n["lat"]) for n in way_nodes]
+        geom = LineString(coords)
+        
+        # Project geometry
+        projected_coords = [transformer.transform(lon, lat) for lon, lat in coords]
+        projected_geom = LineString(projected_coords)
+        
+        # Create a mock-row object to keep logic consistent
+        class MockRow:
+            def __init__(self, way, geom):
+                self.geometry = geom
+                self.highway = way.get("tags", {}).get("highway")
+                self.name = way.get("tags", {}).get("name")
+                self.tags = way.get("tags", {})
+            def _asdict(self):
+                return self.tags
+
+        parsed_edges.append(MockRow(way, projected_geom))
+        
+    # Process Points
+    for node_id, node in nodes.items():
+        tags = node.get("tags", {})
+        if not tags: continue # Skim nodes that are just part of ways
+        
+        lon, lat = node["lon"], node["lat"]
+        proj_x, proj_y = transformer.transform(lon, lat)
+        
+        class MockNode:
+            def __init__(self, node, x, y):
+                self.geometry = Point(x, y)
+                self.highway = node.get("tags", {}).get("highway")
+                self.power = node.get("tags", {}).get("power")
+                self.amenity = node.get("tags", {}).get("amenity")
+                self.name = node.get("tags", {}).get("name")
+                self.tags = node.get("tags", {})
+            def _asdict(self):
+                return self.tags
+                
+        parsed_nodes.append(MockNode(node, proj_x, proj_y))
+        
+    return parsed_nodes, parsed_edges
 
 def prepare_osm_compute(
     latitude: float, 
@@ -42,12 +129,7 @@ def prepare_osm_compute(
 ) -> dict:
     if check_cancel: check_cancel()
     
-    # Deferred heavy imports
-    import osmnx as ox  # type: ignore
     from pyproj import Transformer
-    # ElevationService is now injected
-
-    if check_cancel: check_cancel()
 
     key = cache_key(["prepare_osm", f"{latitude:.6f}", f"{longitude:.6f}", str(int(radius))])
     cached = cache_service.get(key)
@@ -58,28 +140,26 @@ def prepare_osm_compute(
     epsg_out = sirgas2000_utm_epsg(latitude, longitude)
     
     try:
-        # Use Circuit Breaker protected fetch
-        graph = _fetch_osm_graph(latitude, longitude, radius, check_cancel)
+        # 1. Fetch data from Overpass
+        raw_data = _fetch_overpass_data(latitude, longitude, radius, check_cancel)
         
-        # Optimization: Project graph using OSMnx (vectorized) directly to SIRGAS 2000
-        graph = ox.project_graph(graph, to_crs=f"EPSG:{epsg_out}")
-        nodes, edges = ox.graph_to_gdfs(graph) 
-        edges = edges[edges.geometry.notna()]
+        # 2. Parse and Project
+        nodes_list, edges_list = _parse_overpass_to_features(raw_data, epsg_out)
+        
     except Exception as e:
-        # Tenta usar cache como fallback em caso de erro
         cached = cache_service.get(key)
         if cached is not None:
             cached["cache_hit"] = True
             cached["cache_fallback_reason"] = str(e)
             return cached
-        raise HTTPException(status_code=503, detail=f"Falha ao obter dados do OSM (sem cache local disponível). Detalhes: {str(e)}")
+        raise HTTPException(status_code=503, detail=f"Falha ao obter dados do OSM. Detalhes: {str(e)}")
 
     if check_cancel: check_cancel()
     
     features: List[CadFeature] = [] 
 
     # Process Edges (Polylines)
-    for row in edges.itertuples(index=False):
+    for row in edges_list:
         if len(features) % 100 == 0 and check_cancel:
             check_cancel()
 
@@ -121,7 +201,7 @@ def prepare_osm_compute(
                 )
 
     # Process Nodes (Points / Blocks)
-    for row in nodes.itertuples(index=False):
+    for row in nodes_list:
         if len(features) % 100 == 0 and check_cancel:
              check_cancel()
 

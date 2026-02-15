@@ -1,0 +1,157 @@
+[webhooks] Service initialized. Static listeners: 0
+DEBUG: Full failed job result: {
+  "job_id": "4dd806e7-be64-4c84-822b-66cb6f0a7ea0",
+  "kind": "osm",
+  "status": "failed",
+  "progress": 1.0,
+  "message": "Falhou.",
+  "result": null,
+  "error": "1 validation error for CadFeature\ncoords_xy\n  Instance is frozen [type=frozen_instance, input_value=[[0.0, 0.0], [51.060322, 45.077801]], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.12/v/frozen_instance",
+  "created_at": 1770946317.8216836,
+  "updated_at": 1770946335.1434703
+}
+F
+================================== FAILURES ===================================
+________________ test_create_prepare_job_osm_blocks_completes _________________
+
+client = <starlette.testclient.TestClient object at 0x0000026834B7D8A0>
+api_mod = <module 'backend.api' from 'C:\\Users\\Jonatas Lampa\\OneDrive - IM3 Brasil\\utils\\myworld\\plugin_autocad\\src\\backend\\backend\\api.py'>
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026834B7D7E0>
+
+    def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
+        # Mock _fetch_overpass_data since we don't want real network calls in CI
+        import backend.gis_core.osm as osm_core
+    
+        mock_raw_data = {
+            "elements": [
+                {"type": "node", "id": 1, "lat": -21.7634, "lon": -41.3235, "tags": {"highway": "street_light", "name": "Poste A"}},
+                {"type": "node", "id": 2, "lat": -21.7630, "lon": -41.3230, "tags": {"power": "pole", "name": "Poste B"}},
+                {"type": "node", "id": 3, "lat": -21.7632, "lon": -41.3232, "tags": {"amenity": "bench", "name": "Banco C"}},
+                {"type": "way", "id": 4, "nodes": [1, 2], "tags": {"highway": "residential", "name": "Rua D"}}
+            ]
+        }
+    
+        monkeypatch.setattr(osm_core, "_fetch_overpass_data", lambda *args, **kwargs: mock_raw_data)
+    
+        # Mock elevation_service to avoid real calls
+        class MockElevation:
+            def get_elevation_profile(self, latlons): return [10.0] * len(latlons)
+            def get_contours(self, *args): return []
+    
+        # In jobs.py, it likely gets the service from di or similar.
+        # For simplicity, we just ensure it doesn't crash.
+    
+    
+        # Latitude/Longitude em área que deve conter street_lights/poles
+        payload = {
+            "kind": "osm",
+            "latitude": -21.7634,
+            "longitude": -41.3235,
+            "radius": 100
+        }
+    
+        r = client.post("/api/v1/jobs/prepare", json=payload, headers={"X-SisRua-Token": "test-token-123"})
+        assert r.status_code == 200
+        job = r.json()
+        job_id = job["job_id"]
+    
+        deadline = time.time() + 30 # Increased timeout for mock/slow disk
+        last = None
+        while time.time() < deadline:
+            r2 = client.get(f"/api/v1/jobs/{job_id}", headers={"X-SisRua-Token": "test-token-123"})
+            assert r2.status_code == 200
+            last = r2.json()
+            if last["status"] in ("completed", "failed"):
+                break
+            time.sleep(0.1)
+    
+        assert last is not None
+        if last["status"] == "failed":
+            import json
+            print(f"DEBUG: Full failed job result: {json.dumps(last, indent=2)}")
+            error_msg = last.get("error", "Unknown error")
+            message = last.get("message", "No message")
+>           pytest.fail(f"OSM Job Failed. Error: {error_msg}, Message: {message}")
+E           Failed: OSM Job Failed. Error: 1 validation error for CadFeature
+E           coords_xy
+E             Instance is frozen [type=frozen_instance, input_value=[[0.0, 0.0], [51.060322, 45.077801]], input_type=list]
+E               For further information visit https://errors.pydantic.dev/2.12/v/frozen_instance, Message: Falhou.
+
+src\backend\tests\test_api_auth_and_jobs.py:152: Failed
+----------------------------- Captured log setup ------------------------------
+WARNING  backend.services.ai:ai.py:15 GROQ_API_KEY not set. AI features will be disabled/mocked.
+WARNING  backend.services.ai:ai.py:15 GROQ_API_KEY not set. AI features will be disabled/mocked.
+------------------------------ Captured log call ------------------------------
+WARNING  backend.core.retry:retry.py:45 {"function": "_download_grid", "attempts": 4, "error": "401 Client Error: 401 for url: https://portal.opentopography.org/API/globaldem?demtype=SRTMGL3&south=-21.7634&north=-41.3235&west=-21.762999999999998&east=-41.323&outputFormat=GTiff", "event": "retry_gave_up", "trace_id": "f3e4cda2-8eab-4462-8592-ae0f954d1f17", "level": "warning", "timestamp": "2026-02-13T01:32:15.139421Z"}
+WARNING  backend.services.elevation:elevation.py:83 {"error": "401 Client Error: 401 for url: https://portal.opentopography.org/API/globaldem?demtype=SRTMGL3&south=-21.7634&north=-41.3235&west=-21.762999999999998&east=-41.323&outputFormat=GTiff", "event": "dem_download_failed_fallback_local", "trace_id": "f3e4cda2-8eab-4462-8592-ae0f954d1f17", "level": "warning", "timestamp": "2026-02-13T01:32:15.139421Z"}
+ERROR    backend.gis_core.osm:osm.py:334 {"error": "invalid path or file: None", "event": "elevation_injection_failed", "trace_id": "f3e4cda2-8eab-4462-8592-ae0f954d1f17", "level": "error", "timestamp": "2026-02-13T01:32:15.143470Z"}
+============================== warnings summary ===============================
+..\..\..\..\..\..\sisrua_build\.venv-backend-build\lib\site-packages\_pytest\config\__init__.py:1428
+  C:\sisrua_build\.venv-backend-build\lib\site-packages\_pytest\config\__init__.py:1428: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:9: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    status: str = Field(..., description="Operational status of the API", example="ok")
+
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:26: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    latitude: float = Field(..., description="Target latitude (EPSG:4326)", example=-21.7634)
+
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:27: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    longitude: float = Field(..., description="Target longitude (EPSG:4326)", example=-41.3235)
+
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:28: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    radius: float = Field(..., description="Search radius in meters", example=500.0)
+
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:64: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    crs_out: Optional[str] = Field(None, description="Projected Coordinate Reference System", example="EPSG:31983")
+
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:95: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    url: str = Field(..., description="Target URL to receive webhook events", example="https://example.com/webhook")
+
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:99: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    event_type: str = Field(..., description="Type of the internal event", example="project_saved")
+
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\api.py:270: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+  C:\sisrua_build\.venv-backend-build\lib\site-packages\fastapi\applications.py:4573: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\api.py:415: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED src\backend\tests\test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
+1 failed, 16 warnings in 17.97s

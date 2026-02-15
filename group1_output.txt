@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\tools\test_contract_compatibility.py", line 4, in <module>
+    from backend.api import app
+ModuleNotFoundError: No module named 'backend'

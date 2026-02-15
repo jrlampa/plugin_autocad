@@ -55,12 +55,17 @@ class ProjectService:
                 # For now, require at least one update or just force bump
                 pass
 
-            set_clause = ", ".join([f"{k} = ?" for k in fields_to_update.keys()])
-            if set_clause:
-                set_clause += ", "
-            
             # Always increment version
-            sql = f"UPDATE Projects SET {set_clause} version = version + 1 WHERE project_id = ? AND version = ?"
+            sql = "UPDATE Projects SET "
+            sql_parts = []
+            for k in fields_to_update.keys():
+                sql_parts.append(f"{k} = ?")
+            
+            sql += ", ".join(sql_parts)
+            if sql_parts:
+                sql += ", "
+            
+            sql += "version = version + 1 WHERE project_id = ? AND version = ?"
             params = list(fields_to_update.values()) + [project_id, expected_version]
             
             cursor = conn.execute(sql, params)

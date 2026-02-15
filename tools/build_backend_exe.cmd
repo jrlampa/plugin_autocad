@@ -6,7 +6,8 @@ REM  Gera Contents\backend\sisrua_backend.exe via PyInstaller
 REM  Objetivo: rodar backend sem Python instalado no usuário.
 REM ======================================================
 
-set ROOT=%~dp0..
+set ROOT_UNSAFE=%~dp0..
+for %%i in ("%ROOT_UNSAFE%") do set ROOT=%%~fi
 set BACKEND_SRC=%ROOT%\src\backend
 set BACKEND_OUT=%ROOT%\bundle-template\sisRUA.bundle\Contents\backend
 REM Por padrão, fazemos build fora do "Meu Drive" (path com espaços), pois venv/ensurepip/PyInstaller
@@ -145,13 +146,14 @@ if errorlevel 1 (
 "%PY%" -m pip install pyinstaller
 
 echo [licenses] Auditando licencas do backend (pip-licenses)...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\audit_licenses_backend.ps1" -PythonExe "%PY%" -RepoRoot "%ROOT%" -RequirementsPath "%BACKEND_SRC%\requirements.txt"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\audit_licenses_backend.ps1"
 if errorlevel 1 (
   echo ERRO: auditoria de licencas falhou. Possivel GPL/LGPL/AGPL ou problema de coleta.
   exit /b 1
 )
 
 echo [IP-PROTECT] Running Obfuscation Engine (sisRUA GIS Core)...
+set SISRUA_BUILD_ROOT=%BUILD_ROOT%
 "%PY%" "%ROOT%\tools\obfuscate_backend.py"
 if errorlevel 1 (
   echo ERRO: Falha na ofuscacao do codigo. Abortando build para proteger IP.
@@ -163,6 +165,7 @@ REM Gera em uma pasta temporária e só substitui no final (mais seguro).
 if exist "%DIST_TMP%" rmdir /s /q "%DIST_TMP%" 2>nul
 if not exist "%DIST_TMP%" mkdir "%DIST_TMP%"
 "%PY%" -m PyInstaller ^
+  --paths "%BUILD_ROOT%\obfuscated_backend" ^
   --noconfirm ^
   --clean ^
   --onefile ^

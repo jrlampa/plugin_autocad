@@ -49,6 +49,9 @@ namespace sisRUA
         /// </summary>
         public void Initialize()
         {
+            // #region agent log
+            SisRuaLog.WriteDebugLine("SisRuaPlugin.cs:Initialize", "pluginLoaded", new { }, "H0", "run1");
+            // #endregion
             Instance = this;
             
             // Setup Logger (Plugins internal log)

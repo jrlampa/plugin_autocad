@@ -15,7 +15,7 @@ try:
 except ImportError:
     pass
 
-from fastapi import FastAPI, HTTPException, Header, Request
+from fastapi import FastAPI, HTTPException, Header, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
@@ -190,12 +190,29 @@ async def validate_origin(request: Request, call_next):
     """
     ISO 27001: Strict Origin Validation.
     Blocks requests from external domains or malformed origins.
-    Allow localhost/127.0.0.1 with any port for plugin dynamic allocation.
-    Allow TestClient (testserver) for CI.
+    
+    SPECIAL HANDLING (WebView2): 
+    AutoCAD's internal browser often omits 'Origin' or 'Referer' headers.
+    We allow requests if:
+    1. They come from the local machine (127.0.0.1/localhost).
+    2. They possess a valid Master/Session token (indicates trusted plugin comms).
     """
     if request.url.path in ["/api/v1/health", "/health", "/docs", "/openapi.json", "/"]:
         return await call_next(request)
 
+    # 1. Check local trust (Bypass for localhost)
+    client_host = request.client.host if request.client else "unknown"
+    is_local = client_host in ("127.0.0.1", "localhost", "::1", "unknown")
+    
+    # 2. Token Trust (Bypass if valid token is present - WebView2 specific)
+    token = request.headers.get(AUTH_HEADER_NAME)
+    has_valid_auth = (token == AUTH_TOKEN) or (token and _is_valid_session(token))
+
+    if is_local or has_valid_auth:
+        # Trusted environment or trusted caller
+        return await call_next(request)
+
+    # 3. Origin/Referer Validation (for non-local or non-token environments)
     origin = request.headers.get("Origin")
     referer = request.headers.get("Referer")
     
@@ -203,18 +220,19 @@ async def validate_origin(request: Request, call_next):
     if request.base_url.hostname == "testserver":
         return await call_next(request)
 
-    # WebView2 and local environments often send Origin or Referer.
     if not origin and not referer:
         if request.url.path.startswith("/api/v1"):
-            logger.warning("security_violation_no_origin", path=request.url.path)
+            logger.warning("security_violation_no_origin", 
+                           path=request.url.path, 
+                           client=client_host,
+                           has_token=bool(token))
             return Response("Forbidden: Strict Origin Required", status_code=403)
             
-    # Allow ANY localhost or 127.0.0.1 origin (dynamic ports)
     if origin:
         if origin.startswith("http://localhost:") or origin.startswith("http://127.0.0.1:"):
              return await call_next(request)
         if origin not in ALLOWED_ORIGINS:
-            logger.warning("security_violation_invalid_origin", origin=origin)
+            logger.warning("security_violation_invalid_origin", origin=origin, client=client_host)
             return Response("Forbidden: Invalid Origin", status_code=403)
         
     return await call_next(request)
@@ -467,9 +485,12 @@ async def create_prepare_job(
             logger.info("job_creation_skipped_dedup", job_id=job_id)
             
         return get_job(job_id)
+    except (ValueError, TypeError, json.JSONDecodeError) as e:
+        logger.error("create_job_invalid_payload", error=str(e))
+        raise HTTPException(status_code=422, detail="Invalid job payload")
     except Exception as e:
-        logger.error("create_job_failed", error=str(e), traceback=True)
-        raise e
+        logger.error("create_job_system_failure", error=str(e), traceback=True)
+        raise HTTPException(status_code=500, detail="Internal server error during job creation")
 
 @app.get("/api/v1/jobs/{job_id}", tags=["Jobs"], response_model=JobStatusResponse)
 async def get_job_endpoint(
@@ -482,13 +503,6 @@ async def get_job_endpoint(
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
-
-# --- Security Helpers ---
-def _require_token(token: str | None):
-    # ISO 27001 Security: Deny if token is missing or invalid.
-    # In production, this validates against the master or session token.
-    if not token:
-        raise HTTPException(status_code=401, detail="X-SisRua-Token header required.")
 
 # --- GIS Export Services ---
 from backend.services.export_service import ExportService
@@ -526,8 +540,11 @@ async def query_elevation(
         svc = ElevationService(cache=cache_service)
         z = svc.get_elevation_at_point(req.latitude, req.longitude)
         return ElevationPointResponse(latitude=req.latitude, longitude=req.longitude, elevation=z)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("elevation_query_failed", error=str(e))
+        raise HTTPException(status_code=500, detail="Error retrieving elevation data")
 
 @app.post("/api/v1/tools/elevation/profile", tags=["Tools"], response_model=ElevationProfileResponse)
 async def query_profile(
@@ -543,8 +560,24 @@ async def query_profile(
         coords = [(p[0], p[1]) for p in req.path]
         elevations = svc.get_elevation_profile(coords)
         return ElevationProfileResponse(elevations=elevations)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("elevation_profile_failed", error=str(e))
+        raise HTTPException(status_code=500, detail="Error generating elevation profile")
+
+from backend.services.geocode import smart_geocode
+
+@app.get("/api/v1/tools/geocode", tags=["Tools"])
+async def geocode_tool(
+    query: str = Query(..., min_length=2),
+    _ = Depends(_require_token)
+):
+    """
+    Smart Geocoding Tool.
+    Supports: DD (Lat, Lon), UTM (Zone E N), and Address (Nominatim).
+    """
+    return smart_geocode(query)
 
 from backend.services.ai import AiService
 from pydantic import BaseModel
@@ -570,7 +603,8 @@ async def chat_with_ai(
         reply = ai_service.generate_response(req.message, req.context, req.job_id)
         return ChatResponse(response=reply)
     except Exception as e:
-        # Graceful degradation
+        # Graceful degradation with logging
+        logger.error("ai_chat_failed", error=str(e))
         return ChatResponse(response="AI unavailable.")
 
 
@@ -653,6 +687,8 @@ async def export_geopackage(
             media_type="application/geopackage+sqlite3",
             filename=f"sisrua_{project_id}.gpkg"
         )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error("export_geopackage_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoPackage: {str(e)}")
@@ -696,6 +732,8 @@ async def export_geojson(
             media_type="application/geo+json",
             filename=f"sisrua_{project_id}.geojson"
         )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error("export_geojson_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoJSON: {str(e)}")
@@ -738,19 +776,22 @@ def _maybe_mount_frontend():
     # Preferimos resolver o caminho do bundle via executável.
     if getattr(sys, "frozen", False):
         # Em produção (EXE)
+        # Tenta primeiro no _MEIPASS (embutido)
         if hasattr(sys, "_MEIPASS"):
-            # Caso o frontend esteja embutido no EXE (PyInstaller --add-data)
-            dist_dir = Path(sys._MEIPASS) / "frontend" / "dist"
-        else:
-            # Fallback para pasta externa (Contents/frontend/dist)
+            candidate = Path(sys._MEIPASS) / "frontend" / "dist"
+            if candidate.exists():
+                dist_dir = candidate
+        
+        # Se não achou embutido (ou dist_dir ainda None), tenta na pasta externa (Contents/frontend/dist)
+        if not dist_dir:
             contents_dir = Path(sys.executable).resolve().parent.parent
             dist_dir = contents_dir / "frontend" / "dist"
-    # Em desenvolvimento...
-    current_file = Path(__file__).resolve()
-    # BIM-LITE: Evitamos caminhos estáticos profundos que podem confundir auditors.
-    # Buscamos a raiz do workspace dinamicamente.
-    repo_root = current_file.parent.parent.parent
-    dist_dir = repo_root / "src" / "frontend" / "dist"
+    else:
+        # Em desenvolvimento...
+        current_file = Path(__file__).resolve()
+        # BIM-LITE: O src/backend/backend/api.py -> parent.parent.parent -> src/
+        repo_src = current_file.parent.parent.parent
+        dist_dir = repo_src / "frontend" / "dist"
     
     if not dist_dir.exists():
         # Fallback para layout de bundle (Contents/frontend/dist)

@@ -8,15 +8,24 @@ export const setAuthToken = (token) => {
   _masterToken = token;
 };
 
-// --- Global Interceptor for Resilience & Auth ---
+// ============================================================================
+// CRITICAL FIX: Auth header injection is handled by WebView2 (SisRuaPalette.cs:421)
+// The C# layer automatically injects 'X-SisRua-Token' for ALL backend requests.
+// DO NOT add the header here in axios - it will OVERWRITE the WebView2 token!
+// Previously, this interceptor was overwriting the valid WebView2 token with
+// expired session tokens, causing 401 errors.
+// ============================================================================
+
+/* DISABLED - WebView2 handles authentication
 axios.interceptors.request.use((config) => {
-  // ISO 27001: Prefer short-lived session token over master token
   const token = _sessionToken || _masterToken;
   if (token) {
     config.headers['X-SisRua-Token'] = token;
   }
   return config;
 });
+*/
+
 
 axios.interceptors.response.use(
   (response) => response,

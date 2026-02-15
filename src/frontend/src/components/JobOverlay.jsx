@@ -5,7 +5,10 @@ export default function JobOverlay({ uiJob }) {
   if (!uiJob) return null;
 
   return (
-    <div className="bg-white/60 rounded-3xl border border-white/80 p-6 flex flex-col gap-4 shadow-lg animate-enter ring-1 ring-black/5 mt-4">
+    <div
+      data-testid="job-overlay"
+      className="bg-white/60 rounded-3xl border border-white/80 p-6 flex flex-col gap-4 shadow-lg animate-enter ring-1 ring-black/5 mt-4"
+    >
       <div className="flex justify-between items-start pb-3 border-b border-slate-200/50">
         <div className="flex items-center gap-3">
           <div
@@ -29,19 +32,15 @@ export default function JobOverlay({ uiJob }) {
                   ? 'Processando'
                   : 'Concluído'}
             </span>
-            {uiJob.message &&
-              uiJob.status !== 'completed' &&
-              uiJob.status !== 'failed' && (
-                <span className="text-[10px] text-slate-500 font-medium animate-pulse">
-                  {uiJob.message}
-                </span>
-              )}
+            {uiJob.message && uiJob.status !== 'completed' && uiJob.status !== 'failed' && (
+              <span className="text-[10px] text-slate-500 font-medium animate-pulse">
+                {uiJob.message}
+              </span>
+            )}
           </div>
         </div>
         <div className="text-[10px] font-mono text-slate-500">
-          {typeof uiJob.progress === 'number'
-            ? `${Math.round(uiJob.progress * 100)}%`
-            : ''}
+          {typeof uiJob.progress === 'number' ? `${Math.round(uiJob.progress * 100)}%` : ''}
         </div>
       </div>
 

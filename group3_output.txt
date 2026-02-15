@@ -1,0 +1,15 @@
+[EventBus] Handler failed for test_event: Oops!
+Traceback (most recent call last):
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\core\bus.py", line 38, in publish
+    handler(payload)
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\tools\test_pubsub.py", line 31, in handler_error
+    raise ValueError("Oops!")
+ValueError: Oops!
+--- Phase 32: Pub/Sub Integration Test ---
+Publishing 'test_event'...
+[Handler 1] Received payload: {'msg': 'Hello World'}
+[Handler 2] Received payload: {'msg': 'Hello World'}
+[Handler Error] I am going to crash now...
+[PASS] Both handlers received the event.
+
+--- PASSED: Event Bus functions correctly ---

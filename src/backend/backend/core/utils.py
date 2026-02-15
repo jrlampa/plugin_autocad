@@ -136,8 +136,9 @@ def get_layer_config() -> Dict[str, Any]:
         try:
             with open(layers_path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
-            pass
+        except Exception as e:
+            from backend.core.logger import logger
+            logger.error("json_load_failed", error=str(e), path=path)
             
     # Fallback Hardcoded (Normas Brasileiras simplificadas)
     return {

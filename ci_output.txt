@@ -1,0 +1,142 @@
+test_half_open_failure (test_circuit_breaker_logic.TestCircuitBreaker) ... {"failures": 2, "event": "circuit_opened", "level": "warning", "timestamp": "2026-02-11T06:32:21.531089Z"}
+{"failures": 3, "event": "circuit_reopened", "level": "warning", "timestamp": "2026-02-11T06:32:21.739341Z"}
+ok
+test_state_transition (test_circuit_breaker_logic.TestCircuitBreaker) ... {"failures": 2, "event": "circuit_opened", "level": "warning", "timestamp": "2026-02-11T06:32:21.739948Z"}
+{"function": "risky_action", "event": "circuit_open_access_denied", "level": "warning", "timestamp": "2026-02-11T06:32:21.739948Z"}
+ok
+test_gating_mechanism (test_circuit_breaker_gating.TestCircuitBreakerGating) ... {"failures": 3, "event": "circuit_opened", "level": "warning", "timestamp": "2026-02-11T06:32:22.047284Z"}
+{"function": "external_service_mock", "event": "circuit_open_access_denied", "level": "warning", "timestamp": "2026-02-11T06:32:22.047808Z"}
+{"failures": 4, "event": "circuit_reopened", "level": "warning", "timestamp": "2026-02-11T06:32:24.162571Z"}
+ok
+test_persistent_failure (test_retry_logic.TestRetry) ... {"function": "persistent", "attempts": 3, "error": "Boom", "event": "retry_gave_up", "level": "warning", "timestamp": "2026-02-11T06:32:24.484832Z"}
+ok
+test_transient_failure (test_retry_logic.TestRetry) ... ok
+test_backoff_progression (test_backoff_timing.TestBackoffTiming) ... {"function": "failing_service", "attempts": 4, "error": "Simulated Failure", "event": "retry_gave_up", "level": "warning", "timestamp": "2026-02-11T06:32:28.109845Z"}
+ok
+test_rate_limit (unittest.loader._FailedTest) ... ERROR
+test_deep_health (unittest.loader._FailedTest) ... ERROR
+test_trace_id_propagation_to_thread (test_tracing_context.TestTracingPropagation) ... FAIL
+test_metrics (unittest.loader._FailedTest) ... ERROR
+test_idempotency (unittest.loader._FailedTest) ... ERROR
+test_shutdown_aborts_threads (test_graceful_shutdown.TestGracefulShutdown) ... ok
+
+======================================================================
+ERROR: test_rate_limit (unittest.loader._FailedTest)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_rate_limit
+Traceback (most recent call last):
+  File "C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\lib\unittest\loader.py", line 436, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\lib\unittest\loader.py", line 377, in _get_module_from_name
+    __import__(name)
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\tools\test_rate_limit.py", line 5, in <module>
+    from backend.api import app
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\api.py", line 33, in <module>
+    configure_logging()
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\core\logger.py", line 107, in configure_logging
+    log_dir = Path("logs")
+NameError: name 'Path' is not defined
+
+
+======================================================================
+ERROR: test_deep_health (unittest.loader._FailedTest)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_deep_health
+Traceback (most recent call last):
+  File "C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\lib\unittest\loader.py", line 436, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\lib\unittest\loader.py", line 377, in _get_module_from_name
+    __import__(name)
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\tools\test_deep_health.py", line 4, in <module>
+    from backend.api import app
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\api.py", line 33, in <module>
+    configure_logging()
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\core\logger.py", line 107, in configure_logging
+    log_dir = Path("logs")
+NameError: name 'Path' is not defined
+
+
+======================================================================
+ERROR: test_metrics (unittest.loader._FailedTest)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_metrics
+Traceback (most recent call last):
+  File "C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\lib\unittest\loader.py", line 436, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\lib\unittest\loader.py", line 377, in _get_module_from_name
+    __import__(name)
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\tools\test_metrics.py", line 9, in <module>
+    from backend.api import app
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\api.py", line 33, in <module>
+    configure_logging()
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\core\logger.py", line 107, in configure_logging
+    log_dir = Path("logs")
+NameError: name 'Path' is not defined
+
+
+======================================================================
+ERROR: test_idempotency (unittest.loader._FailedTest)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_idempotency
+Traceback (most recent call last):
+  File "C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\lib\unittest\loader.py", line 436, in _find_test_path
+    module = self._get_module_from_name(name)
+  File "C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\lib\unittest\loader.py", line 377, in _get_module_from_name
+    __import__(name)
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\tools\test_idempotency.py", line 13, in <module>
+    from backend.api import app
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\api.py", line 33, in <module>
+    configure_logging()
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\core\logger.py", line 107, in configure_logging
+    log_dir = Path("logs")
+NameError: name 'Path' is not defined
+
+
+======================================================================
+FAIL: test_trace_id_propagation_to_thread (test_tracing_context.TestTracingPropagation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\tools\test_tracing_context.py", line 39, in test_trace_id_propagation_to_thread
+    self.assertTrue(any(l.get('trace_id') == main_trace_id for l in captured_logs))
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 12 tests in 6.686s
+
+FAILED (failures=1, errors=4)
+Adding 10 test files to the suite...
+  [+] Added: test_circuit_breaker_logic.py
+  [+] Added: test_circuit_breaker_gating.py
+  [+] Added: test_retry_logic.py
+  [+] Added: test_backoff_timing.py
+  [+] Added: test_rate_limit.py
+  [+] Added: test_deep_health.py
+  [+] Added: test_tracing_context.py
+  [+] Added: test_metrics.py
+  [+] Added: test_idempotency.py
+  [+] Added: test_graceful_shutdown.py
+
+Running Suite v0.7.0 Release Candidate...
+========================================
+
+[Test] Triggering failures to open circuit...
+[Test] Circuit is OPEN. Attempting 4th call...
+[Test] SUCCESS: Call 4 was Gated via CircuitBreakerOpenException.
+[Test] Waiting for recovery timeout (2s)...
+[Test] Attempting 5th call (Half-Open probe)...
+[Test] SUCCESS: Probe went through and re-opened circuit.
+
+[Test] Testing Exponential Backoff Timing...
+[Test] Intervals: ['0.50s', '1.01s', '2.00s']
+[Test] SUCCESS: Backoff doubled (0.5s -> 1.0s -> 2.0s) correctly.
+Triggering shutdown...
+Worker detected shutdown!
+Shutdown test passed.
+Traceback (most recent call last):
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\tools\verify_v070_pipeline.py", line 65, in <module>
+    run_suite()
+  File "C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\tools\verify_v070_pipeline.py", line 61, in run_suite
+    print("\n" + "="*40 + "\n\u274c PIPELINE RED: Failures detected.")
+  File "C:\Users\Jonatas Lampa\AppData\Local\Programs\Python\Python310\lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+UnicodeEncodeError: 'charmap' codec can't encode character '\u274c' in position 44: character maps to <undefined>

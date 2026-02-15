@@ -123,4 +123,3 @@ export interface WebhookRegistrationRequest {
   url: string;
   events?: any;
 }
-

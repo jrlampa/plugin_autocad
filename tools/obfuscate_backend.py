@@ -6,7 +6,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 GIS_CORE_PATH = REPO_ROOT / "src" / "backend" / "backend" / "gis_core"
-BUILD_DIR = REPO_ROOT / "dist" / "obfuscated_backend"
+BUILD_ROOT_ENV = os.environ.get("SISRUA_BUILD_ROOT")
+if BUILD_ROOT_ENV:
+    BUILD_DIR = Path(BUILD_ROOT_ENV) / "obfuscated_backend"
+else:
+    BUILD_DIR = REPO_ROOT / "dist" / "obfuscated_backend"
 
 def obfuscate_package(source_path: Path, dest_path: Path):
     """
@@ -14,10 +18,20 @@ def obfuscate_package(source_path: Path, dest_path: Path):
     In a real Enterprise environment, this would call `pyarmor gen ...`.
     """
     if dest_path.exists():
-        shutil.rmtree(dest_path)
+        def on_error(func, path, exc_info):
+            import stat
+            if not os.access(path, os.W_OK):
+                os.chmod(path, stat.S_IWUSR)
+                func(path)
+            else:
+                raise
+        shutil.rmtree(dest_path, onerror=on_error)
+    
+    # Ensure parent directory exists
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
     
     print(f"[IP-PROTECT] Copying source from {source_path} to {dest_path}...")
-    shutil.copytree(source_path, dest_path)
+    shutil.copytree(source_path, dest_path, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo", ".git"))
     
     print("[IP-PROTECT] Compiling to bytecode (Simulation of Encryption)...")
     for py_file in dest_path.rglob("*.py"):

@@ -214,11 +214,17 @@ namespace sisRUA
         /// <returns>ObjectId da definição do bloco na BlockTable.</returns>
         private static ObjectId EnsureBlockDefinitionLoaded(Transaction tr, Database db, string blockName, string blockFilePath)
         {
+            // #region agent log
+            SisRuaLog.WriteDebugLine("SisRuaCommands.cs:EnsureBlockDefinitionLoaded", "entry", new { blockName, blockFilePath, fileExists = System.IO.File.Exists(blockFilePath ?? "") }, "H1", "run1");
+            // #endregion
             Log($"INFO: Ensuring block definition '{blockName}' from '{blockFilePath}' is loaded.");
             BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
 
             if (bt.Has(blockName))
             {
+                // #region agent log
+                SisRuaLog.WriteDebugLine("SisRuaCommands.cs:EnsureBlockDefinitionLoaded", "alreadyLoaded", new { blockName }, "H1", "run1");
+                // #endregion
                 Log($"DEBUG: Block '{blockName}' already loaded.");
                 return bt[blockName];
             }
@@ -230,9 +236,15 @@ namespace sisRUA
                 try
                 {
                     blockDb.ReadDwgFile(blockFilePath, FileShare.Read, true, "");
+                    // #region agent log
+                    SisRuaLog.WriteDebugLine("SisRuaCommands.cs:EnsureBlockDefinitionLoaded", "ReadDwgFileOk", new { blockName }, "H2", "run1");
+                    // #endregion
                 }
                 catch (System.Exception ex)
                 {
+                    // #region agent log
+                    SisRuaLog.WriteDebugLine("SisRuaCommands.cs:EnsureBlockDefinitionLoaded", "loadFailed", new { blockName, ex = ex.Message }, "H1", "run1");
+                    // #endregion
                     Log($"ERROR: Failed to read block file '{blockFilePath}' as DWG: {ex.Message}");
                     try
                     {
@@ -274,6 +286,9 @@ namespace sisRUA
 
                 // Adiciona a definição do bloco ao desenho atual.
                 bt.UpgradeOpen();
+                // #region agent log
+                SisRuaLog.WriteDebugLine("SisRuaCommands.cs:EnsureBlockDefinitionLoaded", "preInsert", new { blockName }, "H2", "run1");
+                // #endregion
                 db.Insert(blockName, blockDb, true);
                 bt.DowngradeOpen();
                 Log($"INFO: Block definition '{blockName}' loaded successfully.");
@@ -829,6 +844,9 @@ namespace sisRUA
 
         private static async Task DrawCadFeatureDtos(IEnumerable<CadFeatureDto> features, ProcessingDialog dlg)
         {
+            // #region agent log
+            SisRuaLog.WriteDebugLine("SisRuaCommands.cs:DrawCadFeatureDtos", "entry", new { featureCount = features?.Count() ?? 0 }, "H5", "run1");
+            // #endregion
             Log("INFO: DrawCadFeatureDtos started.");
             Document doc = Application.DocumentManager.MdiActiveDocument;
             if (doc == null)
