@@ -4,7 +4,6 @@ import {
   Circle,
   Marker,
   Popup,
-  useMap,
   GeoJSON,
   Polyline,
   Polygon,
@@ -68,12 +67,15 @@ export default function MapView({
               color: drawingMode === 'polygon' ? '#3b82f6' : 'lime',
               weight: 4,
               opacity: 0.7,
-              dashArray: '10, 10'
+              dashArray: '10, 10',
             }}
           />
           {drawingMode === 'polygon' && drawingPoints.length > 2 && (
             <Polygon
-              positions={[...drawingPoints.map((p) => [p[1], p[0]]), [drawingPoints[0][1], drawingPoints[0][0]]]}
+              positions={[
+                ...drawingPoints.map((p) => [p[1], p[0]]),
+                [drawingPoints[0][1], drawingPoints[0][0]],
+              ]}
               pathOptions={{ fillColor: '#3b82f6', fillOpacity: 0.1, weight: 0 }}
             />
           )}
@@ -83,13 +85,13 @@ export default function MapView({
       {/* ACTIVE EXTRACTION AREA */}
       {extractionPolygon && extractionPolygon.length > 0 && (
         <Polygon
-          positions={extractionPolygon.map(p => [p[1], p[0]])}
+          positions={extractionPolygon.map((p) => [p[1], p[0]])}
           pathOptions={{
             color: '#3b82f6',
             weight: 3,
             fillColor: '#3b82f6',
             fillOpacity: 0.15,
-            dashArray: '5, 5'
+            dashArray: '5, 5',
           }}
         />
       )}

@@ -26,7 +26,6 @@ axios.interceptors.request.use((config) => {
 });
 */
 
-
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -106,9 +105,13 @@ export const api = {
    */
   setupSecurity: async (masterToken) => {
     try {
-      const response = await axios.post(`${API_BASE}/auth/session`, {}, {
-        headers: { 'X-SisRua-Token': masterToken }
-      });
+      const response = await axios.post(
+        `${API_BASE}/auth/session`,
+        {},
+        {
+          headers: { 'X-SisRua-Token': masterToken },
+        }
+      );
       const { session_token } = response.data;
       if (session_token) {
         _sessionToken = session_token;

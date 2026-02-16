@@ -20,6 +20,8 @@ export default function MapCanvas({
   previewGeoJson,
   isDrawing,
   drawingPoints,
+  drawingMode,
+  extractionPolygon,
   mapLogic,
   handleMapClick,
 }) {
