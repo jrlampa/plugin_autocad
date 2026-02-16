@@ -66,6 +66,8 @@ namespace sisRUA.Core
 
         /// <summary>
         /// Persists the backend authentication token.
+        /// NOTE: Currently stored in plaintext. File permissions restrict access to current user.
+        /// Future enhancement: Implement encryption at rest using Windows DPAPI (ProtectedData class).
         /// </summary>
         public void PersistToken(string token)
         {

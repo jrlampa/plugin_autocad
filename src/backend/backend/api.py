@@ -92,7 +92,10 @@ from backend.core.container import setup_event_bus
 
 # --- Strict Origin Middleware ---
 # Permite file:// e qualquer porta local para WebView2
-ALLOWED_ORIGINS = ["*"]
+# Security Note: In production, restrict this to specific domains
+# For plugin use (WebView2), we allow localhost and file:// protocol
+ALLOWED_ORIGINS = ["*"]  # Development/Plugin mode: permissive for WebView2
+# Production example: ALLOWED_ORIGINS = ["https://sisrua.example.com", "https://app.sisrua.com"]
 
 @app.middleware("http")
 async def validate_origin(request: Request, call_next):
