@@ -20,37 +20,35 @@ import uvicorn
 
 def _configure_logging(log_level: str) -> dict:
     """
-    Configura logs do backend para arquivo em %LOCALAPPDATA%\\sisRUA\\logs.
-    Retorna um log_config compatível com uvicorn.
+    Configura logs do backend para arquivo em %TEMP%\\sisRuaBackendDebug.log
+    para facilitar o debug em máquinas de clientes.
     """
-    base_dir = Path(os.environ.get("LOCALAPPDATA") or str(Path.home()))
-    log_dir = base_dir / "sisRUA" / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir / "backend.log"
+    import tempfile
+    log_file = Path(tempfile.gettempdir()) / "sisRuaBackendDebug.log"
+    
+    # Absolute path log for forensics
+    print(f"DEBUG: sisRUA Backend starting. Log: {log_file}")
+    print(f"DEBUG: sys.executable: {sys.executable}")
+    print(f"DEBUG: sys._MEIPASS: {getattr(sys, '_MEIPASS', 'N/A')}")
 
-    # Rotação simples para evitar crescer infinito.
-    # Uvicorn não expõe RotatingFileHandler por config de forma "bonita",
-    # então criamos o handler e apontamos o log_config para ele via dictConfig + disable_existing_loggers=False.
+    # Rotação simples
     handler = RotatingFileHandler(
         filename=str(log_file),
-        maxBytes=2_000_000,
-        backupCount=3,
+        maxBytes=5_000_000,
+        backupCount=2,
         encoding="utf-8",
     )
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
 
     root = logging.getLogger()
     root.setLevel(log_level.upper())
-    # Evita duplicar handlers em re-runs.
     root.handlers = [handler]
 
-    # Uvicorn usa loggers próprios; fazemos eles propagarem para root.
     for name in ("uvicorn", "uvicorn.error", "uvicorn.access"):
         logger = logging.getLogger(name)
         logger.handlers = []
         logger.propagate = True
 
-    # Ainda passamos um dict básico para uvicorn não recriar handlers de console.
     return {
         "version": 1,
         "disable_existing_loggers": False,
@@ -62,8 +60,8 @@ def _configure_logging(log_level: str) -> dict:
                 "class": "logging.handlers.RotatingFileHandler",
                 "formatter": "default",
                 "filename": str(log_file),
-                "maxBytes": 2_000_000,
-                "backupCount": 3,
+                "maxBytes": 5_000_000,
+                "backupCount": 2,
                 "encoding": "utf-8",
             }
         },
@@ -81,21 +79,16 @@ def _configure_proj_data_dir() -> None:
     """
     try:
         from pyproj import datadir as _pyproj_datadir
-
         data_dir = _pyproj_datadir.get_data_dir()
         if data_dir:
             os.environ.setdefault("PROJ_LIB", data_dir)
-    except Exception:
-        # Se falhar, o backend ainda pode rodar, mas CRS/transform podem quebrar em runtime.
+            print(f"DEBUG: PROJ_LIB set to {data_dir}")
+    except Exception as e:
+        print(f"DEBUG: Failed to set PROJ_LIB: {e}")
         return
 
 
 def _ensure_single_instance() -> Any:
-    """
-    ISO 27001 / Robustness: Cria um Mutex nomeado para que o Inno Setup
-    consiga detectar se o backend está rodando e fechar antes de atualizar.
-    Também impede múltiplas instâncias acidentais.
-    """
     if os.name != "nt":
         return None
     try:
@@ -103,18 +96,15 @@ def _ensure_single_instance() -> Any:
         import win32api
         import winerror
         
-        mutex_name = "sisRUA_Backend_Mutex"
+        mutex_name = "sisRUA_Backend_Mutex_v2"
         mutex = win32event.CreateMutex(None, False, mutex_name)
         if win32api.GetLastError() == winerror.ERROR_ALREADY_EXISTS:
-            print(f"ERRO: Outra instancia do sisRUA Backend ja esta rodando (Mutex: {mutex_name}).")
             sys.exit(0)
         return mutex
     except ImportError:
-        # Fallback se pywin32 não estiver disponível no env de dev
         return None
 
 def main(argv: list[str] | None = None) -> int:
-    # Segura o mutex durante toda a execução do processo
     _backend_mutex = _ensure_single_instance()
     parser = argparse.ArgumentParser(description="sisRUA backend (standalone)")
     parser.add_argument("--host", default="127.0.0.1")
@@ -124,31 +114,33 @@ def main(argv: list[str] | None = None) -> int:
 
     log_config = _configure_logging(args.log_level)
 
-    # Precisamos que `backend` seja importável como pacote.
-    # - Em dev: a pasta "Contents" é `.../sisRUA.bundle/Contents`
-    # - Em prod (EXE): o executável fica em `Contents/backend/sisrua_backend.exe`
+    # Path discovery for imports
     if getattr(sys, "frozen", False):
-        contents_dir = Path(sys.executable).resolve().parent.parent
+        contents_dir = Path(sys._MEIPASS).resolve()
     else:
-        contents_dir = Path(__file__).resolve().parent.parent
+        contents_dir = Path(__file__).resolve().parent
 
-    contents_dir_str = str(contents_dir)
-    if contents_dir_str not in sys.path:
-        sys.path.insert(0, contents_dir_str)
+    sys.path.insert(0, str(contents_dir))
 
     _configure_proj_data_dir()
 
-    # Import direto: ajuda o PyInstaller a detectar dependências (osmnx/geopandas/pyproj/shapely).
-    # Em `backend.api`, os imports de OSMnx/GeoPandas são lazy (para reduzir custo de startup/CI),
-    # então importamos explicitamente aqui para garantir empacotamento.
-    try:  # pragma: no cover
-        import osmnx  # noqa: F401
-        import geopandas  # noqa: F401
-    except Exception:
-        # Se falhar no dev (sem deps), não impede rodar endpoints que não dependem de OSM.
-        pass
-
-    from backend.api import app  # noqa: WPS433 (import local intencional para empacotamento)
+    from backend.api import app
+    from backend.core.config import get_resource_path
+    from backend.core.database import get_db_path
+    from backend.core.logger import logger
+    
+    # Debug logging: Log all resolved paths for troubleshooting on client machines
+    logger.info(
+        "pyinstaller_paths_resolved",
+        frozen=getattr(sys, "frozen", False),
+        base_path=str(contents_dir),
+        frontend_dist=str(get_resource_path("frontend/dist")),
+        resources_dir=str(get_resource_path("Resources")),
+        database_path=str(get_db_path()),
+        executable=sys.executable,
+        host=args.host,
+        port=args.port
+    ) 
 
     uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level, log_config=log_config, access_log=False)
     return 0

@@ -2,17 +2,17 @@
 <ApplicationPackage SchemaVersion="1.0" ProductType="Application" Name="sisRUA" AppVersion="1.0.0" Description="sisRUA - plugin AutoCAD (OSM/GeoJSON â†’ CAD)" Author="sisRUA">
   <CompanyDetails Name="sisRUA" />
   <Components>
-    <!-- AutoCAD 2021-2024 (R24.x) -> .NET 4.8 -->
+    <!-- AutoCAD 2020-2024 (R23.1-R24.3) -> .NET 4.8 -->
     <ComponentEntry AppName="sisRUA" ModuleName="Contents\net48\sisRUA.dll" AppDescription="sisRUA" AppType=".Net" LoadOnAutoCADStartup="True" LoadOnCommandInvocation="True">
-      <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R24.0" SeriesMax="R24.3" />
+      <RuntimeRequirements OS="Win64" Platform="AutoCAD" SeriesMin="R23.1" SeriesMax="R24.3" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
         <Command Local="SISRUAESCALA" Global="SISRUAESCALA" />
       </Commands>
     </ComponentEntry>
-    <!-- Civil 3D 2021-2024 (R24.x) -> .NET 4.8 -->
+    <!-- Civil 3D 2020-2024 (R23.1-R24.3) -> .NET 4.8 -->
     <ComponentEntry AppName="sisRUA" ModuleName="Contents\net48\sisRUA.dll" AppDescription="sisRUA" AppType=".Net" LoadOnAutoCADStartup="True" LoadOnCommandInvocation="True">
-      <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R24.0" SeriesMax="R24.3" />
+      <RuntimeRequirements OS="Win64" Platform="Civil3D" SeriesMin="R23.1" SeriesMax="R24.3" />
       <Commands GroupName="sisRUA">
         <Command Local="SISRUA" Global="SISRUA" />
         <Command Local="SISRUAESCALA" Global="SISRUAESCALA" />

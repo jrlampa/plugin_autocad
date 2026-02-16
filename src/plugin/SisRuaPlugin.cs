@@ -50,18 +50,12 @@ namespace sisRUA
         /// </summary>
         public void Initialize()
         {
-            // #region agent log
-            SisRuaLog.WriteDebugLine("SisRuaPlugin.cs:Initialize", "pluginLoaded", new { }, "H0", "run1");
-            // #endregion
             Instance = this;
-            
-            // Setup Logger (Plugins internal log)
             SetupLogger();
             SisRuaLog.OnMessageLogged += (msg) => LogToEditor(msg);
             
             LogToEditor("\n>>> sisRUA Plugin: Initialize() called.");
 
-            // Resolve dependências
             AppDomain.CurrentDomain.AssemblyResolve += CurrentDomain_AssemblyResolve;
 
             try
@@ -70,9 +64,8 @@ namespace sisRUA
                 BackendManager.OnLog = (msg) => LogToEditor(msg);
                 BackendManager.OnAlert = (msg) => LogAndAlert(msg);
                 
-                // Inicia o backend de forma assíncrona para não travar o AutoCAD
+                // Inicia o backend (gerenciamento de processo interno)
                 BackendManager.Start();
-                LogToEditor("Backend está inicializando em segundo plano...");
             }
             catch (Exception ex)
             {
@@ -80,20 +73,18 @@ namespace sisRUA
             }
         }
 
-        /// <summary>
-        /// Chamado quando o AutoCAD é fechado.
-        /// </summary>
         public void Terminate()
         {
             LogToEditor("\n>>> sisRUA Plugin: Terminate() called.");
             try
             {
+                // Garante que o processo morre IMEDIATAMENTE ao fechar o AutoCAD
                 BackendManager?.Stop();
                 BackendManager = null;
             }
             catch (Exception ex)
             {
-                LogToEditor($"\n[ERROR] Exceção ao tentar finalizar o plugin: {ex.Message}");
+                LogToEditor($"\n[ERROR] Exceção ao finalizar: {ex.Message}");
             }
             finally
             {

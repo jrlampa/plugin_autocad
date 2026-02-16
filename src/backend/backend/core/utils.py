@@ -128,25 +128,20 @@ def estimate_width_m(row: Any, highway: Optional[str]) -> Optional[float]:
 def get_layer_config() -> Dict[str, Any]:
     """
     Carrega a configuração de layers (Normas Brasileiras).
-    Busca dinamicamente no repo ou no bundle.
+    Compatible with PyInstaller bundled execution.
     """
-    current_file = Path(__file__).resolve()
-    repo_root = current_file.parent.parent.parent.parent
+    from backend.core.config import get_resource_path
+    from backend.core.logger import logger
     
-    # 1. Tenta no bundle-template (Desenvolvimento)
-    layers_path = repo_root / "bundle-template" / "sisRUA.bundle" / "Contents" / "Resources" / "layers.json"
-    
-    if not layers_path.exists():
-        # 2. Tenta no layout de produção (Contents/Resources)
-        layers_path = current_file.parent.parent / "Resources" / "layers.json"
+    # Use PyInstaller-compatible path resolution
+    layers_path = get_resource_path("Resources/layers.json")
         
     if layers_path.exists():
         try:
             with open(layers_path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
-            from backend.core.logger import logger
-            logger.error("json_load_failed", error=str(e), path=path)
+            logger.error("json_load_failed", error=str(e), path=str(layers_path))
             
     # Fallback Hardcoded (Normas Brasileiras simplificadas)
     return {

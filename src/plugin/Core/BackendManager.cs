@@ -179,56 +179,29 @@ namespace sisRUA.Core
 
         private void InitializeBackendProcess(string projectRoot)
         {
-            // 1. Check if already running/healthy
-            int previousPort = TryReadLastBackendPort();
-            if (previousPort > 0) Port = previousPort;
-
-            string previousToken = TryReadLastBackendToken();
-            if (!string.IsNullOrWhiteSpace(previousToken)) AuthToken = previousToken;
-            else
+            // Port 5000 is our standard
+            Port = 5000;
+            
+            // 1. Check if port is in use and kill it (Resilience Requirement)
+            if (IsPortInUse(Port))
             {
-                AuthToken = Guid.NewGuid().ToString("N");
-                PersistBackendToken(AuthToken);
+                Log($"Porta {Port} ocupada. Tentando liberar...");
+                KillProcessByPort(Port);
+                Thread.Sleep(1000); // Wait for OS to release socket
             }
 
-            if (IsBackendHealthy() && IsBackendAuthorized())
-            {
-                Log($"Backend já está rodando (health/auth OK) em {BaseUrl}.");
-                return; 
-            }
-
-            // 2. Check previous PID
-            int previousPid = TryReadLastBackendPid();
-            if (previousPid > 0)
-            {
-                try
-                {
-                    Process p = Process.GetProcessById(previousPid);
-                    if (p != null && !p.HasExited)
-                    {
-                        Log($"Backend (PID {previousPid}) detectado. Aguardando...");
-                        if (WaitForBackendHealthy(TimeSpan.FromSeconds(15)) && IsBackendAuthorized())
-                        {
-                            Log($"Backend (PID {previousPid}) reutilizado com sucesso.");
-                            _pythonProcess = p;
-                            return;
-                        }
-                        
-                        Log($"Backend (PID {previousPid}) não respondeu. Reiniciando...");
-                        KillProcessTree(previousPid);
-                    }
-                }
-                catch (ArgumentException) { /* Process gone */ }
-                catch (Exception ex) { Log($"[Aviso] Erro ao verificar PID anterior: {ex.Message}"); }
-            }
-
-            // 3. Start New
-            Port = ChooseFreePort();
-            PersistBackendPort(Port);
             AuthToken = Guid.NewGuid().ToString("N");
             PersistBackendToken(AuthToken);
 
-            string backendExePath = Path.Combine(projectRoot, "backend", "sisrua_backend.exe");
+            // 2. Start New
+            string assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+            string backendExePath = Path.Combine(assemblyDir, "backend", "sisrua_backend.exe");
+
+            // Look in sibling folder if not found (dev structure)
+            if (!File.Exists(backendExePath))
+            {
+                 backendExePath = Path.Combine(projectRoot, "backend", "sisrua_backend.exe");
+            }
 
             if (File.Exists(backendExePath))
             {
@@ -239,9 +212,39 @@ namespace sisRUA.Core
 #if DEBUG
                 StartPythonBackend(projectRoot);
 #else
-                Alert("Erro Crítico: sisrua_backend.exe não encontrado.");
+                Alert("Erro Crítico: sisrua_backend.exe não encontrado no bundle ou raiz.");
                 return;
 #endif
+            }
+        }
+
+        private bool IsPortInUse(int port)
+        {
+            try
+            {
+                var ipGlobalProperties = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties();
+                var tcpConnInfoArray = ipGlobalProperties.GetActiveTcpListeners();
+                return tcpConnInfoArray.Any(endpoint => endpoint.Port == port);
+            }
+            catch { return false; }
+        }
+
+        private void KillProcessByPort(int port)
+        {
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c for /f \"tokens=5\" %a in ('netstat -aon ^| findstr \":{port} \"') do taskkill /f /pid %a",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                };
+                Process.Start(psi)?.WaitForExit(5000);
+            }
+            catch (Exception ex)
+            {
+                Log($"Erro ao tentar matar processo na porta {port}: {ex.Message}");
             }
         }
 

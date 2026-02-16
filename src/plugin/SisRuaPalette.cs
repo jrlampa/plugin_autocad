@@ -392,8 +392,6 @@ namespace sisRUA
         {
             try
             {
-                // Em alguns ambientes (ex.: Civil 3D), a WebView2 pode falhar com E_ACCESSDENIED ao tentar
-                // criar/usar o UserDataFolder padrão. Para evitar isso, forçamos um diretório gravável.
                 string userDataFolder = GetWebViewUserDataFolder();
                 if (_webView.CreationProperties == null)
                 {
@@ -401,47 +399,55 @@ namespace sisRUA
                 }
                 _webView.CreationProperties.UserDataFolder = userDataFolder;
 
-                // Garante que o ambiente da WebView2 (Core) está pronto.
                 await _webView.EnsureCoreWebView2Async(null);
-                
-                // Configura a ponte de comunicação JS -> C#
                 _webView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
 
-                // --- Mitigação Prática: Auth Interception ---
-                // Intercepta todas as chamadas para injetar o header de forma invisível.
-                // Filtramos apenas para o domínio do backend para evitar vazamento de token para fora (ex: OSM).
-                string backendHost = new Uri(SisRuaPlugin.BackendBaseUrl).Host;
-                string filter = $"*://{backendHost}/*";
-                _webView.CoreWebView2.AddWebResourceRequestedFilter(filter, CoreWebView2WebResourceContext.All);
-                
-                _webView.CoreWebView2.WebResourceRequested += (s, args) =>
+                // --- Auth Interception ---
+                string backendUrl = SisRuaPlugin.BackendBaseUrl;
+                if (!string.IsNullOrWhiteSpace(backendUrl))
                 {
-                    if (!string.IsNullOrWhiteSpace(SisRuaPlugin.BackendAuthToken))
+                    string backendHost = new Uri(backendUrl).Host;
+                    string filter = $"*://{backendHost}/*";
+                    _webView.CoreWebView2.AddWebResourceRequestedFilter(filter, CoreWebView2WebResourceContext.All);
+                    
+                    _webView.CoreWebView2.WebResourceRequested += (s, args) =>
                     {
-                        args.Request.Headers.SetHeader(SisRuaPlugin.BackendAuthHeaderName, SisRuaPlugin.BackendAuthToken);
-                    }
-                };
-                
-                // Navega para a URL do frontend React.
-                string baseUrl = SisRuaPlugin.BackendBaseUrl;
-                if (string.IsNullOrWhiteSpace(baseUrl))
+                        if (!string.IsNullOrWhiteSpace(SisRuaPlugin.BackendAuthToken))
+                        {
+                            args.Request.Headers.SetHeader(SisRuaPlugin.BackendAuthHeaderName, SisRuaPlugin.BackendAuthToken);
+                        }
+                    };
+                }
+
+                // --- Retry Logic for Backend Warmup ---
+                bool isHealthy = false;
+                int retries = 0;
+                while (!isHealthy && retries < 10)
                 {
-                    Debug.WriteLine("[sisRUA] BackendBaseUrl vazio. Navegando para about:blank.");
-                    baseUrl = "about:blank";
+                    isHealthy = SisRuaPlugin.EnsureBackendHealthy(TimeSpan.FromSeconds(1));
+                    if (!isHealthy)
+                    {
+                        retries++;
+                        Debug.WriteLine($"[sisRUA] Backend não saudável. Tentativa {retries}/10. Aguardando...");
+                        await Task.Delay(1000);
+                    }
+                }
+
+                if (isHealthy)
+                {
+                    _webView.Source = new Uri(backendUrl);
                 }
                 else
                 {
-                    // Em geral o plugin já aguardou o /health no Initialize(), mas aqui damos um "seguro" extra.
-                    SisRuaPlugin.EnsureBackendHealthy(TimeSpan.FromSeconds(5));
+                    _webView.Source = new Uri("about:blank");
+                    MessageBox.Show("O backend demorou muito para responder. Tente fechar e abrir a paleta novamente.", "sisRUA - Timeout");
                 }
-                _webView.Source = new Uri(baseUrl);
             }
             catch (System.Exception ex)
             {
                 Debug.WriteLine($"[sisRUA] Falha ao inicializar a WebView2: {ex.Message}");
                 MessageBox.Show(
-                    $"Falha ao inicializar a interface web do sisRUA: {ex.Message}\n\n" +
-                    $"Dica: verifique se o Microsoft Edge WebView2 Runtime está instalado e tente executar o Civil 3D sem modo Administrador.",
+                    $"Falha ao inicializar a interface web do sisRUA: {ex.Message}",
                     "Erro sisRUA",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error
