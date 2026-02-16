@@ -2,6 +2,8 @@
 from typing import List, Tuple, Dict, Any, Optional
 import math
 import hashlib
+from shapely.geometry import LineString, MultiLineString
+from shapely.ops import linemerge
 
 class TopologyHealer:
     """
@@ -19,61 +21,64 @@ class TopologyHealer:
         Uses shapely.ops.linemerge for lossless fusion of contiguous segments.
         Fixes 'beak' artifacts by merging segments before they reach the CAD engine.
         """
-        from shapely.geometry import LineString, MultiLineString # type: ignore
-        from shapely.ops import linemerge # type: ignore
+        try:
+            if not features:
+                return features
 
-        if not features:
+            # 1. Group features by their attributes (layer, highway, name) to avoid merging different entities
+            groups: Dict[Tuple[str, Optional[str], Optional[str]], List[Any]] = {}
+            non_polyline_features = []
+
+            for f in features:
+                if f.feature_type != "Polyline" or not f.coords_xy:
+                    non_polyline_features.append(f)
+                    continue
+                
+                key = (f.layer or "", f.highway, f.name)
+                if key not in groups:
+                    groups[key] = []
+                groups[key].append(f)
+
+            healed_polylines = []
+
+            # 2. Process each group
+            for key, group_features in groups.items():
+                if len(group_features) < 2:
+                    healed_polylines.extend(group_features)
+                    continue
+
+                # Convert to shapely objects
+                lines = [LineString(f.coords_xy) for f in group_features]
+                
+                # Fuse contiguous segments
+                merged = linemerge(lines)
+                
+                # Handle the result (could be a LineString or MultiLineString)
+                result_lines = []
+                if isinstance(merged, LineString):
+                    result_lines.append(merged)
+                elif isinstance(merged, MultiLineString):
+                    result_lines.extend(merged.geoms)
+                else:
+                    # Fallback if merger failed or result is weird
+                    result_lines.extend(lines)
+
+                # 3. Create new features from merged lines, preserving metadata from the first original feature
+                template = group_features[0]
+                for line in result_lines:
+                    if line.is_empty: continue
+                    # Fix "beaks": Simplify tiny segments or just ensure continuity
+                    new_f = template.model_copy()
+                    new_f.coords_xy = [[float(p[0]), float(p[1])] for p in line.coords]
+                    healed_polylines.append(new_f)
+                    self.stats["healed_nodes"] += (len(group_features) - 1)
+
+            return non_polyline_features + healed_polylines
+
+        except Exception as e:
+            from backend.core.logger import get_logger
+            get_logger(__name__).error("topology_healing_failed", error=str(e))
             return features
-
-        # 1. Group features by their attributes (layer, highway, name) to avoid merging different entities
-        groups: Dict[Tuple[str, Optional[str], Optional[str]], List[Any]] = {}
-        non_polyline_features = []
-
-        for f in features:
-            if f.feature_type != "Polyline" or not f.coords_xy:
-                non_polyline_features.append(f)
-                continue
-            
-            key = (f.layer or "", f.highway, f.name)
-            if key not in groups:
-                groups[key] = []
-            groups[key].append(f)
-
-        healed_polylines = []
-
-        # 2. Process each group
-        for key, group_features in groups.items():
-            if len(group_features) < 2:
-                healed_polylines.extend(group_features)
-                continue
-
-            # Convert to shapely objects
-            lines = [LineString(f.coords_xy) for f in group_features]
-            
-            # Fuse contiguous segments
-            merged = linemerge(lines)
-            
-            # Handle the result (could be a LineString or MultiLineString)
-            result_lines = []
-            if isinstance(merged, LineString):
-                result_lines.append(merged)
-            elif isinstance(merged, MultiLineString):
-                result_lines.extend(merged.geoms)
-            else:
-                # Fallback if merger failed or result is weird
-                result_lines.extend(lines)
-
-            # 3. Create new features from merged lines, preserving metadata from the first original feature
-            template = group_features[0]
-            for line in result_lines:
-                if line.is_empty: continue
-                # Fix "beaks": Simplify tiny segments or just ensure continuity
-                new_f = template.model_copy()
-                new_f.coords_xy = [[float(p[0]), float(p[1])] for p in line.coords]
-                healed_polylines.append(new_f)
-                self.stats["healed_nodes"] += (len(group_features) - 1)
-
-        return non_polyline_features + healed_polylines
 
     def get_integrity_signature(self, features: List[Any]) -> str:
         # Sort features to ensure deterministic signature even if order changes during healing

@@ -2,6 +2,8 @@ import os
 import sqlite3
 import shutil
 import tempfile
+import json
+import time
 from pathlib import Path
 from typing import List, Dict, Any
 from backend.core.logger import get_logger
@@ -30,7 +32,6 @@ class ExportService:
                 f_type, layer, name, highway, width, color, elev, slope, props_json, coords_json = row
                 
                 # Parse strings/JSON
-                import json
                 props = json.loads(props_json) if props_json else {}
                 coords = json.loads(coords_json) if coords_json else []
                 
@@ -60,7 +61,7 @@ class ExportService:
                 "features": features,
                 "metadata": {
                     "project_id": project_id,
-                    "exported_at": str(Path().stat().st_mtime) # Placeholder
+                    "exported_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                 }
             }
             
