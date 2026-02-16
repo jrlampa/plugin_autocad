@@ -1,16 +1,29 @@
-fastapi
-uvicorn
-osmnx
-pyproj
-shapely
-geopandas
-rasterio
-numpy
-requests
-matplotlib
-sentry-sdk[fastapi]
-# redis (removed: using local file-cache for standalone plugin)
-groq>=0.4.0
-structlog
-# prometheus-fastapi-instrumentator (removed: local plugin does not need real-time metrics scraping)
-pywin32
+# Core framework
+fastapi==0.129.0
+uvicorn==0.40.0
+pydantic==2.12.5
+
+# GIS stack
+osmnx==2.0.7
+pyproj==3.7.2
+shapely==2.1.2
+geopandas==1.1.2
+rasterio==1.5.0
+
+# Scientific computing
+numpy==2.4.2
+matplotlib==3.10.8
+
+# HTTP/Networking (security-patched versions)
+requests==2.32.4  # CVE-2024-35195, CVE-2024-47081 fixed
+urllib3==2.6.3    # Multiple CVEs fixed
+
+# Monitoring & Logging
+sentry-sdk[fastapi]==2.53.0
+structlog==25.5.0
+
+# AI integration
+groq==1.0.0
+
+# Windows-specific (conditional)
+pywin32; sys_platform == 'win32'
