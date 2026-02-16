@@ -35,14 +35,16 @@ class PrepareJobRequest(FrozenBaseModel):
     latitude: Optional[float] = Field(None, description="Required for kind='osm'")
     longitude: Optional[float] = Field(None, description="Required for kind='osm'")
     radius: Optional[float] = Field(None, description="Required for kind='osm'")
+    polygon: Optional[List[List[float]]] = Field(None, description="Optional polygon for area filtering")
     geojson: Any | None = Field(None, description="Required for kind='geojson'")
 
 class CadFeature(FrozenBaseModel):
-    feature_type: Literal["Polyline", "Point"] = Field("Polyline", description="CAD entity type")
+    feature_type: Literal["Polyline", "Point", "Text"] = Field("Polyline", description="CAD entity type")
     layer: Optional[str] = Field(None, description="Target AutoCAD layer name")
     name: Optional[str] = Field(None, description="Display name for the feature")
     highway: Optional[str] = Field(None, description="OSM highway tag value")
     width_m: Optional[float] = Field(None, description="Estimated width in meters")
+    text_content: Optional[str] = Field(None, description="Content for Text entities")
 
     # For Polyline features
     coords_xy: Optional[List[List[float]]] = Field(None, description="Coordinates in projected CRS (SIRGAS 2000)")
@@ -64,6 +66,7 @@ class PrepareResponse(FrozenBaseModel):
     crs_out: Optional[str] = Field(None, description="Projected Coordinate Reference System", example="EPSG:31983")
     features: List[CadFeature] = Field(..., description="List of CAD-ready features")
     cache_hit: Optional[bool] = Field(None, description="Indicates if the result was served from cache")
+    audit_summary: Optional[Dict[str, Any]] = Field(None, description="GIS audit results")
 
 class JobStatusResponse(FrozenBaseModel):
     job_id: str = Field(..., description="Unique job identifier")

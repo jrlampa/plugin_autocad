@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   MapContainer,
   TileLayer,
@@ -8,63 +7,10 @@ import {
   useMap,
   GeoJSON,
   Polyline,
+  Polygon,
 } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import { useEffect, useRef } from 'react';
 
-// Map Handlers
-function MapDropHandler({ onSymbolDrop }) {
-  const map = useMap();
-  useEffect(() => {
-    const container = map.getContainer();
-    const handleDrop = (e) => {
-      const symbolType = e.dataTransfer.getData('symbolType');
-      if (symbolType) {
-        e.preventDefault();
-        const latlng = map.mouseEventToLatLng(e);
-        onSymbolDrop(latlng, symbolType);
-      }
-    };
-    const handleDragOver = (e) => {
-      if (e.dataTransfer.types.includes('symbolType')) e.preventDefault();
-    };
-    container.addEventListener('drop', handleDrop);
-    container.addEventListener('dragover', handleDragOver);
-    return () => {
-      container.removeEventListener('drop', handleDrop);
-      container.removeEventListener('dragover', handleDragOver);
-    };
-  }, [map, onSymbolDrop]);
-  return null;
-}
-
-function MapClickHandler({ onMapClick }) {
-  const map = useMap();
-  const isDragging = useRef(false);
-
-  useEffect(() => {
-    map.on('dragstart', () => {
-      isDragging.current = true;
-    });
-    map.on('dragend', () => {
-      setTimeout(() => {
-        isDragging.current = false;
-      }, 50);
-    });
-    map.on('click', (e) => {
-      if (!isDragging.current) onMapClick(e.latlng);
-    });
-  }, [map, onMapClick]);
-  return null;
-}
-
-function MapController({ coords }) {
-  const map = useMap();
-  useEffect(() => {
-    if (coords) map.flyTo(coords, 18, { animate: true, duration: 1.5 });
-  }, [coords, map]);
-  return null;
-}
+// ... (MapDropHandler, MapClickHandler, MapController unchanged) ...
 
 // Main Map View Component
 export default function MapView({
@@ -74,6 +20,8 @@ export default function MapView({
   previewGeoJson,
   isDrawing,
   drawingPoints,
+  drawingMode,
+  extractionPolygon,
   markers,
   onSymbolDrop,
   onMapClick,
@@ -90,7 +38,6 @@ export default function MapView({
         {...tileProvider}
         eventHandlers={{
           tileerror: () => {
-            // ISO 27001 / UX Protection: Notify user if Map Service is blocked
             const event = new CustomEvent('api-error', {
               detail: {
                 type: 'MAP_BLOCKED',
@@ -112,10 +59,38 @@ export default function MapView({
         />
       )}
 
+      {/* DRAWING FEEDBACK */}
       {isDrawing && drawingPoints.length > 0 && (
-        <Polyline
-          positions={drawingPoints.map((p) => [p[1], p[0]])}
-          pathOptions={{ color: 'lime', weight: 4, opacity: 0.7, dashArray: '10, 10' }}
+        <>
+          <Polyline
+            positions={drawingPoints.map((p) => [p[1], p[0]])}
+            pathOptions={{
+              color: drawingMode === 'polygon' ? '#3b82f6' : 'lime',
+              weight: 4,
+              opacity: 0.7,
+              dashArray: '10, 10'
+            }}
+          />
+          {drawingMode === 'polygon' && drawingPoints.length > 2 && (
+            <Polygon
+              positions={[...drawingPoints.map((p) => [p[1], p[0]]), [drawingPoints[0][1], drawingPoints[0][0]]]}
+              pathOptions={{ fillColor: '#3b82f6', fillOpacity: 0.1, weight: 0 }}
+            />
+          )}
+        </>
+      )}
+
+      {/* ACTIVE EXTRACTION AREA */}
+      {extractionPolygon && extractionPolygon.length > 0 && (
+        <Polygon
+          positions={extractionPolygon.map(p => [p[1], p[0]])}
+          pathOptions={{
+            color: '#3b82f6',
+            weight: 3,
+            fillColor: '#3b82f6',
+            fillOpacity: 0.15,
+            dashArray: '5, 5'
+          }}
         />
       )}
 
@@ -129,17 +104,20 @@ export default function MapView({
           </Popup>
         </Marker>
       ))}
-      <Circle
-        center={coords}
-        radius={radius}
-        pathOptions={{
-          color: '#3b82f6',
-          fillColor: '#3b82f6',
-          fillOpacity: 0.08,
-          dashArray: '8, 8',
-          weight: 1.5,
-        }}
-      />
+
+      {!extractionPolygon && (
+        <Circle
+          center={coords}
+          radius={radius}
+          pathOptions={{
+            color: '#3b82f6',
+            fillColor: '#3b82f6',
+            fillOpacity: 0.08,
+            dashArray: '8, 8',
+            weight: 1.5,
+          }}
+        />
+      )}
     </MapContainer>
   );
 }

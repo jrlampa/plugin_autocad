@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Settings, Globe, LayoutTemplate, Download, FileJson } from 'lucide-react';
+import { ArrowLeft, Settings, Globe, LayoutTemplate, Download, FileJson, AlertTriangle } from 'lucide-react';
 import JobOverlay from './JobOverlay';
 
 export default function SettingsPanel({
@@ -53,7 +53,7 @@ export default function SettingsPanel({
         <div className="p-8 pb-8">
           {!showSettings ? (
             <div className="space-y-7">
-              {/* ** PAINEL DE IMPORTAÇÃO GEOJSON (NOVO) ** */}
+              {/* ** PAINEL DE IMPORTAÇÃO GEOJSON ** */}
               {previewGeoJson && (
                 <div className="bg-amber-50/80 rounded-3xl border-2 border-amber-200/50 p-6 flex flex-col gap-4 shadow-lg animate-enter ring-1 ring-amber-500/10">
                   <div className="flex items-center gap-3">
@@ -100,7 +100,7 @@ export default function SettingsPanel({
                   {inputLoading ? (
                     <div className="animate-spin rounded-full h-5 w-5 border-2 border-slate-200 border-t-blue-500" />
                   ) : (
-                    <LayoutTemplate size={20} />
+                    <Globe size={20} />
                   )}
                 </div>
                 {inputText && (
@@ -112,6 +112,61 @@ export default function SettingsPanel({
                   </button>
                 )}
               </div>
+
+              {/* ** PAINEL DE AUDITORIA (NOVO) ** */}
+              {uiJob?.audit_summary && (
+                <div className="bg-slate-900 rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 duration-300 ring-1 ring-white/10">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400 mb-1">
+                        Auditoria Territorial
+                      </span>
+                      <h4 className="text-white text-lg font-black tracking-tight">Compliance Score</h4>
+                    </div>
+                    <div className="bg-blue-500/20 p-2.5 rounded-2xl border border-blue-500/30">
+                      <LayoutTemplate size={18} className="text-blue-400" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="bg-white/5 rounded-2xl p-4 border border-white/10 hover:bg-white/10 transition-colors group">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Violações</span>
+                      <div className="flex items-baseline gap-1">
+                        <span className={`text-2xl font-black ${uiJob.audit_summary.violations_count > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                          {uiJob.audit_summary.violations_count}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-bold">DETECTADAS</span>
+                      </div>
+                    </div>
+                    <div className="bg-white/5 rounded-2xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Iluminação</span>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-2xl font-black text-blue-400">
+                          {Math.round(uiJob.audit_summary.lighting_score * 100)}%
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-bold">COBERTURA</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {uiJob.audit_summary.violations_count > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest ml-1 mb-2">Alertas de Proximidade</p>
+                      <div className="max-h-32 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                        {uiJob.audit_summary.proximity_alerts?.map((alert, idx) => (
+                          <div key={idx} className="flex items-start gap-3 bg-red-400/10 border border-red-400/20 p-3 rounded-xl">
+                            <AlertTriangle size={14} className="text-red-400 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-[10px] font-bold text-red-100/90 leading-tight">{alert.description}</p>
+                              <p className="text-[9px] text-red-300/60 font-medium mt-0.5">{alert.distance.toFixed(1)}m de distância crítica</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* JOB OVERLAY */}
               {uiJob && <JobOverlay uiJob={uiJob} />}
@@ -195,7 +250,6 @@ export default function SettingsPanel({
                 </div>
               </div>
 
-              {/* GIS EXPORT (HARDENING) */}
               <div className="pt-4 border-t border-slate-200/50 space-y-3">
                 <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 ml-1">
                   <Download size={12} /> Interoperabilidade GIS

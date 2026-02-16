@@ -1,10 +1,10 @@
-import React from 'react';
-import { Lightbulb, TreePine, Spline, CheckCircle2, Zap, Loader2 } from 'lucide-react';
+import { Spline, CheckCircle2, Zap, Loader2, Scissors } from 'lucide-react';
 
 export default function Sidebar({
   mapLogic,
   isDrawing,
   drawingPoints,
+  drawingMode,
   loading,
   onToggleDrawing,
   onFinishDrawing,
@@ -18,42 +18,47 @@ export default function Sidebar({
       <div className="w-10 border-t border-white/20 my-1"></div>
 
       <DraggableTool
-        icon={<Lightbulb size={24} className="text-amber-400 fill-amber-400/20" />}
+        icon={<Lightbulb size={22} className="text-amber-400 fill-amber-400/20" />}
         label="Poste"
         type="POSTE"
         onDragStart={mapLogic.handleDragStart}
         description="Rede Elétrica"
       />
-      <DraggableTool
-        icon={<TreePine size={24} className="text-emerald-400 fill-emerald-400/20" />}
-        label="Árvore"
-        type="ARVORE"
-        onDragStart={mapLogic.handleDragStart}
-        description="Paisagismo"
-      />
 
       <div className="w-10 border-t border-white/20 my-1"></div>
 
+      {/* Manual Street Drawing */}
       <button
-        data-testid="btn-toggle-drawing"
-        onClick={onToggleDrawing}
-        className={`p-4 rounded-2xl shadow-xl transition-all active:scale-95 group relative ${isDrawing ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}`}
+        aria-label="Desenhar Rua"
+        onClick={() => onToggleDrawing('line')}
+        className={`p-4 rounded-2xl shadow-xl transition-all active:scale-95 group relative ${isDrawing && drawingMode === 'line' ? 'bg-red-500 hover:bg-red-600' : 'bg-slate-700/50 hover:bg-slate-700'}`}
       >
         <Spline size={24} className="text-white" />
         <span className="absolute left-full ml-4 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-          {isDrawing ? 'Cancelar Desenho' : 'Desenhar Rua'}
+          {isDrawing && drawingMode === 'line' ? 'Cancelar' : 'Desenhar Rua'}
         </span>
       </button>
 
-      {isDrawing && drawingPoints.length > 1 && (
+      {/* Area Selection (Polygon) */}
+      <button
+        aria-label="Selecionar Área"
+        onClick={() => onToggleDrawing('polygon')}
+        className={`p-4 rounded-2xl shadow-xl transition-all active:scale-95 group relative ${isDrawing && drawingMode === 'polygon' ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600/50 hover:bg-blue-600'}`}
+      >
+        <Scissors size={24} className="text-white" />
+        <span className="absolute left-full ml-4 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+          {isDrawing && drawingMode === 'polygon' ? 'Cancelar' : 'Selecionar Área'}
+        </span>
+      </button>
+
+      {isDrawing && drawingPoints.length > 2 && (
         <button
-          data-testid="btn-finish-drawing"
           onClick={onFinishDrawing}
-          className="p-4 rounded-2xl shadow-xl transition-all active:scale-95 group relative bg-blue-600 hover:bg-blue-500"
+          className="p-4 rounded-2xl shadow-xl transition-all active:scale-95 group relative bg-green-600 hover:bg-green-500 animate-in zoom-in"
         >
           <CheckCircle2 size={24} className="text-white" />
           <span className="absolute left-full ml-4 bg-slate-900 text-white text-xs font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
-            Finalizar Rua
+            Confirmar
           </span>
         </button>
       )}

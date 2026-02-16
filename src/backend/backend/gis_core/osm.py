@@ -18,30 +18,37 @@ from backend.gis_core.crs import sirgas2000_utm_epsg
 from backend.core.logger import get_logger
 from backend.gis_core.topology import TopologyHealer
 from backend.gis_core.geometry import apply_local_offset, snap_to_edge, get_bounding_offset
+from backend.gis_core.cartography import CartographyEngine
+from backend.gis_core.audit import SpatialAuditEngine
 
 logger = get_logger(__name__)
 
-def _fetch_overpass_data(lat: float, lon: float, radius: float, check_cancel: Callable = None):
+def _fetch_overpass_data(lat: float, lon: float, radius: float, polygon_coords: Optional[List[List[float]]] = None, check_cancel: Callable = None):
     """
     Fetches raw OSM data using the Overpass API without heavy libraries.
+    If polygon_coords is provided, it uses a poly query instead of a bounding box.
     """
     import requests
-    from shapely.geometry import Point, LineString, mapping
     
-    # Overpass QL query: Fetch all ways and nodes within radius
-    # We use a degree-based bounding box for the query
-    delta = radius / 111320.0 # Approximate degrees per meter
-    s, w, n, e = lat - delta, lon - delta, lat + delta, lon + delta
+    if polygon_coords and len(polygon_coords) >= 3:
+        # Overpass Poly format: "poly: 'lat1 lon1 lat2 lon2 ...'"
+        poly_str = " ".join([f"{p[0]} {p[1]}" for p in polygon_coords])
+        area_filter = f"(poly: '{poly_str}')"
+    else:
+        # We use a degree-based bounding box for the query
+        delta = radius / 111320.0 # Approximate degrees per meter
+        s, w, n, e = lat - delta, lon - delta, lat + delta, lon + delta
+        area_filter = f"({s},{w},{n},{e})"
     
     query = f"""
     [out:json][timeout:30];
     (
-      way["highway"]({s},{w},{n},{e});
-      node["highway"~"street_light|bus_stop|traffic_signals|crossing"]({s},{w},{n},{e});
-      node["power"="pole"]({s},{w},{n},{e});
-      node["amenity"~"fire_hydrant|bench|waste_basket"]({s},{w},{n},{e});
-      node["man_made"="manhole"]({s},{w},{n},{e});
-      node["natural"="tree"]({s},{w},{n},{e});
+      way["highway"]{area_filter};
+      node["highway"~"street_light|bus_stop|traffic_signals|crossing"]{area_filter};
+      node["power"="pole"]{area_filter};
+      node["amenity"~"fire_hydrant|bench|waste_basket"]{area_filter};
+      node["man_made"="manhole"]{area_filter};
+      node["natural"="tree"]{area_filter};
     );
     out body;
     >;
@@ -125,13 +132,18 @@ def prepare_osm_compute(
     radius: float, 
     cache_service: ICache,
     elevation_service: Any,
+    polygon_coords: Optional[List[List[float]]] = None,
     check_cancel: Callable[[], None] = None
 ) -> dict:
     if check_cancel: check_cancel()
     
     from pyproj import Transformer
+    import geopandas as gpd
+    from shapely.geometry import Point, Polygon as ShapelyPolygon
 
-    key = cache_key(["prepare_osm", f"{latitude:.6f}", f"{longitude:.6f}", str(int(radius))])
+    # Key includes polygon hash if present
+    poly_hash = str(hash(tuple(tuple(p) for p in polygon_coords))) if polygon_coords else "none"
+    key = cache_key(["prepare_osm", f"{latitude:.6f}", f"{longitude:.6f}", str(int(radius)), poly_hash])
     cached = cache_service.get(key)
     if cached is not None:
         cached["cache_hit"] = True
@@ -141,7 +153,7 @@ def prepare_osm_compute(
     
     try:
         # 1. Fetch data from Overpass
-        raw_data = _fetch_overpass_data(latitude, longitude, radius, check_cancel)
+        raw_data = _fetch_overpass_data(latitude, longitude, radius, polygon_coords, check_cancel)
         
         # 2. Parse and Project
         nodes_list, edges_list = _parse_overpass_to_features(raw_data, epsg_out)
@@ -360,7 +372,43 @@ def prepare_osm_compute(
     from backend.core.utils import clean_geometry
     features = clean_geometry(features)
 
-    payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features)
+    # 4. SPATIAL AUDIT (Análise de conformidade)
+    # Convert features to GDF for audit engine
+    audit_feats = []
+    for f in features:
+        if f.feature_type == "Polyline" and f.coords_xy:
+            from shapely.geometry import LineString
+            audit_feats.append({"geometry": LineString(f.coords_xy), "feature_type": f.highway or f.layer, "power": f.original_geojson_properties.get("power"), "building": f.original_geojson_properties.get("building")})
+        elif f.feature_type == "Point" and f.insertion_point_xy:
+            from shapely.geometry import Point
+            audit_feats.append({"geometry": Point(f.insertion_point_xy), "feature_type": f.block_name or f.layer, "power": f.original_geojson_properties.get("power")})
+    
+    audit_gdf = gpd.GeoDataFrame(audit_feats, crs=f"EPSG:{epsg_out}")
+    audit_summary, _ = SpatialAuditEngine.run_spatial_audit(audit_gdf)
+
+    # 5. CARTOGRAPHY INJECTION (North, Scale, Grid)
+    # Get bounds for the frame
+    min_x, min_y, max_x, max_y = get_bounding_offset(features, return_bounds=True)
+    
+    # North Arrow
+    features.extend(CartographyEngine.generate_north_arrow(max_x - origin_x - 10, max_y - origin_y - 10))
+    
+    # Scale Bar
+    features.extend(CartographyEngine.generate_scale_bar(min_x - origin_x + 10, min_y - origin_y + 10))
+    
+    # Coordinate Grid
+    # We use the absolute bounds but offset them for the generator mapping
+    grid_bounds = (min_x, min_y, max_x, max_y)
+    grid_features = CartographyEngine.generate_coordinate_grid(grid_bounds, step=100.0)
+    # Apply offset to grid features manually (they are generated in absolute)
+    for gf in grid_features:
+        if gf.feature_type == "Polyline" and gf.coords_xy:
+            gf.coords_xy = [[p[0] - origin_x, p[1] - origin_y] for p in gf.coords_xy]
+        elif gf.feature_type == "Text" and gf.insertion_point_xy:
+            gf.insertion_point_xy = [gf.insertion_point_xy[0] - origin_x, gf.insertion_point_xy[1] - origin_y]
+    features.extend(grid_features)
+
+    payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features, audit_summary=audit_summary)
     
     # Cache
     try:

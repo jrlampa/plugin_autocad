@@ -7,7 +7,8 @@ namespace sisRUA.Core.DTOs
     public enum CadFeatureDtoType
     {
         Polyline,
-        Point
+        Point,
+        Text
     }
 
     public sealed class CadFeatureDto
@@ -55,5 +56,8 @@ namespace sisRUA.Core.DTOs
 
         [JsonPropertyName("original_geojson_properties")]
         public Dictionary<string, object> OriginalGeoJsonProperties { get; set; }
+
+        [JsonPropertyName("text_content")]
+        public string TextContent { get; set; }
     }
 }

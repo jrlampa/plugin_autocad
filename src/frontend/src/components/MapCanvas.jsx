@@ -33,6 +33,8 @@ export default function MapCanvas({
           previewGeoJson={previewGeoJson}
           isDrawing={isDrawing}
           drawingPoints={drawingPoints}
+          drawingMode={drawingMode}
+          extractionPolygon={extractionPolygon}
           markers={mapLogic.markers}
           onSymbolDrop={mapLogic.handleSymbolDrop}
           onMapClick={handleMapClick}

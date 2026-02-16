@@ -45,6 +45,7 @@ class JobExecutor:
                     payload.radius, 
                     cache_service=self.cache_service,
                     elevation_service=elev_svc,
+                    polygon_coords=payload.polygon,
                     check_cancel=check_cancel
                 )
                 

@@ -111,6 +111,26 @@ namespace sisRUA.Engine
                             tr.AddNewlyCreatedDBObject(bref, true);
                             createdBlocks++;
                             break;
+
+                        case CadFeatureDtoType.Text:
+                            if (f.InsertionPointXy == null || f.InsertionPointXy.Count < 2) break;
+                            var textPt = new Point3d(f.InsertionPointXy[0] * metersToUnits, f.InsertionPointXy[1] * metersToUnits, f.Elevation ?? 0);
+                            
+                            var acText = new DBText();
+                            acText.TextString = f.TextContent ?? f.Name ?? "N/A";
+                            acText.Height = (f.Scale ?? 2.5) * metersToUnits;
+                            acText.Rotation = f.Rotation ?? 0.0;
+                            acText.Layer = layerName;
+                            acText.Position = textPt;
+                            
+                            // Center alignment support
+                            acText.HorizontalMode = TextHorizontalMode.TextCenter;
+                            acText.VerticalMode = TextVerticalMode.TextVerticalMid;
+                            acText.AlignmentPoint = textPt;
+
+                            ms.AppendEntity(acText);
+                            tr.AddNewlyCreatedDBObject(acText, true);
+                            break;
                     }
 
                     if (i % 50 == 0) // Reduced frequency of progress updates for speed

@@ -35,9 +35,12 @@ export default function App() {
     clearToast: clearFileToast
   } = useFileProcessing();
 
+  const [extractionPolygon, setExtractionPolygon] = useState(null);
+
   const {
     isDrawing,
     drawingPoints,
+    drawingMode,
     toggleDrawing,
     finishDrawing,
     addPoint
@@ -111,8 +114,6 @@ export default function App() {
       if (typeof event.data === 'string') {
         try {
           const message = JSON.parse(event.data);
-          // Auth handled in useFileProcessing or here? 
-          // Auth is critical, let's keep it here or shared.
           if (message.action === 'INIT_AUTH_TOKEN' && message.data.token) {
             console.log('Master token received from host. Establishing secure session...');
             api.setupSecurity(message.data.token);
@@ -121,7 +122,7 @@ export default function App() {
             setHostJob(message.data);
           }
           if (message.action === 'GEOLOCATION_SYNC' && message.data) {
-            console.log('Geolocation sync received from C#:', message.data);
+            console.log('Geolocation sync received from C#Sync:', message.data);
             setCoords({ lat: message.data.latitude, lng: message.data.longitude });
             setInputText(`${message.data.latitude.toFixed(6)}, ${message.data.longitude.toFixed(6)}`);
           }
@@ -167,6 +168,15 @@ export default function App() {
     }
   };
 
+  const handleFinishDrawing = () => {
+    if (drawingMode === 'polygon') {
+      if (drawingPoints.length > 2) {
+        setExtractionPolygon([...drawingPoints, drawingPoints[0]]);
+      }
+    }
+    finishDrawing();
+  };
+
   const handleGenerate = () => {
     if (window.chrome && window.chrome.webview) {
       const message = {
@@ -175,12 +185,11 @@ export default function App() {
           latitude: coords.lat,
           longitude: coords.lng,
           radius: radius,
+          polygon: extractionPolygon,
         },
       };
       window.chrome.webview.postMessage(message);
     } else {
-      // Use Toast instead of alert!
-      // For now, simpler to alert or we can add a local state for this warning
       alert('Esta funcionalidade está disponível apenas ao rodar o sisRUA dentro do AutoCAD.');
     }
   };
@@ -248,9 +257,10 @@ export default function App() {
         mapLogic={mapLogic}
         isDrawing={isDrawing}
         drawingPoints={drawingPoints}
+        drawingMode={drawingMode}
         loading={loading}
         onToggleDrawing={toggleDrawing}
-        onFinishDrawing={finishDrawing}
+        onFinishDrawing={handleFinishDrawing}
         onGenerate={handleGenerate}
       />
 
@@ -264,6 +274,8 @@ export default function App() {
         previewGeoJson={previewGeoJson}
         isDrawing={isDrawing}
         drawingPoints={drawingPoints}
+        drawingMode={drawingMode}
+        extractionPolygon={extractionPolygon}
         mapLogic={mapLogic}
         handleMapClick={handleMapClick}
       />
