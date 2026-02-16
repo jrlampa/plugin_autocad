@@ -39,11 +39,28 @@ namespace sisRUA.Core
 
         /// <summary>
         /// Reads the last persisted backend authentication token.
+        /// Automatically decrypts if token is DPAPI-encrypted.
         /// </summary>
-        /// <returns>Token string, or null if not found</returns>
+        /// <returns>Decrypted token string, or null if not found</returns>
         public string ReadLastToken()
         {
-            return ReadString(BackendConfiguration.TokenPersistenceFile);
+            string encryptedToken = ReadString(BackendConfiguration.TokenPersistenceFile);
+            if (string.IsNullOrWhiteSpace(encryptedToken))
+            {
+                return null;
+            }
+
+            try
+            {
+                // Decrypt if encrypted, otherwise return as-is (backward compatibility)
+                return TokenEncryption.Decrypt(encryptedToken);
+            }
+            catch (Exception ex)
+            {
+                _logger($"[BackendStateManager] Error decrypting token: {ex.Message}");
+                // Fall back to returning raw token if decryption fails
+                return encryptedToken;
+            }
         }
 
         /// <summary>
@@ -65,9 +82,8 @@ namespace sisRUA.Core
         }
 
         /// <summary>
-        /// Persists the backend authentication token.
-        /// NOTE: Currently stored in plaintext. File permissions restrict access to current user.
-        /// Future enhancement: Implement encryption at rest using Windows DPAPI (ProtectedData class).
+        /// Persists the backend authentication token with DPAPI encryption.
+        /// Token is encrypted using Windows Data Protection API for security at rest.
         /// </summary>
         public void PersistToken(string token)
         {
@@ -77,8 +93,20 @@ namespace sisRUA.Core
                 return;
             }
 
-            WriteString(BackendConfiguration.TokenPersistenceFile, token);
-            _logger("[BackendStateManager] Persisted authentication token");
+            try
+            {
+                // Encrypt token using DPAPI before persisting
+                string encryptedToken = TokenEncryption.Encrypt(token);
+                WriteString(BackendConfiguration.TokenPersistenceFile, encryptedToken);
+                _logger("[BackendStateManager] Persisted encrypted authentication token");
+            }
+            catch (Exception ex)
+            {
+                _logger($"[BackendStateManager] Error encrypting token: {ex.Message}");
+                // Fall back to plaintext if encryption fails (for compatibility)
+                WriteString(BackendConfiguration.TokenPersistenceFile, token);
+                _logger("[BackendStateManager] WARNING: Persisted token in plaintext (encryption failed)");
+            }
         }
 
         /// <summary>

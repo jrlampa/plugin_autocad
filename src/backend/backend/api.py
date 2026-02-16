@@ -7,6 +7,7 @@ import time
 import threading
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+from contextlib import asynccontextmanager
 
 # Configure Matplotlib backend to 'Agg' BEFORE any other matplotlib imports
 try:
@@ -32,6 +33,61 @@ from backend.core.logger import configure_logging, get_logger, set_trace_id
 configure_logging()
 logger = get_logger(__name__)
 
+# --- Lifespan Context Manager (replaces on_event) ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for startup and shutdown events.
+    Replaces deprecated @app.on_event decorators.
+    """
+    # Startup
+    logger.info("api_starting")
+    
+    from backend.core.container import setup_event_bus
+    setup_event_bus()
+    
+    def run_cleanup():
+        from backend.services.jobs import cleanup_expired_jobs
+        while True:
+            try:
+                cleanup_expired_jobs(max_age_seconds=3600)
+            except Exception as e:
+                logger.error("job_cleanup_failed", error=str(e))
+            time.sleep(600)
+
+    cleanup_thread = threading.Thread(target=run_cleanup, daemon=True)
+    cleanup_thread.start()
+
+    def run_housekeeping():
+        from backend.services.housekeeper import housekeeper_service
+        targets = [Path("logs").resolve(), Path("cache").resolve()]
+        try:
+            housekeeper_service.run_daily_cleanup([t for t in targets if t.exists()])
+        except Exception as e:
+            logger.error("housekeeper_failed", error=str(e))
+
+    housekeeping_thread = threading.Thread(target=run_housekeeping, daemon=True)
+    housekeeping_thread.start()
+
+    if os.environ.get("SISRUA_TESTING") != "true":
+        try:
+            from backend.core.ipc import IpcServer
+            from backend.core.config import AUTH_TOKEN
+            IpcServer(AUTH_TOKEN).start()
+        except:
+            pass
+
+    logger.info("api_started")
+    
+    yield  # Application runs
+    
+    # Shutdown
+    logger.info("api_shutting_down")
+    from backend.core.lifecycle import SHUTDOWN_EVENT, job_registry
+    SHUTDOWN_EVENT.set()
+    job_registry.wait_for_completion(timeout=10.0)
+    logger.info("api_shutdown_complete")
+
 app = FastAPI(
     title="sisRUA: The Urban Data Engine",
     version="1.1.0",
@@ -49,7 +105,8 @@ app = FastAPI(
         {"name": "Urban Data", "description": "Core geometry and data preparation services"},
         {"name": "Intelligence", "description": "AI and predictive design services"},
         {"name": "Infrastructure", "description": "Global health, jobs, and audit services"},
-    ]
+    ],
+    lifespan=lifespan  # Use lifespan context manager instead of on_event
 )
 
 # Middleware for Audit Logging (Trace ID)
@@ -139,8 +196,48 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS", "PUT"],
     allow_headers=["*"],
-    expose_headers=["X-SisRua-Token", "X-Request-ID"],
+    expose_headers=["X-SisRua-Token", "X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
 )
+
+# --- Rate Limiting Middleware ---
+from backend.core.rate_limit import RateLimitMiddleware
+app.add_middleware(RateLimitMiddleware)
+
+# --- HTTPS Enforcement Middleware (Production Only) ---
+from backend.core.config import IS_PROD
+
+@app.middleware("http")
+async def enforce_https(request: Request, call_next):
+    """
+    Enforce HTTPS in production environments.
+    Redirects HTTP requests to HTTPS and adds HSTS header.
+    """
+    if IS_PROD:
+        # Check if request is over HTTPS
+        is_https = (
+            request.url.scheme == "https" or
+            request.headers.get("X-Forwarded-Proto") == "https" or
+            request.headers.get("X-Forwarded-Ssl") == "on"
+        )
+        
+        # Allow health checks over HTTP for load balancers
+        if not is_https and request.url.path not in ["/health", "/api/v1/health"]:
+            # Redirect to HTTPS
+            https_url = str(request.url).replace("http://", "https://", 1)
+            return Response(
+                content=f"Redirecting to HTTPS: {https_url}",
+                status_code=301,
+                headers={"Location": https_url}
+            )
+    
+    response = await call_next(request)
+    
+    # Add HSTS header in production
+    if IS_PROD:
+        # max-age=31536000 (1 year), includeSubDomains, preload
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    
+    return response
 
 # --- Security Headers Middleware ---
 @app.middleware("http")
@@ -159,47 +256,6 @@ async def add_security_headers(request: Request, call_next):
     )
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
-
-# --- App Lifecycle ---
-@app.on_event("startup")
-async def startup_event():
-    setup_event_bus()
-    
-    def run_cleanup():
-        from backend.services.jobs import cleanup_expired_jobs
-        while True:
-            try:
-                cleanup_expired_jobs(max_age_seconds=3600)
-            except Exception as e:
-                logger.error("job_cleanup_failed", error=str(e))
-            time.sleep(600)
-
-    threading.Thread(target=run_cleanup, daemon=True).start()
-
-    def run_housekeeping():
-        from backend.services.housekeeper import housekeeper_service
-        targets = [Path("logs").resolve(), Path("cache").resolve()]
-        try:
-            housekeeper_service.run_daily_cleanup([t for t in targets if t.exists()])
-        except Exception as e:
-            logger.error("housekeeper_failed", error=str(e))
-
-    threading.Thread(target=run_housekeeping, daemon=True).start()
-
-    if os.environ.get("SISRUA_TESTING") != "true":
-        try:
-            from backend.core.ipc import IpcServer
-            IpcServer(AUTH_TOKEN).start()
-        except:
-            pass
-
-    logger.info("api_started")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    from backend.core.lifecycle import SHUTDOWN_EVENT, job_registry
-    SHUTDOWN_EVENT.set()
-    job_registry.wait_for_completion(timeout=10.0)
 
 # --- Router Registration ---
 from backend.routers import (
