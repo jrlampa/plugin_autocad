@@ -156,7 +156,15 @@ ALLOWED_ORIGINS = ["*"]  # Development/Plugin mode: permissive for WebView2
 
 @app.middleware("http")
 async def validate_origin(request: Request, call_next):
-    """ISO 27001: Strict Origin Validation."""
+    """
+    ISO 27001: Strict Origin Validation.
+    
+    Security Policy:
+    1. Health/docs endpoints: Always allowed
+    2. Browser requests (with Origin header): Must be from allowed origins
+    3. Non-browser requests (no Origin): Allowed only from localhost OR with valid auth
+    4. Testserver: Validation skipped for testing
+    """
     try:
         # Always allow health checks and documentation
         if request.url.path in ["/api/v1/health", "/health", "/docs", "/openapi.json", "/"]:
@@ -172,26 +180,31 @@ async def validate_origin(request: Request, call_next):
             return await call_next(request)
 
         origin = request.headers.get("Origin")
-        referer = request.headers.get("Referer")
         
-        # Validate origin if present (even with valid auth)
+        # Browser request (has Origin header) - strict validation required
         if origin:
-            # Allow localhost origins
-            if origin.startswith("http://localhost:") or origin.startswith("http://127.0.0.1:"):
+            # Allow localhost origins for development
+            if origin.startswith("http://localhost:") or origin.startswith("http://127.0.0.1:") or origin.startswith("https://localhost:") or origin.startswith("https://127.0.0.1:"):
                  return await call_next(request)
-            # Check if origin is in allowed list
-            if origin not in ALLOWED_ORIGINS:
-                logger.warning("security_violation_invalid_origin", origin=origin, client=client_host)
-                return Response("Forbidden: Invalid Origin", status_code=403)
-        
-        # If no origin header, require origin for API endpoints (unless local or has valid auth)
-        if not origin and not referer and request.url.path.startswith("/api/v1"):
-            if is_local or has_valid_auth:
-                return await call_next(request)
-            logger.warning("security_violation_no_origin", path=request.url.path, client=client_host)
-            return Response("Forbidden: Strict Origin Required", status_code=403)
             
-        return await call_next(request)
+            # Check if origin is in allowed list (including wildcard for dev)
+            if "*" in ALLOWED_ORIGINS or origin in ALLOWED_ORIGINS:
+                return await call_next(request)
+            
+            # Origin not allowed - block even with valid auth (CSRF protection)
+            logger.warning("security_violation_invalid_origin", origin=origin, client=client_host, has_auth=has_valid_auth)
+            return Response("Forbidden: Invalid Origin", status_code=403)
+        
+        # Non-browser request (no Origin header) - API clients, desktop apps, etc.
+        # Allow if: (local connection) OR (has valid authentication)
+        # This allows the C# plugin and other API clients to work
+        if is_local or has_valid_auth:
+            return await call_next(request)
+        
+        # No origin, not local, no auth - block
+        logger.warning("security_violation_no_origin_no_auth", path=request.url.path, client=client_host)
+        return Response("Forbidden: Authentication Required", status_code=401)
+            
     except Exception as e:
         logger.error("middleware_origin_validation_failed", error=str(e), path=request.url.path)
         # Fallback to next to avoid infinite loading on health check if something crashes
