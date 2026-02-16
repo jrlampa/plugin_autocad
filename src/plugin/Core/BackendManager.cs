@@ -14,10 +14,14 @@ namespace sisRUA.Core
     public class BackendManager
     {
         private Process _pythonProcess;
-        private static readonly HttpClient _healthClient = new HttpClient { Timeout = TimeSpan.FromSeconds(1.5) };
+        private static readonly HttpClient _healthClient = new HttpClient { Timeout = TimeSpan.FromSeconds(BackendConfiguration.HealthCheckRequestTimeoutSeconds) };
         private static readonly object _backendLock = new object();
         private System.Windows.Forms.Timer _watchdogTimer;
         private int _healthFailCount = 0;
+        
+        // Helper classes
+        private readonly PortManager _portManager;
+        private readonly BackendStateManager _stateManager;
         
         // Callbacks for logging
         public Action<string> OnLog { get; set; }
@@ -26,6 +30,12 @@ namespace sisRUA.Core
         public int Port { get; private set; }
         public string BaseUrl => Port > 0 ? $"http://127.0.0.1:{Port}" : null;
         public string AuthToken { get; private set; }
+        
+        public BackendManager()
+        {
+            _portManager = new PortManager(Log);
+            _stateManager = new BackendStateManager(GetLocalSisRuaDir(), Log);
+        }
 
         public const string AuthHeaderName = "X-SisRua-Token";
         private const string AuthEnvVarName = "SISRUA_AUTH_TOKEN";
@@ -57,7 +67,7 @@ namespace sisRUA.Core
                     using (var startupMutex = new Mutex(false, @"Global\sisRUA_Backend_Init"))
                     {
                         bool hasHandle = false;
-                        try { hasHandle = startupMutex.WaitOne(15000, false); } catch (AbandonedMutexException) { hasHandle = true; }
+                        try { hasHandle = startupMutex.WaitOne(BackendConfiguration.InitMutexTimeoutMs, false); } catch (AbandonedMutexException) { hasHandle = true; }
 
                         try
                         {
@@ -127,15 +137,16 @@ namespace sisRUA.Core
                 }
 
                 // Fallback: kill persisted PID
-                int pid = TryReadLastBackendPid();
+                int pid = _stateManager.ReadLastPid();
                 if (pid > 0)
                 {
                      try 
                      { 
                         KillProcessTree(pid); 
-                        Log($"Processo órfão (PID {pid}) finalizado via fallback.");
+                        Log($"[BackendManager] Processo órfão (PID {pid}) finalizado via fallback.");
+                        _stateManager.ClearPid();
                      } 
-                     catch(Exception ex) { Log($"Erro ao finalizar processo órfão: {ex.Message}"); }
+                     catch(Exception ex) { Log($"[BackendManager] Erro ao finalizar processo órfão: {ex.Message}"); }
                 }
             }
             catch (Exception ex)
@@ -158,7 +169,7 @@ namespace sisRUA.Core
                     // Wait for it to actually exit
                     if (_pythonProcess != null)
                     {
-                        return _pythonProcess.WaitForExit(3000); // Wait up to 3 seconds
+                        return _pythonProcess.WaitForExit(BackendConfiguration.GracefulShutdownWaitSeconds * 1000);
                     }
                     return true;
                 }
@@ -180,15 +191,15 @@ namespace sisRUA.Core
         private void InitializeBackendProcess(string projectRoot)
         {
             // 1. Check if already running/healthy
-            int previousPort = TryReadLastBackendPort();
+            int previousPort = _stateManager.ReadLastPort();
             if (previousPort > 0) Port = previousPort;
 
-            string previousToken = TryReadLastBackendToken();
+            string previousToken = _stateManager.ReadLastToken();
             if (!string.IsNullOrWhiteSpace(previousToken)) AuthToken = previousToken;
             else
             {
                 AuthToken = Guid.NewGuid().ToString("N");
-                PersistBackendToken(AuthToken);
+                _stateManager.PersistToken(AuthToken);
             }
 
             if (IsBackendHealthy() && IsBackendAuthorized())
@@ -198,7 +209,7 @@ namespace sisRUA.Core
             }
 
             // 2. Check previous PID
-            int previousPid = TryReadLastBackendPid();
+            int previousPid = _stateManager.ReadLastPid();
             if (previousPid > 0)
             {
                 try
@@ -206,27 +217,28 @@ namespace sisRUA.Core
                     Process p = Process.GetProcessById(previousPid);
                     if (p != null && !p.HasExited)
                     {
-                        Log($"Backend (PID {previousPid}) detectado. Aguardando...");
-                        if (WaitForBackendHealthy(TimeSpan.FromSeconds(15)) && IsBackendAuthorized())
+                        Log($"[BackendManager] Backend (PID {previousPid}) detectado. Aguardando...");
+                        if (WaitForBackendHealthy(TimeSpan.FromSeconds(BackendConfiguration.PreviousPidWaitTimeoutSeconds)) && IsBackendAuthorized())
                         {
-                            Log($"Backend (PID {previousPid}) reutilizado com sucesso.");
+                            Log($"[BackendManager] Backend (PID {previousPid}) reutilizado com sucesso.");
                             _pythonProcess = p;
                             return;
                         }
                         
-                        Log($"Backend (PID {previousPid}) não respondeu. Reiniciando...");
+                        Log($"[BackendManager] Backend (PID {previousPid}) não respondeu. Reiniciando...");
                         KillProcessTree(previousPid);
+                        _stateManager.ClearPid();
                     }
                 }
                 catch (ArgumentException) { /* Process gone */ }
-                catch (Exception ex) { Log($"[Aviso] Erro ao verificar PID anterior: {ex.Message}"); }
+                catch (Exception ex) { Log($"[BackendManager] Aviso: Erro ao verificar PID anterior: {ex.Message}"); }
             }
 
             // 3. Start New
-            Port = ChooseFreePort();
-            PersistBackendPort(Port);
+            Port = _portManager.AllocatePort();
+            _stateManager.PersistPort(Port);
             AuthToken = Guid.NewGuid().ToString("N");
-            PersistBackendToken(AuthToken);
+            _stateManager.PersistToken(AuthToken);
 
             string backendExePath = Path.Combine(projectRoot, "backend", "sisrua_backend.exe");
 
@@ -247,7 +259,7 @@ namespace sisRUA.Core
 
         private void StartExeBackend(string exePath, string workDir)
         {
-            Log($"Iniciando backend empacotado na porta {Port}...");
+            Log($"[BackendManager] Iniciando backend empacotado na porta {Port}...");
             var psi = new ProcessStartInfo(exePath)
             {
                 WorkingDirectory = workDir,
@@ -263,29 +275,32 @@ namespace sisRUA.Core
             if (_pythonProcess == null || _pythonProcess.HasExited)
                 throw new InvalidOperationException("Falha ao iniciar sisrua_backend.exe");
             
-            PersistBackendPid(_pythonProcess.Id);
+            _stateManager.PersistPid(_pythonProcess.Id);
 
             // Wait for Pipe Server to be up
-            if (WaitForPipeServer(TimeSpan.FromSeconds(45)))
+            if (WaitForPipeServer(TimeSpan.FromSeconds(BackendConfiguration.PipeServerTimeoutSeconds)))
             {
-                string token = GetTokenFromIpc();
+                string token = GetTokenFromIpcWithRetry();
                 if (!string.IsNullOrEmpty(token))
                 {
                     AuthToken = token;
-                    PersistBackendToken(AuthToken);
-                    Log("Token recuperado com sucesso via Secure IPC (EXE).");
+                    _stateManager.PersistToken(AuthToken);
+                    Log("[BackendManager] Token recuperado com sucesso via Secure IPC (EXE).");
                 }
                 else
                 {
-                    Log("[ERROR] Falha ao recuperar token via IPC mesmo com servidor de pipe ativo.");
+                    Log("[BackendManager] ERRO: Falha ao recuperar token via IPC após múltiplas tentativas.");
+                    throw new InvalidOperationException("IPC token retrieval failed after retries. Check Windows Event Log for backend IPC server errors.");
                 }
             }
             else
             {
-                Log("[ERROR] Timeout aguardando Servidor de Pipe (IPC) do Backend EXE.");
+                Log("[BackendManager] ERRO: Timeout aguardando Servidor de Pipe (IPC) do Backend EXE.");
+                throw new TimeoutException($"Backend IPC pipe server não disponível após {BackendConfiguration.PipeServerTimeoutSeconds}s");
             }
             
-            if (!WaitForBackendHealthy(TimeSpan.FromSeconds(90))) Log("[ERROR] Backend (EXE) iniciou mas health check falhou apos 90s.");
+            if (!WaitForBackendHealthy(TimeSpan.FromSeconds(BackendConfiguration.BackendHealthTimeoutSeconds))) 
+                Log("[BackendManager] ERRO: Backend (EXE) iniciou mas health check falhou.");
         }
 
 
@@ -312,30 +327,31 @@ namespace sisRUA.Core
              // psi.EnvironmentVariables[AuthEnvVarName] = AuthToken;
 
              _pythonProcess = Process.Start(psi);
-             PersistBackendPid(_pythonProcess.Id);
+             _stateManager.PersistPid(_pythonProcess.Id);
 
              // Wait for Pipe Server to be up
-             if (!WaitForPipeServer(TimeSpan.FromSeconds(45)))
+             if (!WaitForPipeServer(TimeSpan.FromSeconds(BackendConfiguration.PipeServerTimeoutSeconds)))
              {
-                 Log("[Aviso] IPC Pipe não disponível após 45s. Tentando fallback ou aguardando HTTP...");
+                 Log($"[BackendManager] Aviso: IPC Pipe não disponível após {BackendConfiguration.PipeServerTimeoutSeconds}s. Tentando fallback ou aguardando HTTP...");
              }
              else
              {
-                 // Retrieve Token from Backend via Pipe
-                 string token = GetTokenFromIpc();
+                 // Retrieve Token from Backend via Pipe with retry
+                 string token = GetTokenFromIpcWithRetry();
                  if (!string.IsNullOrEmpty(token))
                  {
                      AuthToken = token;
-                     PersistBackendToken(AuthToken); // Sync to local file just in case
-                     Log("Token recuperado com sucesso via Secure IPC.");
+                     _stateManager.PersistToken(AuthToken);
+                     Log("[BackendManager] Token recuperado com sucesso via Secure IPC (Python).");
                  }
                  else
                  {
-                     Log("[ERROR] Falha ao recuperar token via IPC.");
+                     Log("[BackendManager] ERRO: Falha ao recuperar token via IPC após múltiplas tentativas.");
                  }
              }
 
-             if (!WaitForBackendHealthy(TimeSpan.FromSeconds(60))) Log("[ERROR] Backend (Python) iniciou mas health check falhou apos 60s.");
+             if (!WaitForBackendHealthy(TimeSpan.FromSeconds(BackendConfiguration.PythonBackendHealthTimeoutSeconds))) 
+                 Log("[BackendManager] ERRO: Backend (Python) iniciou mas health check falhou.");
         }
         
         private bool WaitForPipeServer(TimeSpan timeout)
@@ -343,18 +359,15 @@ namespace sisRUA.Core
             var sw = Stopwatch.StartNew();
             while (sw.Elapsed < timeout)
             {
-                if (File.Exists(@"\\.\pipe\sisrua_backend")) return true; // Simple check if pipe exists
-                // Note: File.Exists might not work for pipes on all .NET versions, 
-                // but attempting connection is robust.
                 try 
                 { 
-                    using (var client = new System.IO.Pipes.NamedPipeClientStream(".", "sisrua_backend", System.IO.Pipes.PipeDirection.InOut))
+                    using (var client = new System.IO.Pipes.NamedPipeClientStream(".", BackendConfiguration.IpcPipeName, System.IO.Pipes.PipeDirection.InOut))
                     {
-                        client.Connect(100);
+                        client.Connect(BackendConfiguration.PipeTestConnectionMs);
                         return true;
                     }
                 } 
-                catch { Thread.Sleep(500); }
+                catch { Thread.Sleep(BackendConfiguration.PipeCheckDelayMs); }
             }
             return false;
         }
@@ -363,24 +376,51 @@ namespace sisRUA.Core
         {
             try
             {
-                using (var client = new System.IO.Pipes.NamedPipeClientStream(".", "sisrua_backend", System.IO.Pipes.PipeDirection.InOut))
+                using (var client = new System.IO.Pipes.NamedPipeClientStream(".", BackendConfiguration.IpcPipeName, System.IO.Pipes.PipeDirection.InOut))
                 {
-                    client.Connect(2000);
+                    client.Connect(BackendConfiguration.IpcConnectTimeoutMs);
                     // Send Request
-                    byte[] request = Encoding.UTF8.GetBytes("GET_TOKEN");
+                    byte[] request = Encoding.UTF8.GetBytes(BackendConfiguration.IpcGetTokenRequest);
                     client.Write(request, 0, request.Length);
                     
                     // Read Response
-                    byte[] buffer = new byte[4096];
+                    byte[] buffer = new byte[BackendConfiguration.IpcBufferSize];
                     int bytesRead = client.Read(buffer, 0, buffer.Length);
                     return Encoding.UTF8.GetString(buffer, 0, bytesRead);
                 }
             }
             catch (Exception ex)
             {
-                Log($"Erro no Secure IPC: {ex.Message}");
+                Log($"[BackendManager] Erro no Secure IPC: {ex.Message}");
                 return null;
             }
+        }
+        
+        /// <summary>
+        /// Retrieves token from IPC with exponential backoff retry.
+        /// </summary>
+        private string GetTokenFromIpcWithRetry()
+        {
+            for (int attempt = 1; attempt <= BackendConfiguration.IpcMaxRetries; attempt++)
+            {
+                string token = GetTokenFromIpc();
+                if (!string.IsNullOrEmpty(token))
+                {
+                    if (attempt > 1)
+                        Log($"[BackendManager] IPC token recuperado na tentativa {attempt}/{BackendConfiguration.IpcMaxRetries}");
+                    return token;
+                }
+                
+                if (attempt < BackendConfiguration.IpcMaxRetries)
+                {
+                    int delayMs = BackendConfiguration.IpcRetryBaseDelayMs * (int)Math.Pow(2, attempt - 1);
+                    Log($"[BackendManager] Tentativa IPC {attempt}/{BackendConfiguration.IpcMaxRetries} falhou. Aguardando {delayMs}ms...");
+                    Thread.Sleep(delayMs);
+                }
+            }
+            
+            Log($"[BackendManager] ERRO: IPC token recovery falhou após {BackendConfiguration.IpcMaxRetries} tentativas.");
+            return null;
         }
 
         
@@ -399,10 +439,10 @@ namespace sisRUA.Core
         private void StartWatchdog()
         {
             if (_watchdogTimer != null) return;
-            _watchdogTimer = new System.Windows.Forms.Timer { Interval = 30000 };
+            _watchdogTimer = new System.Windows.Forms.Timer { Interval = BackendConfiguration.WatchdogIntervalMs };
             _watchdogTimer.Tick += (s, e) => CheckHealthAsync();
             _watchdogTimer.Start();
-            Log("Watchdog ativado.");
+            Log("[BackendManager] Watchdog ativado.");
         }
 
         private void StopWatchdog()
@@ -421,13 +461,11 @@ namespace sisRUA.Core
                  if (!IsBackendHealthy())
                  {
                      Interlocked.Increment(ref _healthFailCount);
-                     Log($"[Watchdog] Backend não responde ({_healthFailCount}/3).");
-                     if (_healthFailCount >= 3)
+                     Log($"[BackendManager] Watchdog: Backend não responde ({_healthFailCount}/{BackendConfiguration.MaxHealthFailures}).");
+                     if (_healthFailCount >= BackendConfiguration.MaxHealthFailures)
                      {
-                         Log("[Watchdog] Backend instável. Reiniciando...");
+                         Log("[BackendManager] Watchdog: Backend instável. Reiniciando...");
                          _healthFailCount = 0;
-                         // In a real scenario, trigger a restart event or callback
-                         // For now, simpler logic:
                          Start(); // Re-initialize
                      }
                  }
@@ -552,45 +590,6 @@ namespace sisRUA.Core
         {
              string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
              return Path.Combine(localAppData, "sisRUA");
-        }
-
-        private int TryReadLastBackendPort()
-        {
-            try { return int.Parse(File.ReadAllText(Path.Combine(GetLocalSisRuaDir(), "backend_port.txt"))); }
-            catch { return 0; }
-        }
-
-        private string TryReadLastBackendToken()
-        {
-             try { return File.ReadAllText(Path.Combine(GetLocalSisRuaDir(), "backend_token.txt")); }
-             catch { return null; }
-        }
-
-        private int TryReadLastBackendPid()
-        {
-             try { return int.Parse(File.ReadAllText(Path.Combine(GetLocalSisRuaDir(), "backend_pid.txt"))); }
-             catch { return 0; }
-        }
-
-        private void PersistBackendPort(int port) => SafeWrite("backend_port.txt", port.ToString());
-        private void PersistBackendToken(string token) => SafeWrite("backend_token.txt", token);
-        private void PersistBackendPid(int pid) => SafeWrite("backend_pid.txt", pid.ToString());
-
-        private void SafeWrite(string filename, string content)
-        {
-            try {
-                Directory.CreateDirectory(GetLocalSisRuaDir());
-                File.WriteAllText(Path.Combine(GetLocalSisRuaDir(), filename), content);
-            } catch { }
-        }
-
-        private int ChooseFreePort()
-        {
-            var l = new TcpListener(IPAddress.Loopback, 0);
-            l.Start();
-            int p = ((IPEndPoint)l.LocalEndpoint).Port;
-            l.Stop();
-            return p;
         }
     }
 }

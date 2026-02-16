@@ -1,10 +1,63 @@
 import os
+import sys
 import hashlib
 import json
 import math
+import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Any, List, Dict
 from pydantic import BaseModel
+
+def get_resource_path(relative_path: str) -> Path:
+    """
+    Helper para carregar recursos em PyInstaller vs Dev.
+    PyInstaller empacota recursos em sys._MEIPASS.
+    
+    Args:
+        relative_path: Caminho relativo a partir de Contents/ (ex: "Resources/layers.json")
+    
+    Returns:
+        Path absoluto do recurso
+    """
+    if getattr(sys, "frozen", False):
+        # PyInstaller: executável em Contents/backend/sisrua_backend.exe
+        # sys._MEIPASS aponta para o diretório temporário de extração
+        # Precisamos subir 1 nível e acessar Resources/
+        exe_dir = Path(sys.executable).resolve().parent  # Contents/backend/
+        contents_dir = exe_dir.parent  # Contents/
+        resource_path = contents_dir / relative_path
+    else:
+        # Desenvolvimento: backend/core/utils.py
+        # Precisamos subir até o root e entrar em bundle-template/sisRUA.bundle/Contents/
+        current_file = Path(__file__).resolve()
+        repo_root = current_file.parent.parent.parent.parent
+        resource_path = repo_root / "bundle-template" / "sisRUA.bundle" / "Contents" / relative_path
+    
+    return resource_path
+
+def log_debug_paths() -> None:
+    """
+    Log paths para troubleshooting (dev vs PyInstaller).
+    Escreve em %TEMP%\sisrua_debug.log.
+    """
+    debug_file = Path(tempfile.gettempdir()) / "sisrua_debug.log"
+    with open(debug_file, "a", encoding="utf-8") as f:
+        f.write(f"\n=== sisRUA Backend Debug - {datetime.now().isoformat()} ===\n")
+        f.write(f"sys.frozen: {getattr(sys, 'frozen', False)}\n")
+        f.write(f"sys.executable: {sys.executable}\n")
+        f.write(f"__file__: {__file__}\n")
+        if getattr(sys, "frozen", False):
+            f.write(f"sys._MEIPASS: {getattr(sys, '_MEIPASS', 'N/A')}\n")
+        f.write(f"sys.path: {sys.path}\n")
+        
+        # Testa carregar layers.json
+        try:
+            layers_path = get_resource_path("Resources/layers.json")
+            f.write(f"layers.json path: {layers_path}\n")
+            f.write(f"layers.json exists: {layers_path.exists()}\n")
+        except Exception as e:
+            f.write(f"layers.json error: {e}\n")
 
 def cache_dir() -> Path:
     base = Path(os.environ.get("LOCALAPPDATA") or Path.home())
@@ -128,17 +181,9 @@ def estimate_width_m(row: Any, highway: Optional[str]) -> Optional[float]:
 def get_layer_config() -> Dict[str, Any]:
     """
     Carrega a configuração de layers (Normas Brasileiras).
-    Busca dinamicamente no repo ou no bundle.
+    Compatível com PyInstaller e desenvolvimento.
     """
-    current_file = Path(__file__).resolve()
-    repo_root = current_file.parent.parent.parent.parent
-    
-    # 1. Tenta no bundle-template (Desenvolvimento)
-    layers_path = repo_root / "bundle-template" / "sisRUA.bundle" / "Contents" / "Resources" / "layers.json"
-    
-    if not layers_path.exists():
-        # 2. Tenta no layout de produção (Contents/Resources)
-        layers_path = current_file.parent.parent / "Resources" / "layers.json"
+    layers_path = get_resource_path("Resources/layers.json")
         
     if layers_path.exists():
         try:
@@ -146,7 +191,7 @@ def get_layer_config() -> Dict[str, Any]:
                 return json.load(f)
         except Exception as e:
             from backend.core.logger import logger
-            logger.error("json_load_failed", error=str(e), path=path)
+            logger.error("json_load_failed", error=str(e), path=str(layers_path))
             
     # Fallback Hardcoded (Normas Brasileiras simplificadas)
     return {

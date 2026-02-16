@@ -150,6 +150,10 @@ def main(argv: list[str] | None = None) -> int:
 
     from backend.api import app  # noqa: WPS433 (import local intencional para empacotamento)
 
+    # Log debug paths para troubleshooting
+    from backend.core.utils import log_debug_paths
+    log_debug_paths()
+
     uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level, log_config=log_config, access_log=False)
     return 0
 

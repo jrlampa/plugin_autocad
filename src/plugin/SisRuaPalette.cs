@@ -27,6 +27,8 @@ namespace sisRUA
         private static Panel _splashPanel;
         private static Label _splashLabel;
         private static System.Windows.Forms.Timer _splashTimer;
+        private static System.Windows.Forms.Timer _navigationTimeoutTimer;
+        private static int _navigationAttempts = 0;
         private static int _messageIndex = 0;
         private static readonly string[] _loadingMessages = new[]
         {
@@ -406,6 +408,9 @@ namespace sisRUA
                 
                 // Configura a ponte de comunicação JS -> C#
                 _webView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
+                
+                // Adiciona handler para navegação completa com failsafe
+                _webView.CoreWebView2.NavigationCompleted += CoreWebView2_NavigationCompleted;
 
                 // --- Mitigação Prática: Auth Interception ---
                 // Intercepta todas as chamadas para injetar o header de forma invisível.
@@ -432,8 +437,12 @@ namespace sisRUA
                 else
                 {
                     // Em geral o plugin já aguardou o /health no Initialize(), mas aqui damos um "seguro" extra.
-                    SisRuaPlugin.EnsureBackendHealthy(TimeSpan.FromSeconds(5));
+                    SisRuaPlugin.EnsureBackendHealthy(TimeSpan.FromSeconds(sisRUA.Core.BackendConfiguration.WebViewBackendHealthCheckSeconds));
                 }
+                
+                // Start timeout failsafe for APP_READY message
+                StartNavigationTimeoutFailsafe();
+                
                 _webView.Source = new Uri(baseUrl);
             }
             catch (System.Exception ex)
@@ -457,6 +466,122 @@ namespace sisRUA
                 return Path.Combine(Path.GetTempPath(), "sisRUA_webview2");
             }
             return Path.Combine(localSisRuaDir, "webview2");
+        }
+
+        /// <summary>
+        /// Handles navigation completion events for the WebView.
+        /// Implements retry logic if navigation fails.
+        /// </summary>
+        private void CoreWebView2_NavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            try
+            {
+                if (e.IsSuccess)
+                {
+                    Debug.WriteLine("[SisRuaPalette] WebView navigation completed successfully.");
+                }
+                else
+                {
+                    string errorStatus = e.WebErrorStatus.ToString();
+                    SisRuaLog.Log("ERROR", $"[SisRuaPalette] WebView navigation failed: {errorStatus}");
+                    
+                    // Retry logic for failed navigation
+                    if (_navigationAttempts < sisRUA.Core.BackendConfiguration.WebViewNavigationMaxRetries)
+                    {
+                        _navigationAttempts++;
+                        SisRuaLog.Log("WARN", $"[SisRuaPalette] Retrying navigation (attempt {_navigationAttempts}/{sisRUA.Core.BackendConfiguration.WebViewNavigationMaxRetries})...");
+                        
+                        Task.Delay(sisRUA.Core.BackendConfiguration.WebViewNavigationRetryDelayMs).ContinueWith(_ =>
+                        {
+                            if (_webView != null && _webView.IsHandleCreated)
+                            {
+                                _webView.BeginInvoke((Action)(() =>
+                                {
+                                    string baseUrl = SisRuaPlugin.BackendBaseUrl;
+                                    if (!string.IsNullOrWhiteSpace(baseUrl))
+                                    {
+                                        _webView.Source = new Uri(baseUrl);
+                                    }
+                                }));
+                            }
+                        });
+                    }
+                    else
+                    {
+                        SisRuaLog.Log("ERROR", $"[SisRuaPalette] Navigation failed after {_navigationAttempts} attempts. Error: {errorStatus}");
+                        StopNavigationTimeout();
+                        
+                        MessageBox.Show(
+                            $"Falha ao carregar a interface do sisRUA após múltiplas tentativas.\\n\\n" +
+                            $"Erro: {errorStatus}\\n\\n" +
+                            $"Verifique:\\n" +
+                            $"1. Se o backend está em execução (consulte os logs em %LOCALAPPDATA%\\sisRUA\\logs\\)\\n" +
+                            $"2. Se há problemas de rede ou firewall\\n" +
+                            $"3. Se o port {SisRuaPlugin.BackendPort} está disponível",
+                            "Erro sisRUA - Navegação",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error
+                        );
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.WriteLine($"[SisRuaPalette] Error in NavigationCompleted handler: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Starts a timeout timer that shows an error if APP_READY is not received within the configured timeout.
+        /// </summary>
+        private void StartNavigationTimeoutFailsafe()
+        {
+            StopNavigationTimeout(); // Clear any existing timer
+            
+            _navigationTimeoutTimer = new System.Windows.Forms.Timer
+            {
+                Interval = sisRUA.Core.BackendConfiguration.WebViewNavigationTimeoutSeconds * 1000
+            };
+            
+            _navigationTimeoutTimer.Tick += (s, e) =>
+            {
+                StopNavigationTimeout();
+                
+                // Only show error if splash is still visible (APP_READY not received)
+                if (_splashPanel != null && _splashPanel.Visible)
+                {
+                    SisRuaLog.Log("WARN", $"[SisRuaPalette] APP_READY timeout: Frontend não enviou mensagem de inicialização em {sisRUA.Core.BackendConfiguration.WebViewNavigationTimeoutSeconds}s");
+                    
+                    MessageBox.Show(
+                        $"A interface do sisRUA não completou a inicialização no tempo esperado.\\n\\n" +
+                        $"Possíveis causas:\\n" +
+                        $"1. Backend está lento ou sobrecarregado\\n" +
+                        $"2. Recursos frontend não foram carregados corretamente\\n" +
+                        $"3. Problema de comunicação entre WebView e backend\\n\\n" +
+                        $"Tente fechar e reabrir o sisRUA. Se o problema persistir, consulte os logs em:\\n" +
+                        $"%LOCALAPPDATA%\\sisRUA\\logs\\",
+                        "Aviso sisRUA - Tempo Esgotado",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning
+                    );
+                }
+            };
+            
+            _navigationTimeoutTimer.Start();
+            Debug.WriteLine($"[SisRuaPalette] Navigation timeout failsafe started ({sisRUA.Core.BackendConfiguration.WebViewNavigationTimeoutSeconds}s)");
+        }
+
+        /// <summary>
+        /// Stops the navigation timeout timer.
+        /// </summary>
+        private void StopNavigationTimeout()
+        {
+            if (_navigationTimeoutTimer != null)
+            {
+                _navigationTimeoutTimer.Stop();
+                _navigationTimeoutTimer.Dispose();
+                _navigationTimeoutTimer = null;
+            }
         }
 
         /// <summary>
@@ -537,6 +662,7 @@ namespace sisRUA
 
                         case "APP_READY":
                             Debug.WriteLine("[sisRUA] Handshake recebido: React está pronto.");
+                            StopNavigationTimeout(); // Stop the timeout failsafe
                             if (_splashPanel != null && _webView != null)
                             {
                                 _splashTimer?.Stop();
