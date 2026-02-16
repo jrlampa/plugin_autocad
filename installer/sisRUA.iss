@@ -58,7 +58,8 @@ procedure KillBackendProcess;
 var
   ResultCode: Integer;
 begin
-  // Tenta matar qualquer instância do backend rodando
+  // Tenta matar qualquer instância do backend (via script ou residual)
+  Exec('taskkill', '/F /IM python.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec('taskkill', '/F /IM sisrua_backend.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 

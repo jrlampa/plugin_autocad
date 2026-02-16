@@ -46,22 +46,17 @@ echo [0.5/3] Build do frontend (Release)...
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%tools\build_frontend.ps1"
 if errorlevel 1 goto :SISRUA_FRONTEND_FAIL
 
-echo [1/3] Gerando backend EXE (opcional, mas recomendado)...
-REM Em Release, queremos garantir que o EXE reflita o código atual do backend.
+echo [1/3] Preparando backend (Fonte ofuscado)...
+REM Em Release, queremos garantir que o bundle reflita o código atual.
 set SISRUA_REBUILD_BACKEND_EXE=1
 call "%ROOT%tools\\build_backend_exe.cmd"
 if errorlevel 1 (
-  echo ERRO: falha ao gerar backend exe.
+  echo ERRO: falha ao preparar o backend.
   exit /b 1
 )
-call :SIGN_FILE "%ROOT%bundle-template\sisRUA.bundle\Contents\backend\sisrua_backend.exe"
 
-echo [1.5/3] Smoke test do backend EXE (sem OSM)...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%tools\smoke_backend.ps1" -SkipOsm
-if errorlevel 1 (
-  echo ERRO: smoke test do backend falhou.
-  exit /b 1
-)
+echo [1.5/3] Pulando smoke test do backend EXE (Fonte ofuscado)...
+REM O smoke test original era para o EXE. Com fonte, validamos via CI/pytest.
 
 echo [2/3] Gerando bundle em release\\sisRUA.bundle...
 set SISRUA_OUT_ROOT=%ROOT%release

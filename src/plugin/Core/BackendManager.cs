@@ -205,16 +205,22 @@ namespace sisRUA.Core
             PersistBackendToken(AuthToken);
 
             string backendExePath = Path.Combine(projectRoot, "backend", "sisrua_backend.exe");
+            string backendBatPath = Path.Combine(projectRoot, "backend", "sisrua_backend.bat");
+
             if (File.Exists(backendExePath))
             {
                 StartExeBackend(backendExePath, projectRoot);
+            }
+            else if (File.Exists(backendBatPath))
+            {
+                StartBatBackend(backendBatPath, projectRoot);
             }
             else
             {
 #if DEBUG
                 StartPythonBackend(projectRoot);
 #else
-                Alert("Erro Crítico: sisrua_backend.exe não encontrado.");
+                Alert("Erro Crítico: Nem sisrua_backend.exe nem sisrua_backend.bat foram encontrados.");
                 return;
 #endif
             }
@@ -261,6 +267,38 @@ namespace sisRUA.Core
             }
             
             if (!WaitForBackendHealthy(TimeSpan.FromSeconds(60))) Log("[ERROR] Backend (EXE) iniciou mas health check falhou apos 60s.");
+        }
+
+        private void StartBatBackend(string batPath, string workDir)
+        {
+            Log($"Iniciando backend via script (.bat) na porta {Port}...");
+            var psi = new ProcessStartInfo("cmd.exe", $"/c \"{batPath}\" --host 127.0.0.1 --port {Port} --log-level warning")
+            {
+                WorkingDirectory = workDir,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            };
+
+            _pythonProcess = Process.Start(psi);
+            if (_pythonProcess == null || _pythonProcess.HasExited)
+                throw new InvalidOperationException("Falha ao iniciar sisrua_backend.bat");
+            
+            PersistBackendPid(_pythonProcess.Id);
+
+            // Wait for Pipe Server
+            if (WaitForPipeServer(TimeSpan.FromSeconds(60)))
+            {
+                string token = GetTokenFromIpc();
+                if (!string.IsNullOrEmpty(token))
+                {
+                    AuthToken = token;
+                    PersistBackendToken(AuthToken);
+                    Log("Token recuperado com sucesso via Secure IPC (BAT).");
+                }
+            }
+            
+            if (!WaitForBackendHealthy(TimeSpan.FromSeconds(90))) Log("[ERROR] Backend (BAT) iniciou mas health check falhou apos 90s.");
         }
 
         private void StartPythonBackend(string projectRoot)

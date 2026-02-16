@@ -160,42 +160,25 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo Gerando sisrua_backend.exe...
-REM Gera em uma pasta temporária e só substitui no final (mais seguro).
-if exist "%DIST_TMP%" rmdir /s /q "%DIST_TMP%" 2>nul
-if not exist "%DIST_TMP%" mkdir "%DIST_TMP%"
-"%PY%" -m PyInstaller ^
-  --paths "%BUILD_ROOT%\obfuscated_backend" ^
-  --noconfirm ^
-  --clean ^
-  --onefile ^
-  --name sisrua_backend ^
-  --collect-all rasterio ^
-  --collect-all matplotlib ^
-  --collect-all fiona ^
-  --copy-metadata osmnx ^
-  --copy-metadata pyproj ^
-  --collect-data pyproj ^
-  --distpath "%DIST_TMP%" ^
-  --workpath "%BUILD_ROOT%\\pyinstaller-work" ^
-  --specpath "%BUILD_ROOT%\\pyinstaller-spec" ^
-  --add-data "%ROOT%\\src\\frontend\\dist;frontend/dist" ^
-  --exclude-module PyQt5 ^
-  --exclude-module PyQt5.QtCore ^
-  --exclude-module PyQt5.QtGui ^
-  --exclude-module PySide2 ^
-  --exclude-module tkinter ^
-  --exclude-module IPython ^
-  --exclude-module notebook ^
-  --exclude-module nbformat ^
-  "%BACKEND_SRC%\\standalone.py"
+echo Preparando pasta de backend para o bundle...
+if exist "%BACKEND_OUT%" rmdir /s /q "%BACKEND_OUT%" 2>nul
+mkdir "%BACKEND_OUT%"
 
-if not exist "%DIST_TMP%\\sisrua_backend.exe" (
-  echo ERRO: sisrua_backend.exe nao foi gerado.
-  exit /b 1
+REM Copia o código ofuscado
+xcopy /E /I /Y "%BUILD_ROOT%\obfuscated_backend\*" "%BACKEND_OUT%\" >nul
+
+REM Copia o frontend dist (agora reside dentro do backend no novo modelo)
+if exist "%ROOT%\src\frontend\dist" (
+    mkdir "%BACKEND_OUT%\frontend\dist" 2>nul
+    xcopy /E /I /Y "%ROOT%\src\frontend\dist\*" "%BACKEND_OUT%\frontend\dist\" >nul
 )
 
-copy /Y "%DIST_TMP%\\sisrua_backend.exe" "%BACKEND_OUT%\\sisrua_backend.exe" >nul
-echo OK: %BACKEND_OUT%\\sisrua_backend.exe
+REM Copia o launcher .bat
+copy /Y "%BACKEND_SRC%\sisrua_backend.bat" "%BACKEND_OUT%\sisrua_backend.bat" >nul
+
+REM Copia requirements.txt (caso precise de install no destino)
+copy /Y "%BACKEND_SRC%\requirements.txt" "%BACKEND_OUT%\requirements.txt" >nul
+
+echo OK: Fonte preparado em %BACKEND_OUT%
 endlocal
 

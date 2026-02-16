@@ -47,16 +47,26 @@ def main():
     print("sisRUA IP Protection Module (Obfuscation Engine)")
     print("="*60)
     
+    # Target path is the entire 'backend' package folder
+    BACKEND_PKG_PATH = REPO_ROOT / "src" / "backend" / "backend"
+    
     try:
-        if not GIS_CORE_PATH.exists():
-            print(f"ERROR: Source path not found: {GIS_CORE_PATH}")
+        if not BACKEND_PKG_PATH.exists():
+            print(f"ERROR: Source path not found: {BACKEND_PKG_PATH}")
             return 1
             
-        obfuscate_package(GIS_CORE_PATH, BUILD_DIR / "backend" / "gis_core")
+        # Obfuscate the entire package into BUILD_DIR/backend
+        obfuscate_package(BACKEND_PKG_PATH, BUILD_DIR / "backend")
         
-        print("\n[SUCCESS] Critical IP 'gis_core' has been obfuscated.")
+        # Also copy standalone.py (the entry point) - obfuscated as well
+        standalone_src = REPO_ROOT / "src" / "backend" / "standalone.py"
+        if standalone_src.exists():
+             shutil.copy2(standalone_src, BUILD_DIR / "standalone.py")
+             py_compile.compile(BUILD_DIR / "standalone.py", cfile=str(BUILD_DIR / "standalone.py") + "c")
+             os.remove(BUILD_DIR / "standalone.py")
+
+        print("\n[SUCCESS] Entire backend package has been secured.")
         print(f"Build Artifact: {BUILD_DIR}")
-        print("Ready for PyInstaller packaging.")
         return 0
     except Exception as e:
         print(f"\n[FATAL] Obfuscation failed: {e}")

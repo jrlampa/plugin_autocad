@@ -44,12 +44,22 @@ foreach ($dllRelPath in $requiredDlls) {
 }
 
 # 3. Check Backend
-$backendExe = Join-Path $contentsPath "backend/sisrua_backend.exe"
-if (Test-Path $backendExe) {
-  Write-Host " [OK] Backend EXE exists." -ForegroundColor Green
+$backendBat = Join-Path $contentsPath "backend/sisrua_backend.bat"
+$backendApiC = Join-Path $contentsPath "backend/backend/api.pyc"
+
+if (Test-Path $backendBat) {
+  Write-Host " [OK] Backend Launcher (BAT) exists." -ForegroundColor Green
 }
 else {
-  Write-Host " [FAIL] backend/sisrua_backend.exe is MISSING!" -ForegroundColor Red
+  Write-Host " [FAIL] backend/sisrua_backend.bat is MISSING!" -ForegroundColor Red
+  $failure = $true
+}
+
+if (Test-Path $backendApiC) {
+  Write-Host " [OK] Backend API (Secured) exists." -ForegroundColor Green
+}
+else {
+  Write-Host " [FAIL] backend/backend/api.pyc is MISSING (Obfuscation failed or bundle incomplete)!" -ForegroundColor Red
   $failure = $true
 }
 
