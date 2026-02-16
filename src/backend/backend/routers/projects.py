@@ -2,11 +2,10 @@ import logging
 from typing import Dict, Any
 from fastapi import APIRouter, Header, HTTPException, Depends
 from starlette.responses import Response
-from backend.models import ProjectUpdateRequest
+from backend.models import ProjectUpdateRequest, InternalEvent
 from backend.core.security import require_token
 from backend.core.config import AUTH_HEADER_NAME
 from backend.core.container import project_service, export_service, webhook_service
-from backend.core.bus import InternalEvent
 
 router = APIRouter(tags=["Projects"])
 logger = logging.getLogger(__name__)

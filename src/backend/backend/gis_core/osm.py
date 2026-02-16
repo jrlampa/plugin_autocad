@@ -23,6 +23,7 @@ from backend.gis_core.audit import SpatialAuditEngine
 
 logger = get_logger(__name__)
 
+@Retry(max_retries=3, initial_delay=2.0, backoff_factor=2.0)
 def _fetch_overpass_data(lat: float, lon: float, radius: float, polygon_coords: Optional[List[List[float]]] = None, check_cancel: Callable = None):
     """
     Fetches raw OSM data using the Overpass API without heavy libraries.
@@ -41,7 +42,7 @@ def _fetch_overpass_data(lat: float, lon: float, radius: float, polygon_coords: 
         area_filter = f"({s},{w},{n},{e})"
     
     query = f"""
-    [out:json][timeout:30];
+    [out:json][timeout:90];
     (
       way["highway"]{area_filter};
       node["highway"~"street_light|bus_stop|traffic_signals|crossing"]{area_filter};
@@ -56,7 +57,7 @@ def _fetch_overpass_data(lat: float, lon: float, radius: float, polygon_coords: 
     """
     
     if check_cancel: check_cancel()
-    response = requests.post("https://overpass-api.de/api/interpreter", data={"data": query}, timeout=30)
+    response = requests.post("https://overpass-api.de/api/interpreter", data={"data": query}, timeout=95)
     response.raise_for_status()
     data = response.json()
     if check_cancel: check_cancel()

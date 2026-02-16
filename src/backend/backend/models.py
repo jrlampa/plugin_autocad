@@ -38,7 +38,7 @@ class PrepareJobRequest(FrozenBaseModel):
     polygon: Optional[List[List[float]]] = Field(None, description="Optional polygon for area filtering")
     geojson: Any | None = Field(None, description="Required for kind='geojson'")
 
-class CadFeature(FrozenBaseModel):
+class CadFeature(BaseModel):
     feature_type: Literal["Polyline", "Point", "Text"] = Field("Polyline", description="CAD entity type")
     layer: Optional[str] = Field(None, description="Target AutoCAD layer name")
     name: Optional[str] = Field(None, description="Display name for the feature")
