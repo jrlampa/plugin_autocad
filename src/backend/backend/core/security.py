@@ -33,4 +33,4 @@ async def require_token(x_sisrua_token: str | None = Header(default=None, alias=
     if is_valid_session(x_sisrua_token):
         return x_sisrua_token
         
-    raise HTTPException(status_code=401, detail="Invalid or expired token")
+    raise HTTPException(status_code=401, detail="Invalid or Expired Token")

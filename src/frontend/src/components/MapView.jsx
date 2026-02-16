@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { useMap } from 'react-leaflet';
 import {
   MapContainer,
   TileLayer,
@@ -9,7 +11,59 @@ import {
   Polygon,
 } from 'react-leaflet';
 
-// ... (MapDropHandler, MapClickHandler, MapController unchanged) ...
+// Map Controller - Updates map center when coords change
+function MapController({ coords }) {
+  const map = useMap();
+  useEffect(() => {
+    if (coords && coords[0] !== 0 && coords[1] !== 0) {
+      map.setView(coords, map.getZoom());
+    }
+  }, [coords, map]);
+  return null;
+}
+
+// Map Drop Handler - Handles symbol drops on the map
+function MapDropHandler({ onSymbolDrop }) {
+  const map = useMap();
+  useEffect(() => {
+    const handleDrop = (e) => {
+      e.preventDefault();
+      const symbolType = e.dataTransfer?.getData('symbol-type');
+      if (symbolType && onSymbolDrop) {
+        const latLng = map.mouseEventToLatLng(e);
+        onSymbolDrop({ lat: latLng.lat, lon: latLng.lng, tipo: symbolType });
+      }
+    };
+
+    const container = map.getContainer();
+    container.addEventListener('drop', handleDrop);
+    container.addEventListener('dragover', (e) => e.preventDefault());
+
+    return () => {
+      container.removeEventListener('drop', handleDrop);
+      container.removeEventListener('dragover', (e) => e.preventDefault());
+    };
+  }, [map, onSymbolDrop]);
+  return null;
+}
+
+// Map Click Handler - Handles map clicks
+function MapClickHandler({ onMapClick }) {
+  const map = useMap();
+  useEffect(() => {
+    if (onMapClick) {
+      map.on('click', (e) => {
+        onMapClick({ lat: e.latlng.lat, lon: e.latlng.lng });
+      });
+    }
+    return () => {
+      if (onMapClick) {
+        map.off('click');
+      }
+    };
+  }, [map, onMapClick]);
+  return null;
+}
 
 // Main Map View Component
 export default function MapView({

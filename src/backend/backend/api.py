@@ -158,6 +158,7 @@ ALLOWED_ORIGINS = ["*"]  # Development/Plugin mode: permissive for WebView2
 async def validate_origin(request: Request, call_next):
     """ISO 27001: Strict Origin Validation."""
     try:
+        # Always allow health checks and documentation
         if request.url.path in ["/api/v1/health", "/health", "/docs", "/openapi.json", "/"]:
             return await call_next(request)
 
@@ -166,22 +167,29 @@ async def validate_origin(request: Request, call_next):
         token = request.headers.get(AUTH_HEADER_NAME)
         has_valid_auth = (token == AUTH_TOKEN) or (token and is_valid_session(token))
 
-        if is_local or has_valid_auth or request.base_url.hostname == "testserver":
+        # For testserver, skip origin validation
+        if request.base_url.hostname == "testserver":
             return await call_next(request)
 
         origin = request.headers.get("Origin")
         referer = request.headers.get("Referer")
         
-        if not origin and not referer and request.url.path.startswith("/api/v1"):
-            logger.warning("security_violation_no_origin", path=request.url.path, client=client_host)
-            return Response("Forbidden: Strict Origin Required", status_code=403)
-                
+        # Validate origin if present (even with valid auth)
         if origin:
+            # Allow localhost origins
             if origin.startswith("http://localhost:") or origin.startswith("http://127.0.0.1:"):
                  return await call_next(request)
+            # Check if origin is in allowed list
             if origin not in ALLOWED_ORIGINS:
                 logger.warning("security_violation_invalid_origin", origin=origin, client=client_host)
                 return Response("Forbidden: Invalid Origin", status_code=403)
+        
+        # If no origin header, require origin for API endpoints (unless local or has valid auth)
+        if not origin and not referer and request.url.path.startswith("/api/v1"):
+            if is_local or has_valid_auth:
+                return await call_next(request)
+            logger.warning("security_violation_no_origin", path=request.url.path, client=client_host)
+            return Response("Forbidden: Strict Origin Required", status_code=403)
             
         return await call_next(request)
     except Exception as e:
