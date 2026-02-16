@@ -4,6 +4,9 @@ import threading
 import time
 import concurrent.futures
 from typing import List, Dict, Any, Optional
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 class WebhookService:
     """
@@ -20,13 +23,13 @@ class WebhookService:
         
         # Thread pool for async delivery
         self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=5)
-        print(f"[webhooks] Service initialized. Static listeners: {len(self.urls)}")
+        logger.info("webhook_service_initialized", static_listeners=len(self.urls))
 
     def register_url(self, url: str):
         with self._lock:
             if url not in self.urls:
                 self.urls.append(url)
-                print(f"[webhooks] Registered new listener: {url}")
+                logger.info("webhook_listener_registered", url=url)
 
     def broadcast(self, event_type: str, payload: Dict[str, Any]):
         if not self.urls:
@@ -45,9 +48,9 @@ class WebhookService:
         try:
             response = requests.post(url, json=payload, timeout=5)
             if response.status_code >= 400:
-                print(f"[webhooks] Delivery to {url} failed: {response.status_code}")
+                logger.warning("webhook_delivery_failed", url=url, status_code=response.status_code)
         except Exception as e:
-            print(f"[webhooks] Error delivering to {url}: {e}")
+            logger.error("webhook_delivery_error", url=url, error=str(e))
 
 # Module-level singleton (Python guarantees modules are only loaded once)
 webhook_service = WebhookService()

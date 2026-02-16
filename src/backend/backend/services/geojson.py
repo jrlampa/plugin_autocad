@@ -10,6 +10,9 @@ from backend.core.utils import (
     get_layer_name
 )
 from backend.gis_core.crs import sirgas2000_utm_epsg
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 def first_lonlat(obj) -> Tuple[float, float]:
     if not obj:
@@ -190,7 +193,7 @@ def prepare_geojson_compute(geo: Any, check_cancel: Callable[[], None] = None) -
                      features[idx].elevation = elev
 
     except Exception as e:
-        print(f"Error injecting elevation data for GeoJSON: {e}")
+        logger.error("elevation_injection_failed", error=str(e))
         pass
     
     if check_cancel: check_cancel()
