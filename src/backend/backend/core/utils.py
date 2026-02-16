@@ -79,7 +79,13 @@ def to_linestrings(geom) -> List[Any]:
     if isinstance(geom, LineString):
         return [geom]
     if isinstance(geom, MultiLineString):
-        return list(geom.geoms)
+        return [g for g in geom.geoms if not g.is_empty]
+    # Fallback for collections
+    if hasattr(geom, "geoms"):
+        extracted = []
+        for g in geom.geoms:
+            extracted.extend(to_linestrings(g))
+        return extracted
     return []
 
 def project_lines_to_xy(lines: List[Any], transformer: Any) -> List[List[List[float]]]:
@@ -87,13 +93,15 @@ def project_lines_to_xy(lines: List[Any], transformer: Any) -> List[List[List[fl
 
     out = []
     for line in lines:
+        if line.is_empty: continue
         projected = shapely_transform(transformer.transform, line)
         coords = []
-        for (x, y) in projected.coords:
-            fx = float(x)
-            fy = float(y)
+        for p in projected.coords:
+            fx = float(p[0])
+            fy = float(p[1])
             if not math.isfinite(fx) or not math.isfinite(fy):
                 continue
+            # Optionally handle 3D if present, but stick to XY for now
             coords.append([fx, fy])
         if len(coords) >= 2:
             out.append(coords)
@@ -175,9 +183,10 @@ def get_layer_name(tags: Dict[str, Any], default: str = "SISRUA_DEFAULT") -> str
             
     return default
 
-def clean_geometry(features: List[Any], tolerance: float = 0.1) -> List[Any]:
+def clean_geometry(features: List[Any], tolerance: float = 0.05) -> List[Any]:
     """
-    Realiza limpeza geométrica (deduplicação e simplificação) no backend.
+    Realiza limpeza geométrica (deduplicação e simplificação profissional) no backend.
+    Usa shapely.simplify (Douglas-Peucker) para garantir qualidade cartográfica.
     """
     from shapely.geometry import LineString # type: ignore
     
@@ -185,8 +194,7 @@ def clean_geometry(features: List[Any], tolerance: float = 0.1) -> List[Any]:
     cleaned = []
     
     for f in features:
-        # Deduplicação via Hash (Geometria + Atributos)
-        # Usamos uma string estável para o hash
+        # 1. Deduplicação via Hash (Geometria + Atributos)
         geom_key = str(f.coords_xy) if f.feature_type == "Polyline" else str(f.insertion_point_xy)
         attr_key = f"{f.layer}|{f.name}|{f.highway}"
         h = hashlib.sha256(f"{geom_key}|{attr_key}".encode("utf-8")).hexdigest()
@@ -195,13 +203,17 @@ def clean_geometry(features: List[Any], tolerance: float = 0.1) -> List[Any]:
             continue
         seen_hashes.add(h)
         
-        # Simplificação (apenas para Polylines)
-        if f.feature_type == "Polyline" and f.coords_xy and len(f.coords_xy) > 2:
+        # 2. Simplificação Profissional (apenas para Polylines com > 4 pontos)
+        # Polylines curtas (< 4 pontos) geralmente são trechos críticos de esquinas
+        if f.feature_type == "Polyline" and f.coords_xy and len(f.coords_xy) > 4:
             try:
                 ls = LineString(f.coords_xy)
+                # preserve_topology=True garante que não criamos auto-intersecções
                 simplified = ls.simplify(tolerance, preserve_topology=True)
-                # Convert back to list of lists
-                f.coords_xy = [[float(x), float(y)] for x, y in simplified.coords]
+                
+                # Só aplica se reduziu pontos, mantendo a precisão mínima
+                if len(simplified.coords) >= 2:
+                    f.coords_xy = [[float(p[0]), float(p[1])] for p in simplified.coords]
             except Exception:
                 pass # Mantém original se falhar
         

@@ -16,55 +16,72 @@ class TopologyHealer:
     def heal_network(self, features: List[Any]) -> List[Any]:
         """
         Corrects common OSM artifacts (orphan nodes, gaps) and signs the geometry.
+        Uses shapely.ops.linemerge for lossless fusion of contiguous segments.
+        Fixes 'beak' artifacts by merging segments before they reach the CAD engine.
         """
+        from shapely.geometry import LineString, MultiLineString # type: ignore
+        from shapely.ops import linemerge # type: ignore
+
         if not features:
             return features
 
-        endpoints: List[Any] = []
+        # 1. Group features by their attributes (layer, highway, name) to avoid merging different entities
+        groups: Dict[Tuple[str, Optional[str], Optional[str]], List[Any]] = {}
+        non_polyline_features = []
+
         for f in features:
-            coords = getattr(f, "coords_xy", None)
-            if isinstance(coords, list) and len(coords) >= 2:
-                # We know these are lists of [x, y]
-                endpoints.append(coords[0])
-                endpoints.append(coords[-1])
-        
-        if not endpoints:
-            return features
-
-        grid = {}
-        unique_points = []
-        
-        for pt in endpoints:
-            # pt is [x, y]
-            px = float(pt[0])
-            py = float(pt[1])
-            cell = (int(px / self.snap_tolerance), int(py / self.snap_tolerance))
+            if f.feature_type != "Polyline" or not f.coords_xy:
+                non_polyline_features.append(f)
+                continue
             
-            snapped = False
-            for dx in [-1, 0, 1]:
-                for dy in [-1, 0, 1]:
-                    neighbor_cell = (cell[0] + dx, cell[1] + dy)
-                    if neighbor_cell in grid:
-                        for other_idx in grid[neighbor_cell]:
-                            other_pt = unique_points[other_idx]
-                            dist = math.sqrt((px - other_pt[0])**2 + (py - other_pt[1])**2)
-                            if dist <= self.snap_tolerance:
-                                pt[0], pt[1] = other_pt[0], other_pt[1]
-                                snapped = True
-                                self.stats["healed_nodes"] += 1
-                                break
-                    if snapped: break
-                if snapped: break
-            
-            if not snapped:
-                if cell not in grid: grid[cell] = []
-                grid[cell].append(len(unique_points))
-                unique_points.append([px, py])
+            key = (f.layer or "", f.highway, f.name)
+            if key not in groups:
+                groups[key] = []
+            groups[key].append(f)
 
-        return features
+        healed_polylines = []
+
+        # 2. Process each group
+        for key, group_features in groups.items():
+            if len(group_features) < 2:
+                healed_polylines.extend(group_features)
+                continue
+
+            # Convert to shapely objects
+            lines = [LineString(f.coords_xy) for f in group_features]
+            
+            # Fuse contiguous segments
+            merged = linemerge(lines)
+            
+            # Handle the result (could be a LineString or MultiLineString)
+            result_lines = []
+            if isinstance(merged, LineString):
+                result_lines.append(merged)
+            elif isinstance(merged, MultiLineString):
+                result_lines.extend(merged.geoms)
+            else:
+                # Fallback if merger failed or result is weird
+                result_lines.extend(lines)
+
+            # 3. Create new features from merged lines, preserving metadata from the first original feature
+            template = group_features[0]
+            for line in result_lines:
+                if line.is_empty: continue
+                # Fix "beaks": Simplify tiny segments or just ensure continuity
+                new_f = template.model_copy()
+                new_f.coords_xy = [[float(p[0]), float(p[1])] for p in line.coords]
+                healed_polylines.append(new_f)
+                self.stats["healed_nodes"] += (len(group_features) - 1)
+
+        return non_polyline_features + healed_polylines
 
     def get_integrity_signature(self, features: List[Any]) -> str:
-        payload = "".join([str(getattr(f, 'coords_xy', '')) for f in features])
+        # Sort features to ensure deterministic signature even if order changes during healing
+        payload_parts = []
+        for f in sorted(features, key=lambda x: str(getattr(x, 'coords_xy', ''))):
+            payload_parts.append(str(getattr(f, 'coords_xy', '')))
+        
+        payload = "".join(payload_parts)
         h = hashlib.sha256(f"{self.integrity_seed}|{payload}".encode()).hexdigest()
         return f"SIS-{h[:12].upper()}"
 

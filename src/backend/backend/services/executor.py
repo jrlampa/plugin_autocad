@@ -6,6 +6,7 @@ from backend.gis_core.osm import prepare_osm_compute
 from backend.services.geojson import prepare_geojson_compute
 from backend.services.elevation import ElevationService
 from backend.core.utils import sanitize_jsonable
+from backend.core.lifecycle import SHUTDOWN_EVENT
 
 class JobExecutor:
     def __init__(self, cache_service: ICache):
@@ -18,8 +19,6 @@ class JobExecutor:
         """
         try:
             update_job(job_id, event_bus, status="processing", progress=0.05, message="Iniciando...")
-
-            from backend.core.lifecycle import SHUTDOWN_EVENT
 
             def check_cancel():
                 if SHUTDOWN_EVENT.is_set():

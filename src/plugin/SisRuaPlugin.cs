@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 
 [assembly: ExtensionApplication(typeof(sisRUA.SisRuaPlugin))]
 [assembly: CommandClass(typeof(sisRUA.SisRuaPalette))]
+[assembly: CommandClass(typeof(sisRUA.SisRuaCommands))]
 
 namespace sisRUA
 {
@@ -69,8 +70,9 @@ namespace sisRUA
                 BackendManager.OnLog = (msg) => LogToEditor(msg);
                 BackendManager.OnAlert = (msg) => LogAndAlert(msg);
                 
-                // Inicia o backend (assíncrono ou síncrono dependendo da implementação, aqui assumimos síncrono mas rápido)
+                // Inicia o backend de forma assíncrona para não travar o AutoCAD
                 BackendManager.Start();
+                LogToEditor("Backend está inicializando em segundo plano...");
             }
             catch (Exception ex)
             {

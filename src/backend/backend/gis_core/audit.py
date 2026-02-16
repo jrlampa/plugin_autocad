@@ -12,20 +12,25 @@ class SpatialAuditEngine:
         if gdf.empty:
             return {}, gpd.GeoDataFrame(columns=['geometry'], crs=gdf.crs)
 
-        # Identify categories safely
-        def has_col_val(col, val):
-            if col not in gdf.columns: 
-                return [False] * len(gdf)
-            return gdf[col] == val
+        # Robust column identification
+        def get_series(col_name):
+            return gdf[col_name] if col_name in gdf.columns else gpd.pd.Series([None] * len(gdf))
 
-        power_lines = gdf[((gdf.get('power') == 'line') | (gdf.get('feature_type') == 'power_line')) & 
-                         gdf.geometry.type.isin(['LineString', 'MultiLineString'])]
+        # Filtering Categories
+        power_lines = gdf[
+            ((get_series('power') == 'line') | (get_series('feature_type') == 'power_line')) & 
+            gdf.geometry.type.isin(['LineString', 'MultiLineString'])
+        ]
         
-        buildings = gdf[((gdf.get('building').notnull()) | (gdf.get('feature_type') == 'building'))]
+        buildings = gdf[
+            (get_series('building').notnull()) | (get_series('feature_type') == 'building')
+        ]
         
-        lamps = gdf[((gdf.get('highway') == 'street_lamp') | (gdf.get('feature_type') == 'lamp'))]
+        lamps = gdf[
+            (get_series('highway') == 'street_lamp') | (get_series('feature_type') == 'lamp')
+        ]
         
-        roads = gdf[(gdf.get('highway').notnull())]
+        roads = gdf[get_series('highway').notnull()]
 
         analysis_features = []
         violations_count = 0

@@ -30,46 +30,70 @@ namespace sisRUA.Core
         public const string AuthHeaderName = "X-SisRua-Token";
         private const string AuthEnvVarName = "SISRUA_AUTH_TOKEN";
 
+        public bool IsInitializing { get; private set; }
+        public bool IsReady { get; private set; }
+        public Exception LastError { get; private set; }
+
         public void Start()
         {
-            Log("BackendManager.Start() called.");
+            if (IsInitializing || IsReady) return;
+            
+            Log("BackendManager.Start() initiating asynchronous startup...");
+            IsInitializing = true;
+            LastError = null;
 
-            try
+            Task.Run(() => 
             {
-                string pluginPath = Assembly.GetExecutingAssembly().Location;
-                string projectRoot = FindProjectRoot(Path.GetDirectoryName(pluginPath));
-
-                if (string.IsNullOrEmpty(projectRoot))
+                try
                 {
-                    Alert("Erro Crítico: Não foi possível localizar a pasta raiz do sisRUA contendo o diretório 'backend'.");
-                    return;
-                }
+                    string pluginPath = Assembly.GetExecutingAssembly().Location;
+                    string projectRoot = FindProjectRoot(Path.GetDirectoryName(pluginPath));
 
-                using (var startupMutex = new Mutex(false, @"Global\sisRUA_Backend_Init"))
-                {
-                    bool hasHandle = false;
-                    try { hasHandle = startupMutex.WaitOne(10000, false); } catch (AbandonedMutexException) { hasHandle = true; }
-
-                    try
+                    if (string.IsNullOrEmpty(projectRoot))
                     {
-                        lock (_backendLock)
+                        throw new DirectoryNotFoundException("Erro Crítico: Não foi possível localizar a pasta raiz do sisRUA contendo o diretório 'backend'.");
+                    }
+
+                    using (var startupMutex = new Mutex(false, @"Global\sisRUA_Backend_Init"))
+                    {
+                        bool hasHandle = false;
+                        try { hasHandle = startupMutex.WaitOne(15000, false); } catch (AbandonedMutexException) { hasHandle = true; }
+
+                        try
                         {
-                            InitializeBackendProcess(projectRoot);
+                            lock (_backendLock)
+                            {
+                                InitializeBackendProcess(projectRoot);
+                            }
+                        }
+                        finally
+                        {
+                            if (hasHandle) startupMutex.ReleaseMutex();
                         }
                     }
-                    finally
+
+                    IsReady = IsBackendHealthy() && IsBackendAuthorized();
+                    if (IsReady) 
                     {
-                        if (hasHandle) startupMutex.ReleaseMutex();
+                        Log("Backend inicializado e verificado com sucesso.");
+                        StartWatchdog();
+                    }
+                    else
+                    {
+                        Log("[WARNING] Backend iniciado mas falhou na verificação de saúde final.");
                     }
                 }
-
-                StartWatchdog();
-            }
-            catch (Exception ex)
-            {
-                Alert("Erro durante BackendManager.Start(): " + ex.Message);
-                _pythonProcess = null;
-            }
+                catch (Exception ex)
+                {
+                    LastError = ex;
+                    Alert("Erro durante inicialização do backend: " + ex.Message);
+                    _pythonProcess = null;
+                }
+                finally
+                {
+                    IsInitializing = false;
+                }
+            });
         }
 
         public void Stop()
@@ -266,7 +290,7 @@ namespace sisRUA.Core
                 Log("[ERROR] Timeout aguardando Servidor de Pipe (IPC) do Backend EXE.");
             }
             
-            if (!WaitForBackendHealthy(TimeSpan.FromSeconds(60))) Log("[ERROR] Backend (EXE) iniciou mas health check falhou apos 60s.");
+            if (!WaitForBackendHealthy(TimeSpan.FromSeconds(90))) Log("[ERROR] Backend (EXE) iniciou mas health check falhou apos 90s.");
         }
 
         private void StartBatBackend(string batPath, string workDir)
@@ -277,7 +301,9 @@ namespace sisRUA.Core
                 WorkingDirectory = workDir,
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden
+                WindowStyle = ProcessWindowStyle.Hidden,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
             };
 
             _pythonProcess = Process.Start(psi);
@@ -287,7 +313,7 @@ namespace sisRUA.Core
             PersistBackendPid(_pythonProcess.Id);
 
             // Wait for Pipe Server
-            if (WaitForPipeServer(TimeSpan.FromSeconds(60)))
+            if (WaitForPipeServer(TimeSpan.FromSeconds(90)))
             {
                 string token = GetTokenFromIpc();
                 if (!string.IsNullOrEmpty(token))
@@ -298,7 +324,7 @@ namespace sisRUA.Core
                 }
             }
             
-            if (!WaitForBackendHealthy(TimeSpan.FromSeconds(90))) Log("[ERROR] Backend (BAT) iniciou mas health check falhou apos 90s.");
+            if (!WaitForBackendHealthy(TimeSpan.FromSeconds(120))) Log("[ERROR] Backend (BAT) iniciou mas health check falhou apos 120s.");
         }
 
         private void StartPythonBackend(string projectRoot)
@@ -498,9 +524,10 @@ namespace sisRUA.Core
             // Same logic as before
              var currentDir = new DirectoryInfo(startPath);
              int sanityCheck = 0;
-             while (currentDir != null && sanityCheck < 10)
+             while (currentDir != null && sanityCheck < 15) // Increased sanity check for deep bin folders
              {
                  if (Directory.Exists(Path.Combine(currentDir.FullName, "backend"))) return currentDir.FullName;
+                 if (Directory.Exists(Path.Combine(currentDir.FullName, "src", "backend"))) return Path.Combine(currentDir.FullName, "src", "backend");
                  
                  // Check bundle variants
                  string bundle = Path.Combine(currentDir.FullName, "bundle-template", "sisRUA.bundle", "Contents");

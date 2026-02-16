@@ -1,6 +1,7 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
+using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 using System;
 using System.Collections.Generic;
@@ -41,6 +42,53 @@ namespace sisRUA
             });
         }
 
+        [CommandMethod("SISRUA_HEADLESS_SMOKE", CommandFlags.Session)]
+        public static void SisRuaHeadlessSmokeCommand()
+        {
+            Editor ed = Application.DocumentManager.MdiActiveDocument.Editor;
+            try
+            {
+                ed.WriteMessage("\n[sisRUA] Iniciando SMOKE TEST Headless...");
+                
+                // 1. Verificar se o backend está pronto (esperar até 10s se necessário)
+                var mgr = SisRuaPlugin.Instance?.BackendManager;
+                int retry = 0;
+                while ((mgr == null || !mgr.IsReady) && retry < 20) 
+                {
+                    ed.WriteMessage("."); // Feedback visual no console
+                    System.Threading.Thread.Sleep(500);
+                    retry++;
+                }
+
+                if (mgr == null || !mgr.IsReady)
+                {
+                    ed.WriteMessage("\n[FAIL] Backend não está pronto para o teste após aguardar.");
+                    return;
+                }
+
+                ed.WriteMessage($"\n[sisRUA] Backend OK: {mgr.BaseUrl}");
+
+                // 2. Simular uma operação simples do Engine (sem UI)
+                // Criamos uma entidade de teste via Shield para garantir transação
+                SisRuaTransactionalShield.Execute((doc, db, tr) => {
+                    var bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
+                    var btr = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
+                    
+                    var line = new Line(new Point3d(0,0,0), new Point3d(10,10,0));
+                    line.Layer = "0";
+                    btr.AppendEntity(line);
+                    tr.AddNewlyCreatedDBObject(line, true);
+                });
+
+                ed.WriteMessage("\n[sisRUA] Entidade de teste desenhada com sucesso.");
+                ed.WriteMessage("\nTEST_SUCCESS"); // Sinal para o orquestrador
+            }
+            catch (System.Exception ex)
+            {
+                ed.WriteMessage($"\n[FAIL] Erro no Smoke Test: {ex.Message}");
+            }
+        }
+
         [CommandMethod("SISRUA_SAVE_PROJECT", CommandFlags.Session)]
         public static void SisRuaSaveProjectCommand()
         {
@@ -62,8 +110,9 @@ namespace sisRUA
                 if (string.IsNullOrEmpty(projectName)) projectName = $"Projeto {projectId}";
 
                 _projectRepository.SaveProject(projectId, projectName, _lastDrawnCrsOut, _lastDrawnFeatures);
-                ed.WriteMessage($"\n[sisRUA] Projeto '{projectName}' salvo.");
+                ed.WriteMessage($"\n[sisRUA] Projeto '{projectName}' salvo localmente.");
                 
+                // Audit metadata is injected into the DWG for compliance signing
                 Engine.InjectAuditMetadata(projectId);
             });
         }
@@ -169,9 +218,33 @@ namespace sisRUA
 
         private static string GetBackendBaseUrlOrAlert(Editor ed)
         {
-            string url = SisRuaPlugin.BackendBaseUrl;
-            if (string.IsNullOrEmpty(url)) Application.ShowAlertDialog("Backend não inicializado.");
-            return url;
+            var mgr = SisRuaPlugin.Instance?.BackendManager;
+            if (mgr == null) 
+            {
+                Application.ShowAlertDialog("Erro: Gerenciador de Backend não instanciado.");
+                return null;
+            }
+
+            if (mgr.IsInitializing)
+            {
+                ed.WriteMessage("\n[sisRUA] O backend está inicializando. Por favor, aguarde alguns segundos...");
+                return null;
+            }
+
+            if (!mgr.IsReady)
+            {
+                if (mgr.LastError != null)
+                {
+                    Application.ShowAlertDialog($"O backend falhou ao iniciar: {mgr.LastError.Message}");
+                }
+                else
+                {
+                    Application.ShowAlertDialog("O backend não está pronto. Tente novamente em instantes.");
+                }
+                return null;
+            }
+
+            return mgr.BaseUrl;
         }
 
         private static HttpRequestMessage CreateAuthedJsonRequest(HttpMethod method, string url, string body)

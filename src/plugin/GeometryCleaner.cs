@@ -12,6 +12,7 @@ namespace sisRUA
     /// <summary>
     /// Classe auxiliar para operações de limpeza e otimização de geometria (CadFeatureDtos).
     /// </summary>
+    [Obsolete("Use Backend side optimization via /api/v1/jobs/prepare. Geometric cleanup and simplification should now be handled exclusively by the Smart Backend.")]
     public static class GeometryCleaner
     {
         private static string GetPolylineHash(CadFeatureDto polylineFeature)

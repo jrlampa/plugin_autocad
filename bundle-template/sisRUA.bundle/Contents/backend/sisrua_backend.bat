@@ -17,11 +17,13 @@ if exist "%BIN_DIR%python\python.exe" (
 )
 
 REM 2. Execute Backend
-REM In obfuscated mode, we run standalone.pyc
-if exist "%BIN_DIR%standalone.pyc" (
+REM prioritized order: standalone.py (obfuscated) -> standalone.pyc -> uvicorn fallback
+if exist "%BIN_DIR%standalone.py" (
+    %PY% "%BIN_DIR%standalone.py" %*
+) else if exist "%BIN_DIR%standalone.pyc" (
     %PY% "%BIN_DIR%standalone.pyc" %*
 ) else (
-    REM Fallback to module mode if standalone.pyc is missing
+    REM Fallback to module mode if standalone is missing
     %PY% -m uvicorn backend.api:app %*
 )
 

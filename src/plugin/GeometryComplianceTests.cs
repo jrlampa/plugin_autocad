@@ -21,11 +21,12 @@ namespace sisRUA
             public long DurationMs { get; set; }
         }
 
+        [Obsolete("Use Backend side optimization via /api/v1/jobs/prepare. This C# bridge is for legacy QA only.")]
         public static void RunAndExport(string outputPath)
         {
             var results = new List<TestResult>();
             
-            // Run Tests
+            // Run Tests (Legacy)
             results.Add(ExecuteTest("RemoveDuplicatePolylines_ExactMatch", TestRemoveDuplicatePolylines_ExactMatch));
             results.Add(ExecuteTest("MergeContiguousPolylines_Success", TestMergeContiguousPolylines_Success));
             results.Add(ExecuteTest("SimplifyPolylines_ReductionRatio", TestSimplifyPolylines_ReductionRatio));
