@@ -29,6 +29,9 @@ def get_bounding_offset(features: List[Any], return_bounds: bool = False) -> Tup
     Calculates the first coordinate of the first feature as a global offset.
     If return_bounds=True, returns (min_x, min_y, max_x, max_y).
     """
+    if not features:
+        return (0.0, 0.0, 0.0, 0.0) if return_bounds else (0.0, 0.0)
+
     if return_bounds:
         min_x, min_y = float('inf'), float('inf')
         max_x, max_y = float('-inf'), float('-inf')

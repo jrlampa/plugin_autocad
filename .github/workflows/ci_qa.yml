@@ -24,11 +24,11 @@ jobs:
       - name: Run Bandit (SAST)
         run: |
           mkdir -p qa/out/test-reports
-          bandit -r src/backend --exclude src/backend/tests -f json -o qa/out/test-reports/bandit.json || true
+          bandit -r src/backend --exclude src/backend/tests -ll -f json -o qa/out/test-reports/bandit.json
       - name: Run pip-audit (SCA)
         run: |
           mkdir -p qa/out/test-reports
-          pip-audit -r src/backend/requirements-ci.txt -r src/backend/requirements-dev.txt --format json -o qa/out/test-reports/pip-audit.json || true
+          pip-audit -r src/backend/requirements-ci.txt -r src/backend/requirements-dev.txt --format json -o qa/out/test-reports/pip-audit.json
       - name: Run pytest (JUnit + Coverage)
         env:
           LOCALAPPDATA: /tmp/localappdata

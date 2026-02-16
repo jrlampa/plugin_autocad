@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-16
+
+### 🛡️ Audit Remediation & Hardening
+
+This release focuses on remediating risks identified in the Executive Audit (RAG 2026-02-16), transforming non-blocking security gates into mandatory release criteria.
+
+### Added
+
+- **Unified Environment Bootstrap**: `tools/bootstrap_env.ps1` script for one-click developer environment setup (Python, Node, .NET).
+- **Environment Awareness**: Backend now distinguishes between `development` and `production` modes (`SISRUA_ENV`).
+
+### Changed
+
+- **Security Gates**: Bandit (SAST) and pip-audit (SCA) are now mapping mandatory in CI/CD pipeline. Build fails on medium/high risks.
+- **Clean Build Logic**: Backend EXE creation now forces cleanup of PyInstaller cache to prevent stale logic persistence.
+
+### Fixed
+
+- **Infinite Loading Regression**: Resolved static file path resolution in the backend which caused the splash screen to hang.
+- **Geometry Signature**: Fixed `TypeError` in `get_bounding_offset` by synchronizing method signatures between host and backend.
+
+### Security
+
+- **Zero Default Token in Prod**: Prohibited fallback to default/random insecure tokens when running in `production` mode. `SISRUA_AUTH_TOKEN` is now strictly required in enterprise environments.
+
+---
+
 ## [1.0.0] - 2026-02-02
 
 ### 🎉 Production Release

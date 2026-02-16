@@ -188,6 +188,11 @@ echo Gerando sisrua_backend.exe...
 REM Gera em uma pasta temporária e só substitui no final (mais seguro).
 if exist "%DIST_TMP%" rmdir /s /q "%DIST_TMP%" 2>nul
 if not exist "%DIST_TMP%" mkdir "%DIST_TMP%"
+
+REM Force clean PyInstaller paths to avoid caching old geometry logic
+if exist "%BUILD_ROOT%\pyinstaller-work" rmdir /s /q "%BUILD_ROOT%\pyinstaller-work" 2>nul
+if exist "%BUILD_ROOT%\pyinstaller-spec" rmdir /s /q "%BUILD_ROOT%\pyinstaller-spec" 2>nul
+
 "%PY%" -m PyInstaller ^
   --paths "%BUILD_ROOT%\obfuscated_backend" ^
   --noconfirm ^

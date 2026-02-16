@@ -100,32 +100,37 @@ ALLOWED_ORIGINS = {
 @app.middleware("http")
 async def validate_origin(request: Request, call_next):
     """ISO 27001: Strict Origin Validation."""
-    if request.url.path in ["/api/v1/health", "/health", "/docs", "/openapi.json", "/"]:
-        return await call_next(request)
+    try:
+        if request.url.path in ["/api/v1/health", "/health", "/docs", "/openapi.json", "/"]:
+            return await call_next(request)
 
-    client_host = request.client.host if request.client else "unknown"
-    is_local = client_host in ("127.0.0.1", "localhost", "::1", "unknown")
-    token = request.headers.get(AUTH_HEADER_NAME)
-    has_valid_auth = (token == AUTH_TOKEN) or (token and is_valid_session(token))
+        client_host = request.client.host if request.client else "unknown"
+        is_local = client_host in ("127.0.0.1", "localhost", "::1", "unknown")
+        token = request.headers.get(AUTH_HEADER_NAME)
+        has_valid_auth = (token == AUTH_TOKEN) or (token and is_valid_session(token))
 
-    if is_local or has_valid_auth or request.base_url.hostname == "testserver":
-        return await call_next(request)
+        if is_local or has_valid_auth or request.base_url.hostname == "testserver":
+            return await call_next(request)
 
-    origin = request.headers.get("Origin")
-    referer = request.headers.get("Referer")
-    
-    if not origin and not referer and request.url.path.startswith("/api/v1"):
-        logger.warning("security_violation_no_origin", path=request.url.path, client=client_host)
-        return Response("Forbidden: Strict Origin Required", status_code=403)
-            
-    if origin:
-        if origin.startswith("http://localhost:") or origin.startswith("http://127.0.0.1:"):
-             return await call_next(request)
-        if origin not in ALLOWED_ORIGINS:
-            logger.warning("security_violation_invalid_origin", origin=origin, client=client_host)
-            return Response("Forbidden: Invalid Origin", status_code=403)
+        origin = request.headers.get("Origin")
+        referer = request.headers.get("Referer")
         
-    return await call_next(request)
+        if not origin and not referer and request.url.path.startswith("/api/v1"):
+            logger.warning("security_violation_no_origin", path=request.url.path, client=client_host)
+            return Response("Forbidden: Strict Origin Required", status_code=403)
+                
+        if origin:
+            if origin.startswith("http://localhost:") or origin.startswith("http://127.0.0.1:"):
+                 return await call_next(request)
+            if origin not in ALLOWED_ORIGINS:
+                logger.warning("security_violation_invalid_origin", origin=origin, client=client_host)
+                return Response("Forbidden: Invalid Origin", status_code=403)
+            
+        return await call_next(request)
+    except Exception as e:
+        logger.error("middleware_origin_validation_failed", error=str(e), path=request.url.path)
+        # Fallback to next to avoid infinite loading on health check if something crashes
+        return await call_next(request)
 
 # --- CORS Middleware ---
 app.add_middleware(
@@ -224,17 +229,30 @@ def _maybe_mount_frontend():
     from fastapi.staticfiles import StaticFiles
     from fastapi.responses import HTMLResponse
     
-    # Path resolution logic simplified for the refactor
-    dist_dir = Path(__file__).parent.parent / "frontend" / "dist"
-    if not dist_dir.exists():
-         # Check MEIPASS for pyinstaller
-         if hasattr(sys, "_MEIPASS"):
-             dist_dir = Path(sys._MEIPASS) / "frontend" / "dist"
+    # Path resolution logic: search in sibling and parent directories
+    candidates = [
+        Path(__file__).parent.parent / "frontend" / "dist", # sibling 'frontend' in repo
+        Path(__file__).parent.parent.parent / "frontend" / "dist", # repo structure parent/src/frontend
+        Path(sys.executable).parent / "frontend" / "dist", # relative to exe in bundle
+    ]
+    
+    # Check MEIPASS for pyinstaller
+    if hasattr(sys, "_MEIPASS"):
+        candidates.append(Path(sys._MEIPASS) / "frontend" / "dist")
 
-    if dist_dir.exists() and (dist_dir / "index.html").exists():
+    dist_dir = None
+    for cand in candidates:
+        if cand.exists() and (cand / "index.html").exists():
+            dist_dir = cand
+            break
+
+    if dist_dir:
+        logger.info("mounting_frontend", path=str(dist_dir))
         app.mount("/assets", StaticFiles(directory=dist_dir / "assets"), name="assets")
         @app.get("/", response_class=HTMLResponse)
         async def root():
             return (dist_dir / "index.html").read_text()
+    else:
+        logger.warning("frontend_dist_not_found", searched_paths=[str(p) for p in candidates])
 
 _maybe_mount_frontend()
