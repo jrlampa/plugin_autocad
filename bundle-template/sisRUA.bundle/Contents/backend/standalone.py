@@ -150,6 +150,13 @@ def main(argv: list[str] | None = None) -> int:
 
     from backend.api import app  # noqa: WPS433 (import local intencional para empacotamento)
 
+    # Startup logging (ISO 27001: Auditability)
+    logger = logging.getLogger("uvicorn")
+    logger.info(f"sisRUA Backend starting on {args.host}:{args.port}")
+    logger.info(f"Log level: {args.log_level.upper()}")
+    logger.info(f"PyInstaller mode: {getattr(sys, 'frozen', False)}")
+    logger.info(f"Working directory: {contents_dir}")
+
     uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level, log_config=log_config, access_log=False)
     return 0
 

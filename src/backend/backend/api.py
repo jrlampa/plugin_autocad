@@ -188,7 +188,8 @@ async def startup_event():
 
     def run_housekeeping():
         from backend.services.housekeeper import housekeeper_service
-        targets = [Path("logs").resolve(), Path("cache").resolve()]
+        # Use get_resource_path for PyInstaller compatibility
+        targets = [get_resource_path("logs"), get_resource_path("cache")]
         try:
             housekeeper_service.run_daily_cleanup([t for t in targets if t.exists()])
         except Exception as e:
@@ -203,7 +204,12 @@ async def startup_event():
         except:
             pass
 
-    logger.info("api_started")
+    # Startup logging for debugging and auditability (ISO 27001)
+    logger.info("api_started", 
+                version="1.1.0",
+                environment=os.environ.get("SENTRY_ENVIRONMENT", "development"),
+                frozen=getattr(sys, "frozen", False),
+                allowed_origins=list(ALLOWED_ORIGINS))
 
 @app.on_event("shutdown")
 async def shutdown_event():

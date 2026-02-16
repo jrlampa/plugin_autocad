@@ -439,6 +439,13 @@ namespace sisRUA
                 }
                 else
                 {
+                    // Hide splash even on timeout
+                    if (_splashPanel != null && _webView != null)
+                    {
+                        _splashTimer?.Stop();
+                        _splashPanel.Visible = false;
+                        _webView.Visible = true;
+                    }
                     _webView.Source = new Uri("about:blank");
                     MessageBox.Show("O backend demorou muito para responder. Tente fechar e abrir a paleta novamente.", "sisRUA - Timeout");
                 }
@@ -446,6 +453,13 @@ namespace sisRUA
             catch (System.Exception ex)
             {
                 Debug.WriteLine($"[sisRUA] Falha ao inicializar a WebView2: {ex.Message}");
+                // Hide splash on error too
+                if (_splashPanel != null && _webView != null)
+                {
+                    _splashTimer?.Stop();
+                    _splashPanel.Visible = false;
+                    _webView.Visible = true;
+                }
                 MessageBox.Show(
                     $"Falha ao inicializar a interface web do sisRUA: {ex.Message}",
                     "Erro sisRUA",
