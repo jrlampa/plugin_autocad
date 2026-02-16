@@ -342,8 +342,8 @@ def prepare_osm_compute(
     origin_x, origin_y = get_bounding_offset(features)
     
     for f in features:
-        # Brand Signature (Invisible Metadata)
-        f.original_geojson_properties["sys_sisrua_integrity"] = healer.get_integrity_signature(features)
+        # Brand Signature (Invisible Metadata) - Audit Grade
+        f.original_geojson_properties["sys_sisrua_integrity"] = healer.get_robust_integrity_signature(features)
         f.original_geojson_properties["sys_sisrua_origin"] = [origin_x, origin_y]
         
         if f.feature_type == "Polyline" and f.coords_xy:

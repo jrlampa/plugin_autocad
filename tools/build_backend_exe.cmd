@@ -30,8 +30,11 @@ if not exist "%BUILD_TMP%" mkdir "%BUILD_TMP%"
 set TEMP=%BUILD_TMP%
 set TMP=%BUILD_TMP%
 
-echo Matando processos sisrua_backend.exe antigos...
+echo Matando processos sisrua_backend antigos...
 taskkill /F /IM sisrua_backend.exe /T 2>nul
+taskkill /F /IM python.exe /T 2>nul
+taskkill /F /IM uvicorn.exe /T 2>nul
+timeout /t 2 /nobreak >nul
 
 
 if not exist "%BACKEND_SRC%\standalone.py" (

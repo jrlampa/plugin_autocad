@@ -11,10 +11,16 @@ def utm_zone(longitude: float) -> int:
 def sirgas2000_utm_epsg(latitude: float, longitude: float) -> int:
     """
     Determines the EPSG code for SIRGAS 2000 / UTM zone based on lat/lon.
-    For Brazil (Southern Hemisphere), the family is EPSG:31960 + zone.
-    Example: Zone 24S -> 31984.
+    Brazil spans both Southern (most) and Northern hemispheres.
+    - South (S): EPSG:31960 + zone
+    - North (N): EPSG:31954 + zone
     """
     zone = utm_zone(longitude)
-    # Roadmap assumes SIRGAS 2000 / UTM.
-    # Formula for South zones: 31960 + zone.
-    return 31960 + zone
+    if latitude >= 0:
+        # SIRGAS 2000 / UTM zone 18N (31972) to 22N (31976)
+        # Formula: 31954 + zone. Zone 20N -> 31954 + 20 = 31974.
+        return 31954 + zone
+    else:
+        # SIRGAS 2000 / UTM zone 18S (31978) to 25S (31985)
+        # Formula: 31960 + zone. Zone 23S -> 31960 + 23 = 31983.
+        return 31960 + zone

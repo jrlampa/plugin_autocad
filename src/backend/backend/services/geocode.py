@@ -18,9 +18,13 @@ def parse_utm(query: str) -> Optional[Tuple[float, float, str]]:
     - "23K 216330 7528658" (Zone Letter E N)
     - "216330, 7528658" (E, N) - Assumes defaults for Brazil if zone missing
     """
-    # Pattern for "ZoneLetter Easting Northing" or just "Easting Northing"
-    # Example: K 216330 7528658
-    utm_match = re.search(r'(?:([0-9]{1,2})?\s*([C-X]))?\s*([0-9]{6}(?:\.[0-9]+)?)\s*[,/|\s]\s*([0-9]{7}(?:\.[0-9]+)?)', query, re.IGNORECASE)
+    # Pattern for "Zone Num Letter Easting Northing"
+    # Easting: 6 or 7 digits (to allow leading zero like 0803412)
+    # Northing: 7 digits
+    utm_match = re.search(
+        r'(?:([0-9]{1,2})?\s*([C-X]))?\s*([0-9]{6,7}(?:\.[0-9]+)?)\s*[,/|\s]\s*([0-9]{7,8}(?:\.[0-9]+)?)', 
+        query, re.IGNORECASE
+    )
     
     if not utm_match:
         return None
@@ -30,33 +34,31 @@ def parse_utm(query: str) -> Optional[Tuple[float, float, str]]:
     northing = float(northing_str)
     
     # Defaults for Brazil if not specified
-    # K is roughly latitude -24 to -16 (Rio/SP/Espírito Santo area)
     default_zone = os.environ.get("DEFAULT_UTM_ZONE", "23")
     zone_num = int(zone_num_str) if zone_num_str else int(default_zone)
     
+    # UTM Latitude Bands: C-M are South, N-X are North.
     is_northern = False
     if zone_letter:
-        # N and above are northern hemisphere
-        # C-M are southern, N-X are northern
         if zone_letter.upper() >= 'N':
             is_northern = True
             
-    # EPSG for SIRGAS 2000 UTM
-    # South: 31960 + zone
-    # North: 31960 (actually SIRGAS 2000 / UTM zone N is different, usually 31900 range)
-    # But for Brazil (mostly South), we use 31960 + zone.
+    # SIRGAS 2000 UTM EPSG mapping
+    # South: 31960 + zone (e.g. 31983 for 23S)
+    # North: 31954 + zone (e.g. 31974 for 20N)
     if not is_northern:
         epsg = 31960 + zone_num
     else:
-        # Placeholder for North zones if needed, for now stick to South
-        epsg = 31960 + zone_num 
+        epsg = 31954 + zone_num 
 
     try:
         transformer = Transformer.from_crs(f"EPSG:{epsg}", "EPSG:4326", always_xy=True)
         lon, lat = transformer.transform(easting, northing)
         
         if math.isfinite(lat) and math.isfinite(lon):
-            return lat, lon, f"UTM {zone_num}{zone_letter or ''} {easting:.0f}E {northing:.0f}N"
+            # Format back to canonical UTM display
+            display_name = f"UTM {zone_num}{zone_letter.upper() if zone_letter else '?' } {easting:.0f}E {northing:.0f}N"
+            return lat, lon, display_name
     except Exception as e:
         logger.error(f"utm_transform_failed: {str(e)} for query: {query}")
         

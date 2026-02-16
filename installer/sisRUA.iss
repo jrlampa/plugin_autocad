@@ -21,6 +21,10 @@ VersionInfoVersion={#AppVersion}
 SetupIconFile=assets\sisrua_installer.ico
 WizardImageFile=assets\wizard_large.bmp
 WizardSmallImageFile=assets\wizard_small.bmp
+; ISO 27001 / Robustness: Ensure processes are closed before update
+CloseApplications=yes
+RestartApplications=yes
+AppMutex=sisRUA_Backend_Mutex
 
 [Languages]
 Name: "ptbr"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"

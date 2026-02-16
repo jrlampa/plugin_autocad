@@ -2,6 +2,9 @@ import os
 import sys
 import shutil
 import py_compile
+import math
+import hashlib
+import traceback
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -18,25 +21,35 @@ def obfuscate_package(source_path: Path, dest_path: Path):
     In a real Enterprise environment, this would call `pyarmor gen ...`.
     """
     if dest_path.exists():
-        def on_error(func, path, exc_info):
-            import stat
-            if not os.access(path, os.W_OK):
-                os.chmod(path, stat.S_IWUSR)
-                func(path)
-            else:
-                raise
-        shutil.rmtree(dest_path, onerror=on_error)
+        shutil.rmtree(dest_path, ignore_errors=True)
     
-    # Ensure parent directory exists
-    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    # Second pass for stubborn files (Git indexes, etc.)
+    if dest_path.exists():
+        import time
+        time.sleep(1)
+        shutil.rmtree(dest_path, ignore_errors=True)
     
     print(f"[IP-PROTECT] Copying source from {source_path} to {dest_path}...")
-    shutil.copytree(source_path, dest_path, ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo", ".git"))
+    # dirs_exist_ok=True is available in Python 3.8+
+    try:
+        shutil.copytree(source_path, dest_path, 
+                       ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo", ".git"),
+                       dirs_exist_ok=True)
+    except TypeError:
+        # Fallback for Python < 3.8
+        if not dest_path.exists():
+             shutil.copytree(source_path, dest_path, 
+                            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo", ".git"))
+        else:
+             # Manual copy? No, we already tried rmtree. Let's just hope it's 3.8+
+             raise
     
     print("[IP-PROTECT] Compiling to bytecode (Simulation of Encryption)...")
     for py_file in dest_path.rglob("*.py"):
         try:
-            py_compile.compile(py_file, cfile=str(py_file) + "c", doraise=True)
+            # Pass absolute Path for cfile, append 'c' for standard .pyc convention
+            cfile_path = py_file.parent / (py_file.name + "c")
+            py_compile.compile(py_file, cfile=cfile_path, doraise=True)
             os.remove(py_file) # Remove original source
             print(f"  Secured: {py_file.name}")
         except Exception as e:
@@ -62,15 +75,18 @@ def main():
         standalone_src = REPO_ROOT / "src" / "backend" / "standalone.py"
         if standalone_src.exists():
              shutil.copy2(standalone_src, BUILD_DIR / "standalone.py")
-             py_compile.compile(BUILD_DIR / "standalone.py", cfile=str(BUILD_DIR / "standalone.py") + "c")
-             os.remove(BUILD_DIR / "standalone.py")
+             standalone_dest = BUILD_DIR / "standalone.py"
+             cfile_path = BUILD_DIR / "standalone.pyc"
+             py_compile.compile(standalone_dest, cfile=cfile_path, doraise=True)
+             os.remove(standalone_dest)
 
         print("\n[SUCCESS] Entire backend package has been secured.")
         print(f"Build Artifact: {BUILD_DIR}")
         return 0
     except Exception as e:
-        print(f"\n[FATAL] Obfuscation failed: {e}")
-        return 1
+        print(f"FATAL ERROR in Obfuscation Engine: {e}")
+        traceback.print_exc()
+        sys.exit(1)
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

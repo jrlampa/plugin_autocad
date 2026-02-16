@@ -207,7 +207,10 @@ namespace sisRUA.Engine
                     tr.AddNewlyCreatedDBObject(ent, true);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                WriteMessage($"Erro ao gerar offset da via: {ex.Message}");
+            }
         }
 
         private double GetMetersToDrawingUnitsScale(Database db)
