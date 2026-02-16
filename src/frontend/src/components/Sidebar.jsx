@@ -1,4 +1,4 @@
-import { Spline, CheckCircle2, Zap, Loader2, Scissors } from 'lucide-react';
+import { Spline, CheckCircle2, Zap, Loader2, Scissors, Lightbulb } from 'lucide-react';
 
 export default function Sidebar({
   mapLogic,
