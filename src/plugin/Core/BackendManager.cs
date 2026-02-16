@@ -75,7 +75,7 @@ namespace sisRUA.Core
                     IsReady = IsBackendHealthy() && IsBackendAuthorized();
                     if (IsReady) 
                     {
-                        Log("Backend inicializado e verificado com sucesso.");
+                        Log("sisRUA iniciado com sucesso.");
                         StartWatchdog();
                     }
                     else
@@ -86,7 +86,7 @@ namespace sisRUA.Core
                 catch (Exception ex)
                 {
                     LastError = ex;
-                    Alert("Erro durante inicialização do backend: " + ex.Message);
+                    Log("Erro durante inicialização do backend: " + ex.Message);
                     _pythonProcess = null;
                 }
                 finally

@@ -71,14 +71,11 @@ def main():
         # Obfuscate the entire package into BUILD_DIR/backend
         obfuscate_package(BACKEND_PKG_PATH, BUILD_DIR / "backend")
         
-        # Also copy standalone.py (the entry point) - obfuscated as well
+        # Also copy standalone.py (the entry point) - keep as .py for PyInstaller
         standalone_src = REPO_ROOT / "src" / "backend" / "standalone.py"
         if standalone_src.exists():
              shutil.copy2(standalone_src, BUILD_DIR / "standalone.py")
-             standalone_dest = BUILD_DIR / "standalone.py"
-             cfile_path = BUILD_DIR / "standalone.pyc"
-             py_compile.compile(standalone_dest, cfile=cfile_path, doraise=True)
-             os.remove(standalone_dest)
+             print("  Entry point preserved as .py for bundling stability.")
 
         print("\n[SUCCESS] Entire backend package has been secured.")
         print(f"Build Artifact: {BUILD_DIR}")

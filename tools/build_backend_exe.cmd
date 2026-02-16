@@ -183,5 +183,27 @@ REM Copia requirements.txt (caso precise de install no destino)
 copy /Y "%BACKEND_SRC%\requirements.txt" "%BACKEND_OUT%\requirements.txt" >nul
 
 echo OK: Fonte preparado em %BACKEND_OUT%
+
+echo [pyinstaller] Gerando executavel a partir do fonte ofuscado...
+pushd "%BACKEND_OUT%"
+"%PY%" -m PyInstaller "%ROOT%\sisrua_backend.spec" --noconfirm --distpath "%DIST_TMP%" --workpath "%BUILD_TMP%\work"
+popd
+
+if errorlevel 1 (
+  echo ERRO: Falha ao gerar executavel via PyInstaller.
+  exit /b 1
+)
+
+REM Copia o EXE gerado para a pasta final
+if exist "%DIST_TMP%\sisrua_backend\sisrua_backend.exe" (
+    copy /Y "%DIST_TMP%\sisrua_backend\sisrua_backend.exe" "%BACKEND_OUT%\sisrua_backend.exe" >nul
+) else if exist "%DIST_TMP%\sisrua_backend.exe" (
+    copy /Y "%DIST_TMP%\sisrua_backend.exe" "%BACKEND_OUT%\sisrua_backend.exe" >nul
+) else (
+    echo ERRO: sisrua_backend.exe nao encontrado em %DIST_TMP%
+    exit /b 1
+)
+
+echo OK: sisrua_backend.exe gerado com sucesso em %BACKEND_OUT%
 endlocal
 
