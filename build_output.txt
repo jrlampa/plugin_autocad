@@ -1,0 +1,6 @@
+MSBUILD : error MSB1008: Somente um projeto pode ser especificado.
+    Linha de comando completa: 'C:\Program Files\dotnet\sdk\10.0.103\MSBuild.dll -maxcpucount --verbosity:m -tlp:default=auto --property:Platform=x64 --property:Configuration=Release --property:NuGetInteractive=false --restoreProperty:Platform=x64 --restoreProperty:Configuration=Release --restoreProperty:NuGetInteractive=false --restoreProperty:EnableDefaultCompileItems=false --restoreProperty:EnableDefaultEmbeddedResourceItems=false --restoreProperty:EnableDefaultNoneItems=false src\plugin\sisRUA.csproj Check-Content build_output.txt -consoleloggerparameters:Summary -restore -distributedlogger:Microsoft.DotNet.Cli.Commands.MSBuild.MSBuildLogger,C:\Program Files\dotnet\sdk\10.0.103\dotnet.dll*Microsoft.DotNet.Cli.Commands.MSBuild.MSBuildForwardingLogger,C:\Program Files\dotnet\sdk\10.0.103\dotnet.dll -nologo'
+  Comutadores acrescentados por arquivos de resposta:
+Op├º├úo: Check-Content
+
+Para obter a sintaxe da op├º├úo, digite "MSBuild -help"

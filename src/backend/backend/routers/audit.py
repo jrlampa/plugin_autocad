@@ -1,25 +1,28 @@
-"""
-Audit Log API Routes
-REST endpoints for creating and querying cryptographic audit logs.
-Converted to FastAPI APIRouter.
-"""
-from fastapi import APIRouter, Request, HTTPException, Query
-from backend.core.audit import get_audit_logger
-from backend.core.database import get_db_connection
-from backend.core.logger import get_logger
+import logging
+import time
+import csv
+import io
+import json
 from typing import Optional, List, Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
+from starlette.responses import Response
 
-audit_bp = APIRouter()
+from backend.core.security import require_token
+from backend.core.database import get_db_connection
+from backend.core.container import audit_service, export_service
+from backend.core.logger import get_logger
+
+router = APIRouter(tags=["Audit"])
 logger = get_logger(__name__)
 
-@audit_bp.post("/audit", status_code=201)
-async def create_audit_log(request: Request):
+@router.post("/audit", status_code=201)
+async def create_audit_log(request: Request, _ = Depends(require_token)):
     """Create audit log entry (called from C# plugin or other services)."""
     try:
         data = await request.json()
-        audit = get_audit_logger()
         
-        audit_id = audit.log(
+        audit_id = audit_service.log(
             event_type=data['event_type'],
             entity_type=data['entity_type'],
             entity_id=data.get('entity_id'),
@@ -35,8 +38,8 @@ async def create_audit_log(request: Request):
         logger.error("audit_create_failed", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@audit_bp.get("/audit/{audit_id}")
-async def get_audit_log(audit_id: int):
+@router.get("/audit/{audit_id}")
+async def get_audit_log(audit_id: int, _ = Depends(require_token)):
     """Get a specific audit log entry."""
     conn = get_db_connection()
     try:
@@ -56,18 +59,17 @@ async def get_audit_log(audit_id: int):
             "entity_id": row[3],
             "user_id": row[4],
             "timestamp": row[5],
-            "data": row[6],
+            "data": json.loads(row[6]) if row[6] else {},
             "signature": row[7][:16] + "...",  # Truncate for security
             "created_at": row[8]
         }
     finally:
         conn.close()
 
-@audit_bp.get("/audit/{audit_id}/verify")
-async def verify_audit_log(audit_id: int):
+@router.get("/audit/{audit_id}/verify")
+async def verify_audit_log(audit_id: int, _ = Depends(require_token)):
     """Verify audit log signature to detect tampering."""
-    audit = get_audit_logger()
-    is_valid = audit.verify(audit_id)
+    is_valid = audit_service.verify(audit_id)
     
     return {
         "audit_id": audit_id,
@@ -75,37 +77,67 @@ async def verify_audit_log(audit_id: int):
         "message": "Signature valid" if is_valid else "⚠️ Tamper detected!"
     }
 
-@audit_bp.post("/audit/verify-all")
-async def verify_all_logs(request: Request):
+@router.post("/audit/verify-all")
+async def verify_all_logs(request: Request, _ = Depends(require_token)):
     """Verify all recent audit logs for integrity checking."""
     try:
         data = await request.json() if await request.body() else {}
         limit = data.get('limit', 1000)
-        audit = get_audit_logger()
-        results = audit.verify_all(limit)
+        results = audit_service.verify_all(limit)
         
         return results
     except Exception as e:
         logger.error("audit_verify_all_failed", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@audit_bp.get("/audit")
+@router.get("/audit")
 async def list_audit_logs(
     entity_type: Optional[str] = None,
     entity_id: Optional[str] = None,
     event_type: Optional[str] = None,
-    limit: int = Query(100, ge=1, le=1000)
+    limit: int = Query(100, ge=1, le=1000),
+    _ = Depends(require_token)
 ):
     """List audit logs with optional filters."""
-    audit = get_audit_logger()
-    logs = audit.list_logs(entity_type, entity_id, event_type, limit)
-    return {
-        "count": len(logs),
-        "logs": logs
-    }
+    # Note: list_logs in AuditLogger might need to be implemented or verified
+    # For now, we interact with database directly or through service if available
+    conn = get_db_connection()
+    try:
+        query = "SELECT audit_id, event_type, entity_type, entity_id, user_id, timestamp FROM AuditLog WHERE 1=1"
+        params = []
+        if entity_type:
+            query += " AND entity_type = ?"
+            params.append(entity_type)
+        if entity_id:
+            query += " AND entity_id = ?"
+            params.append(entity_id)
+        if event_type:
+            query += " AND event_type = ?"
+            params.append(event_type)
+        
+        query += " ORDER BY timestamp DESC LIMIT ?"
+        params.append(limit)
+        
+        rows = conn.execute(query, params).fetchall()
+        logs = []
+        for r in rows:
+            logs.append({
+                "audit_id": r[0],
+                "event_type": r[1],
+                "entity_type": r[2],
+                "entity_id": r[3],
+                "user_id": r[4],
+                "timestamp": r[5]
+            })
+        return {
+            "count": len(logs),
+            "logs": logs
+        }
+    finally:
+        conn.close()
 
-@audit_bp.get("/audit/stats")
-async def get_audit_stats():
+@router.get("/audit/stats")
+async def get_audit_stats(_ = Depends(require_token)):
     """Get audit log statistics."""
     conn = get_db_connection()
     try:
@@ -127,7 +159,6 @@ async def get_audit_stats():
         """).fetchall()
         
         # Recent activity (last 24 hours)
-        import time
         day_ago = time.time() - 86400
         recent = conn.execute("""
             SELECT COUNT(*) FROM AuditLog 
@@ -143,38 +174,30 @@ async def get_audit_stats():
     finally:
         conn.close()
 
-@audit_bp.get("/valuation/summary")
-async def get_valuation_summary():
+@router.get("/valuation/summary")
+async def get_valuation_summary(_ = Depends(require_token)):
     """
     Agrega métricas de valuación (Km mapeados) a partir dos logs de auditoria.
     Essencial para provar o valor do ativo durante due diligence.
     """
     conn = get_db_connection()
     try:
-        # Busca todos os eventos de salvamento de projeto para extrair mileage
-        # Em um sistema real, leríamos de uma tabela de fatos 'ProjectMetrics'
-        # Aqui, simulamos extraindo do JSON de auditoria.
-        import json
         rows = conn.execute("""
             SELECT data_json FROM AuditLog 
             WHERE event_type = 'UPDATE' AND entity_type = 'Project'
         """).fetchall()
         
         total_mileage = 0.0
-        unique_projects = set()
-        
-        # Agrega apenas o último mileage reportado por projeto para evitar duplicidade
         project_mileages = {}
         
         for row in rows:
             try:
                 data = json.loads(row[0])
-                p_id = data.get("project_id") # Depende do payload do C#
+                p_id = data.get("project_id")
                 m = data.get("mileage_km", 0.0)
                 if p_id:
                     project_mileages[p_id] = m
                 else:
-                    # Fallback se não houver ID (consideramos acumulativo para o demo)
                     total_mileage += m
             except:
                 continue
@@ -184,23 +207,19 @@ async def get_valuation_summary():
         return {
             "total_urban_assets_mapped_km": round(total_mileage, 2),
             "valuation_metric": "Price per Km",
-            "estimated_asset_value_usd": round(total_mileage * 500, 2), # Exemplo de valuation estratosférico
+            "estimated_asset_value_usd": round(total_mileage * 500, 2),
             "compliance_status": "ISO 27001 Compliant",
             "data_currency": "Verifiable via Cryptographic Audit Trail"
         }
     finally:
         conn.close()
 
-@audit_bp.get("/audit/export/compliance")
-async def export_audit_logs():
+@router.get("/audit/export/compliance")
+async def export_audit_logs(_ = Depends(require_token)):
     """
     Gera um pacote de evidências para auditoria externa (Autodesk/ISO).
     Transforma conformidade em um ativo de venda.
     """
-    import csv
-    import io
-    from fastapi.responses import StreamingResponse
-    
     conn = get_db_connection()
     try:
         rows = conn.execute("""

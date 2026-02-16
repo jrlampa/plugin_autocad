@@ -198,7 +198,7 @@ async def shutdown_event():
 
 # --- Router Registration ---
 from backend.routers import (
-    health, auth, jobs, gis, projects, ai, webhooks
+    health, auth, jobs, gis, projects, ai, webhooks, audit
 )
 app.include_router(health.router)
 app.include_router(auth.router)
@@ -208,8 +208,7 @@ app.include_router(projects.router)
 app.include_router(ai.router)
 app.include_router(webhooks.router)
 
-from backend.audit_routes import audit_bp
-app.include_router(audit_bp, prefix="/api", tags=["Audit"])
+app.include_router(audit.router, prefix="/api")
 
 @app.post("/api/v1/management/shutdown", tags=["Infrastructure"])
 async def shutdown_server(_ = Depends(require_token)):
