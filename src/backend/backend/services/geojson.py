@@ -10,6 +10,7 @@ from backend.core.utils import (
     get_layer_name
 )
 from backend.gis_core.crs import sirgas2000_utm_epsg
+from backend.gis_core.validator import validate_geojson  # NEW: Geometry validation
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -49,6 +50,18 @@ def prepare_geojson_compute(geo: Any, check_cancel: Callable[[], None] = None) -
 
     if isinstance(geo, str):
         geo = json.loads(geo)
+
+    # NEW: Validate and auto-fix geometries
+    logger.info("validating_geometries", feature_count=len(geo.get('features', [])))
+    geo, validation_report = validate_geojson(geo, max_vertices=10000, simplify_tolerance=0.001)
+    
+    if validation_report['total_issues'] > 0:
+        logger.warning("geometry_validation_issues", 
+                      total=validation_report['total_issues'],
+                      fixed=validation_report['fixed'],
+                      unfixed=validation_report['unfixed'])
+    else:
+        logger.info("geometry_validation_passed", message="All geometries valid")
 
     lon0, lat0 = first_lonlat(geo)
     if lon0 == 0.0 and lat0 == 0.0:
