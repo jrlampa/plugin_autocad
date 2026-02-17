@@ -143,7 +143,7 @@ if SENTRY_DSN:
 
 # --- Core Dependencies ---
 from fastapi import Depends
-from backend.core.config import AUTH_TOKEN, AUTH_HEADER_NAME
+from backend.core.config import AUTH_TOKEN, AUTH_HEADER_NAME, IS_PROD
 from backend.core.security import is_valid_session, require_token
 from backend.core.container import setup_event_bus
 
@@ -151,8 +151,20 @@ from backend.core.container import setup_event_bus
 # Permite file:// e qualquer porta local para WebView2
 # Security Note: In production, restrict this to specific domains
 # For plugin use (WebView2), we allow localhost and file:// protocol
-ALLOWED_ORIGINS = ["*"]  # Development/Plugin mode: permissive for WebView2
-# Production example: ALLOWED_ORIGINS = ["https://sisrua.example.com", "https://app.sisrua.com"]
+
+# Configure allowed origins based on environment
+# In production: Use specific domains from environment variable
+# In development/plugin mode: Allow localhost only (not wildcard)
+# In tests: Strict validation (no wildcard)
+_env_origins = os.environ.get("ALLOWED_ORIGINS", "")
+if IS_PROD and _env_origins:
+    ALLOWED_ORIGINS = [o.strip() for o in _env_origins.split(",") if o.strip()]
+elif os.environ.get("SISRUA_TESTING") == "true":
+    # Testing mode: strict validation, no wildcards
+    ALLOWED_ORIGINS = ["http://localhost:8000", "http://localhost:5173"]
+else:
+    # Development/plugin mode: Allow localhost variations but not wildcard
+    ALLOWED_ORIGINS = []
 
 @app.middleware("http")
 async def validate_origin(request: Request, call_next):
@@ -161,7 +173,7 @@ async def validate_origin(request: Request, call_next):
     
     Security Policy:
     1. Health/docs endpoints: Always allowed
-    2. Browser requests (with Origin header): Must be from allowed origins
+    2. Browser requests (with Origin header): Must be from allowed origins or localhost
     3. Non-browser requests (no Origin): Allowed only from localhost OR with valid auth
     4. Testserver: Validation skipped for testing
     """
@@ -187,8 +199,8 @@ async def validate_origin(request: Request, call_next):
             if origin.startswith("http://localhost:") or origin.startswith("http://127.0.0.1:") or origin.startswith("https://localhost:") or origin.startswith("https://127.0.0.1:"):
                  return await call_next(request)
             
-            # Check if origin is in allowed list (including wildcard for dev)
-            if "*" in ALLOWED_ORIGINS or origin in ALLOWED_ORIGINS:
+            # Check if origin is in allowed list
+            if origin in ALLOWED_ORIGINS:
                 return await call_next(request)
             
             # Origin not allowed - block even with valid auth (CSRF protection)
@@ -211,9 +223,12 @@ async def validate_origin(request: Request, call_next):
         return await call_next(request)
 
 # --- CORS Middleware ---
+# CORS needs to allow all origins for WebView2 file:// protocol and dynamic ports
+# The validate_origin middleware above provides the actual security
+_cors_origins = ALLOWED_ORIGINS if ALLOWED_ORIGINS else ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS", "PUT"],
     allow_headers=["*"],
@@ -225,7 +240,6 @@ from backend.core.rate_limit import RateLimitMiddleware
 app.add_middleware(RateLimitMiddleware)
 
 # --- HTTPS Enforcement Middleware (Production Only) ---
-from backend.core.config import IS_PROD
 
 @app.middleware("http")
 async def enforce_https(request: Request, call_next):
