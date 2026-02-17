@@ -48,79 +48,46 @@ async function loadLatestRelease() {
   }
 }
 
-async function loadRepoStats() {
+async function loadGitHubStats(elementIds = {}, locale = undefined) {
   const owner = "jrlampa";
   const repo = "plugin_autocad";
 
+  const ids = {
+    stars: elementIds.stars,
+    forks: elementIds.forks,
+    watchers: elementIds.watchers,
+    releases: elementIds.releases,
+  };
+
   try {
-    // Fetch repository info
     const repoResp = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
       headers: { Accept: "application/vnd.github+json" },
     });
     if (!repoResp.ok) throw new Error(`GitHub API: ${repoResp.status}`);
     const repoData = await repoResp.json();
 
-    // Update stats
-    if (repoData.stargazers_count !== undefined) {
-      setText("repoStars", repoData.stargazers_count.toLocaleString("pt-BR"));
+    if (repoData.stargazers_count !== undefined && ids.stars) {
+      setText(ids.stars, repoData.stargazers_count.toLocaleString(locale));
     }
-    if (repoData.forks_count !== undefined) {
-      setText("repoForks", repoData.forks_count.toLocaleString("pt-BR"));
+    if (repoData.forks_count !== undefined && ids.forks) {
+      setText(ids.forks, repoData.forks_count.toLocaleString(locale));
     }
-    if (repoData.subscribers_count !== undefined) {
-      setText("repoWatchers", repoData.subscribers_count.toLocaleString("pt-BR"));
+    if (repoData.subscribers_count !== undefined && ids.watchers) {
+      setText(ids.watchers, repoData.subscribers_count.toLocaleString(locale));
     }
 
-    // Fetch releases count
-    const releasesResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases?per_page=100`, {
-      headers: { Accept: "application/vnd.github+json" },
-    });
-    if (releasesResp.ok) {
-      const releasesData = await releasesResp.json();
-      if (Array.isArray(releasesData)) {
-        setText("repoReleases", releasesData.length.toLocaleString("pt-BR"));
+    if (ids.releases) {
+      const releasesResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases?per_page=100`, {
+        headers: { Accept: "application/vnd.github+json" },
+      });
+      if (releasesResp.ok) {
+        const releasesData = await releasesResp.json();
+        if (Array.isArray(releasesData)) {
+          setText(ids.releases, releasesData.length.toLocaleString(locale));
+        }
       }
     }
   } catch (error) {
-    console.error('Failed to load GitHub stats:', error);
-  }
-}
-
-async function loadGitHubStats() {
-  const owner = "jrlampa";
-  const repo = "plugin_autocad";
-
-  try {
-    // Fetch repository data
-    const repoResp = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-      headers: { Accept: "application/vnd.github+json" },
-    });
-    if (!repoResp.ok) throw new Error(`GitHub API: ${repoResp.status}`);
-    const repoData = await repoResp.json();
-
-    // Update stats with locale formatting
-    if (repoData.stargazers_count !== undefined) {
-      setText("ghStars", repoData.stargazers_count.toLocaleString());
-    }
-    if (repoData.forks_count !== undefined) {
-      setText("ghForks", repoData.forks_count.toLocaleString());
-    }
-    if (repoData.subscribers_count !== undefined) {
-      setText("ghWatchers", repoData.subscribers_count.toLocaleString());
-    }
-
-    // Fetch releases count
-    const releasesResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases?per_page=100`, {
-      headers: { Accept: "application/vnd.github+json" },
-    });
-    if (releasesResp.ok) {
-      const releasesData = await releasesResp.json();
-      if (Array.isArray(releasesData)) {
-        setText("ghReleases", releasesData.length.toLocaleString());
-      }
-    }
-  } catch (error) {
-    // Keep "—" placeholders on error
     console.error('Failed to load GitHub stats:', error);
   }
 }
@@ -128,8 +95,8 @@ async function loadGitHubStats() {
 function init() {
   setText("year", String(new Date().getFullYear()));
   loadLatestRelease();
-  loadRepoStats();
-  loadGitHubStats();
+  loadGitHubStats({ stars: "repoStars", forks: "repoForks", watchers: "repoWatchers", releases: "repoReleases" }, "pt-BR");
+  loadGitHubStats({ stars: "ghStars", forks: "ghForks", watchers: "ghWatchers", releases: "ghReleases" });
 }
 
 document.addEventListener("DOMContentLoaded", init);
