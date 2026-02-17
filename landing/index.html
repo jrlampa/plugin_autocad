@@ -29,7 +29,10 @@
 
         <nav class="nav">
           <a href="#como-funciona">Como funciona</a>
+          <a href="#demonstracao">Demo</a>
+          <a href="#recursos-avancados">Recursos</a>
           <a href="#comparativo">Comparativo</a>
+          <a href="#roadmap">Roadmap</a>
           <a href="#instalacao">Instalação</a>
           <a href="#faq">FAQ</a>
           <a href="#contribuir">Contribuir</a>
@@ -135,6 +138,235 @@
               <h3>Layers padronizadas + bordas de via</h3>
               <p>Organização por tipo de via e visual melhor: bordas por <i>offset</i> quando aplicável.</p>
             </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="demonstracao" class="section section--alt">
+        <div class="container">
+          <h2>Veja o sisRUA em ação</h2>
+          <p class="section__lead">
+            Do campo até o AutoCAD: assista ao fluxo completo de trabalho ou siga o guia visual passo a passo.
+          </p>
+
+          <div class="demo">
+            <div class="demo__video">
+              <div class="video-placeholder">
+                <div class="play-icon">
+                  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="32" cy="32" r="32" fill="rgba(106,167,255,.25)" />
+                    <path d="M26 20l20 12-20 12V20z" fill="white" />
+                  </svg>
+                </div>
+                <div class="video-label">Vídeo demonstrativo em breve</div>
+              </div>
+            </div>
+
+            <div class="demo__steps">
+              <h3>Fluxo de trabalho em 3 passos</h3>
+              <div class="visual-steps">
+                <div class="visual-step">
+                  <div class="visual-step__number">1</div>
+                  <div class="visual-step__visual">
+                    <div class="map-mini"></div>
+                  </div>
+                  <div class="visual-step__title">Selecione a área</div>
+                  <div class="visual-step__desc">Escolha um ponto no mapa e defina o raio de interesse</div>
+                </div>
+                <div class="visual-step">
+                  <div class="visual-step__number">2</div>
+                  <div class="visual-step__visual">
+                    <div class="processing-icon">⚙️</div>
+                  </div>
+                  <div class="visual-step__title">Processamento automático</div>
+                  <div class="visual-step__desc">O sisRUA baixa OSM, projeta para UTM/SIRGAS e organiza layers</div>
+                </div>
+                <div class="visual-step">
+                  <div class="visual-step__number">3</div>
+                  <div class="visual-step__visual">
+                    <div class="cad-icon">📐</div>
+                  </div>
+                  <div class="visual-step__title">Desenho no AutoCAD</div>
+                  <div class="visual-step__desc">Vias aparecem prontas no ModelSpace com bordas e layers padronizadas</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="recursos-avancados" class="section">
+        <div class="container">
+          <h2>Recursos avançados</h2>
+          <p class="section__lead">
+            Funcionalidades profissionais que tornam o sisRUA ideal para projetos técnicos e levantamentos de campo.
+          </p>
+
+          <div class="feature-grid">
+            <article class="feature-card">
+              <div class="card__icon">🌍</div>
+              <h3>Suporte a múltiplos CRS</h3>
+              <p>Trabalhe com diferentes sistemas de coordenadas. O sisRUA detecta automaticamente o melhor fuso UTM e reprojeta os dados mantendo precisão submétrica.</p>
+              <ul class="feature-list">
+                <li>UTM automático baseado em longitude</li>
+                <li>SIRGAS 2000 como datum padrão</li>
+                <li>Conversão de WGS84 para projeções locais</li>
+                <li>Suporte a GeoJSON com CRS customizado</li>
+              </ul>
+            </article>
+
+            <article class="feature-card">
+              <div class="card__icon">📂</div>
+              <h3>Camadas inteligentes</h3>
+              <p>Organização automática de layers por tipo de via e atributos. Facilita a visualização, edição e plotagem dos elementos importados.</p>
+              <ul class="feature-list">
+                <li>Nomenclatura padronizada SISRUA_OSM_*</li>
+                <li>Separação por hierarquia de vias</li>
+                <li>Cores e espessuras pré-configuradas</li>
+                <li>Bordas de via por offset geométrico</li>
+              </ul>
+            </article>
+
+            <article class="feature-card">
+              <div class="card__icon">🔄</div>
+              <h3>Atualização de dados</h3>
+              <p>Reimporte a mesma área sempre que necessário. Ideal para acompanhar mudanças no terreno ou corrigir levantamentos de campo.</p>
+              <ul class="feature-list">
+                <li>Mesmas coordenadas, dados atualizados</li>
+                <li>Integração com dados OSM em tempo real</li>
+                <li>Histórico de importações por projeto</li>
+                <li>Merge inteligente com dados existentes</li>
+              </ul>
+            </article>
+
+            <article class="feature-card">
+              <div class="card__icon">🔒</div>
+              <h3>Privacidade total</h3>
+              <p>Seus dados de campo permanecem locais. O backend roda na sua máquina e arquivos GeoJSON nunca saem do seu computador.</p>
+              <ul class="feature-list">
+                <li>Backend 100% local (sem nuvem)</li>
+                <li>Sem envio de coordenadas para servidores</li>
+                <li>Sem telemetria ou tracking</li>
+                <li>Dados sensíveis ficam no seu DWG</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="estatisticas" class="section section--alt">
+        <div class="container">
+          <h2>Projeto ativo e em crescimento</h2>
+          <p class="section__lead">
+            O sisRUA é desenvolvido abertamente no GitHub. Acompanhe o progresso, reporte bugs e contribua com o projeto.
+          </p>
+
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat__icon">⭐</div>
+              <div class="stat__value" id="repoStars">—</div>
+              <div class="stat__label">Stars no GitHub</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat__icon">🔱</div>
+              <div class="stat__value" id="repoForks">—</div>
+              <div class="stat__label">Forks</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat__icon">👁️</div>
+              <div class="stat__value" id="repoWatchers">—</div>
+              <div class="stat__label">Watchers</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat__icon">📦</div>
+              <div class="stat__value" id="repoReleases">—</div>
+              <div class="stat__label">Releases</div>
+            </div>
+          </div>
+
+          <div class="stats-cta">
+            <div class="stats-cta__text">
+              <h3>Contribua com o projeto</h3>
+              <p class="muted">O sisRUA é open source. Sua contribuição ajuda a melhorar o plugin para toda a comunidade.</p>
+            </div>
+            <div class="stats-cta__buttons">
+              <a class="btn btn--primary" href="https://github.com/jrlampa/plugin_autocad" target="_blank" rel="noreferrer">
+                Ver repositório
+              </a>
+              <a class="btn btn--ghost" href="https://github.com/jrlampa/plugin_autocad/issues" target="_blank" rel="noreferrer">
+                Reportar bug
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="roadmap" class="section">
+        <div class="container">
+          <h2>Roadmap de desenvolvimento</h2>
+          <p class="section__lead">
+            Veja o que já foi feito e o que está por vir. O sisRUA está em constante evolução com base no feedback da comunidade.
+          </p>
+
+          <div class="roadmap">
+            <div class="roadmap-item">
+              <div class="roadmap-item__header">
+                <div class="roadmap-item__version">v0.8</div>
+                <div class="badge badge--done">✓ Concluído</div>
+              </div>
+              <div class="roadmap-item__title">Fundação sólida</div>
+              <ul class="roadmap-item__features">
+                <li>Importação básica de OSM</li>
+                <li>Projeção automática para UTM</li>
+                <li>Desenho de polylines no AutoCAD</li>
+                <li>Layers padronizadas por tipo de via</li>
+              </ul>
+            </div>
+
+            <div class="roadmap-item roadmap-item--current">
+              <div class="roadmap-item__header">
+                <div class="roadmap-item__version">v1.0</div>
+                <div class="badge badge--progress">🔨 Em andamento</div>
+              </div>
+              <div class="roadmap-item__title">Maturidade e estabilidade</div>
+              <ul class="roadmap-item__features">
+                <li>Suporte completo a GeoJSON do campo</li>
+                <li>Bordas de via por offset geométrico</li>
+                <li>Interface aprimorada na paleta</li>
+                <li>Instalador robusto com WebView2</li>
+                <li>Documentação completa em português</li>
+              </ul>
+            </div>
+
+            <div class="roadmap-item">
+              <div class="roadmap-item__header">
+                <div class="roadmap-item__version">v1.5</div>
+                <div class="badge">📋 Planejado</div>
+              </div>
+              <div class="roadmap-item__title">Recursos profissionais</div>
+              <ul class="roadmap-item__features">
+                <li>Suporte a outros elementos OSM (edificações, rios)</li>
+                <li>Exportação de DWG para GeoJSON</li>
+                <li>Templates de layers customizáveis</li>
+                <li>Batch import para múltiplas áreas</li>
+                <li>Integração com GPS de campo</li>
+              </ul>
+            </div>
+
+            <div class="roadmap-item">
+              <div class="roadmap-item__header">
+                <div class="roadmap-item__version">v2.0</div>
+                <div class="badge">🚀 Futuro</div>
+              </div>
+              <div class="roadmap-item__title">Próxima geração</div>
+              <ul class="roadmap-item__features">
+                <li>Suporte a BricsCAD e AutoCAD LT</li>
+                <li>Editor geométrico integrado</li>
+                <li>Análise espacial básica (buffer, intersecção)</li>
+                <li>Sincronização com bases corporativas</li>
+                <li>API para automação e scripting</li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>

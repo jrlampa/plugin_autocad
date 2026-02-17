@@ -48,9 +48,48 @@ async function loadLatestRelease() {
   }
 }
 
+async function loadRepoStats() {
+  const owner = "jrlampa";
+  const repo = "plugin_autocad";
+
+  try {
+    // Fetch repository info
+    const repoResp = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!repoResp.ok) throw new Error(`GitHub API: ${repoResp.status}`);
+    const repoData = await repoResp.json();
+
+    // Update stats
+    if (repoData.stargazers_count !== undefined) {
+      setText("repoStars", repoData.stargazers_count.toLocaleString("pt-BR"));
+    }
+    if (repoData.forks_count !== undefined) {
+      setText("repoForks", repoData.forks_count.toLocaleString("pt-BR"));
+    }
+    if (repoData.subscribers_count !== undefined) {
+      setText("repoWatchers", repoData.subscribers_count.toLocaleString("pt-BR"));
+    }
+
+    // Fetch releases count
+    const releasesResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases?per_page=100`, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (releasesResp.ok) {
+      const releasesData = await releasesResp.json();
+      if (Array.isArray(releasesData)) {
+        setText("repoReleases", releasesData.length.toLocaleString("pt-BR"));
+      }
+    }
+  } catch {
+    // ignore: keep placeholders
+  }
+}
+
 function init() {
   setText("year", String(new Date().getFullYear()));
   loadLatestRelease();
+  loadRepoStats();
 }
 
 document.addEventListener("DOMContentLoaded", init);
