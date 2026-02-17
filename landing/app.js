@@ -86,10 +86,50 @@ async function loadRepoStats() {
   }
 }
 
+async function loadGitHubStats() {
+  const owner = "jrlampa";
+  const repo = "plugin_autocad";
+
+  try {
+    // Fetch repository data
+    const repoResp = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!repoResp.ok) throw new Error(`GitHub API: ${repoResp.status}`);
+    const repoData = await repoResp.json();
+
+    // Update stats with locale formatting
+    if (repoData.stargazers_count !== undefined) {
+      setText("ghStars", repoData.stargazers_count.toLocaleString());
+    }
+    if (repoData.forks_count !== undefined) {
+      setText("ghForks", repoData.forks_count.toLocaleString());
+    }
+    if (repoData.subscribers_count !== undefined) {
+      setText("ghWatchers", repoData.subscribers_count.toLocaleString());
+    }
+
+    // Fetch releases count
+    const releasesResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases?per_page=100`, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (releasesResp.ok) {
+      const releasesData = await releasesResp.json();
+      if (Array.isArray(releasesData)) {
+        setText("ghReleases", releasesData.length.toLocaleString());
+      }
+    }
+  } catch (error) {
+    // Keep "—" placeholders on error
+    console.error('Failed to load GitHub stats:', error);
+  }
+}
+
 function init() {
   setText("year", String(new Date().getFullYear()));
   loadLatestRelease();
   loadRepoStats();
+  loadGitHubStats();
 }
 
 document.addEventListener("DOMContentLoaded", init);
