@@ -308,7 +308,7 @@ async def add_security_headers(request: Request, call_next):
 
 # --- Router Registration ---
 from backend.routers import (
-    health, auth, jobs, gis, projects, ai, webhooks, audit
+    health, auth, jobs, gis, projects, ai, webhooks, audit, sync
 )
 app.include_router(health.router)
 app.include_router(auth.router)
@@ -317,6 +317,7 @@ app.include_router(gis.router)
 app.include_router(projects.router)
 app.include_router(ai.router)
 app.include_router(webhooks.router)
+app.include_router(sync.router)
 
 app.include_router(audit.router, prefix="/api")
 
