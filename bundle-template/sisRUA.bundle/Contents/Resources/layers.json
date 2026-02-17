@@ -1,16 +1,72 @@
 {
   "highway": {
-    "motorway": { "layer": "SISRUA_OSM_MOTORWAY", "aci": 1 },
-    "trunk": { "layer": "SISRUA_OSM_TRUNK", "aci": 2 },
-    "primary": { "layer": "SISRUA_OSM_PRIMARY", "aci": 3 },
-    "secondary": { "layer": "SISRUA_OSM_SECONDARY", "aci": 4 },
-    "tertiary": { "layer": "SISRUA_OSM_TERTIARY", "aci": 5 },
-    "residential": { "layer": "SISRUA_OSM_RESIDENTIAL", "aci": 7 },
-    "service": { "layer": "SISRUA_OSM_SERVICE", "aci": 8 },
-    "unclassified": { "layer": "SISRUA_OSM_UNCLASSIFIED", "aci": 9 },
-    "living_street": { "layer": "SISRUA_OSM_LIVING", "aci": 30 },
-    "footway": { "layer": "SISRUA_OSM_PEDESTRIAN", "aci": 140 },
-    "path": { "layer": "SISRUA_OSM_PATH", "aci": 141 },
-    "cycleway": { "layer": "SISRUA_OSM_CYCLE", "aci": 150 }
+    "motorway": {
+      "layer": "SISRUA_Vias_Expressas_Classe_I",
+      "aci": 1,
+      "lineweight": 0.50
+    },
+    "trunk": {
+      "layer": "SISRUA_Vias_Arteriais_Principais",
+      "aci": 2,
+      "lineweight": 0.40
+    },
+    "primary": {
+      "layer": "SISRUA_Vias_Arteriais_Secundarias",
+      "aci": 3,
+      "lineweight": 0.35
+    },
+    "secondary": {
+      "layer": "SISRUA_Vias_Coletoras",
+      "aci": 4,
+      "lineweight": 0.30
+    },
+    "tertiary": {
+      "layer": "SISRUA_Vias_Locais_Principais",
+      "aci": 5,
+      "lineweight": 0.25
+    },
+    "residential": {
+      "layer": "SISRUA_Vias_Locais_Residenciais",
+      "aci": 7,
+      "lineweight": 0.20
+    },
+    "service": {
+      "layer": "SISRUA_Vias_Servico_Acesso",
+      "aci": 8,
+      "lineweight": 0.15
+    },
+    "unclassified": {
+      "layer": "SISRUA_Vias_Nao_Classificadas",
+      "aci": 9,
+      "lineweight": 0.15
+    },
+    "living_street": {
+      "layer": "SISRUA_Vias_Compartilhadas_Pedestre",
+      "aci": 30,
+      "lineweight": 0.20
+    },
+    "footway": {
+      "layer": "SISRUA_Vias_Pedestres_Calcadas",
+      "aci": 140,
+      "lineweight": 0.13
+    },
+    "path": {
+      "layer": "SISRUA_Caminhos_Parques",
+      "aci": 141,
+      "lineweight": 0.13
+    },
+    "cycleway": {
+      "layer": "SISRUA_Ciclovias_Ciclorrotas",
+      "aci": 150,
+      "lineweight": 0.25
+    }
+  },
+  "metadata": {
+    "standard": "Padrão sisRUA v0.8.0",
+    "norms": [
+      "ABNT NBR 15575",
+      "DNIT 006/2003-PRO"
+    ],
+    "certified": true
   }
 }

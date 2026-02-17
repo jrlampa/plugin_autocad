@@ -1,0 +1,27 @@
+
+name: sisrua-backend
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - gdal=3.8
+  - proj=9.3
+  - geos=3.12
+  - pyproj
+  - shapely
+  - osmnx
+  - rasterio
+  - pandas
+  - geopandas
+  - fastapi
+  - uvicorn
+  - requests
+  - sentry-sdk
+  - structlog
+  - pydantic
+  - pydantic-settings
+  - python-multipart
+  - httpx
+  - pytest
+  - pip:
+    - groq

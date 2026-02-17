@@ -8,6 +8,11 @@ obj/
 *.pdb
 *.cache
 
+# ===== Secrets / Environment =====
+.env
+.env.*
+!.env.example
+
 # ===== Python =====
 __pycache__/
 **/__pycache__/
@@ -22,16 +27,22 @@ cache/
 **/node_modules/
 **/dist-ssr/
 **/coverage/
+bundle-stats.html
 
 # ===== Bundles gerados (artefatos) =====
 dist/
 release/
 release_gate_test/
 installer/out/
+installer/Output/
+Output/
+
 
 # ===== QA / evidências (gerado) =====
 qa/out/
 .pytest_cache/
+*.log
+.coverage
 
 # ===== IDE / ferramentas =====
 .cursor/
@@ -41,3 +52,25 @@ qa/out/
 # ===== Notas locais (não versionar) =====
 passo-a-passo.md
 backup/
+history/
+
+# ===== Local Build / Temp =====
+local_build/
+
+# Generated Backend EXE (in bundle template)
+bundle-template/sisRUA.bundle/Contents/backend/sisrua_backend.exe
+
+# ===== Local SDKs (BIG FILES) =====
+dll_autocad_*/
+
+# ===== Temporary output/test files =====
+*_output.txt
+*_output_*.txt
+build_error*.txt
+test_out*.txt
+all_files.txt
+*.db
+desktop.ini
+group*_output.txt
+
+*.backup

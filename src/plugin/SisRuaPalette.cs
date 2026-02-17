@@ -2,6 +2,7 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Windows;
+using Autodesk.AutoCAD.DatabaseServices;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 using System;
@@ -12,6 +13,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Windows.Forms;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace sisRUA
 {
@@ -22,6 +24,23 @@ namespace sisRUA
     {
         private static PaletteSet _paletteSet;
         private static WebView2 _webView;
+        private static Panel _splashPanel;
+        private static Label _splashLabel;
+        private static System.Windows.Forms.Timer _splashTimer;
+        private static System.Windows.Forms.Timer _navigationTimeoutTimer;
+        private static int _navigationAttempts = 0;
+        private static int _messageIndex = 0;
+        private static readonly string[] _loadingMessages = new[]
+        {
+            "Sintonizando o rádio do estagiário...",
+            "Pedindo aumento pro Zaluar...",
+            "Perguntando pro André algo cabuloso...",
+            "Limpando o cache do AutoCAD (quem dera)...",
+            "Calibrando o GPS de papel...",
+            "Engraxando os eixos das ruas...",
+            "Convencendo os pixels a ficarem no lugar...",
+            "Aguardando o café do backend ficar pronto..."
+        };
         private static Control _uiInvokeTarget;
 
         public static void PostUiMessage(object message)
@@ -58,21 +77,11 @@ namespace sisRUA
             if (!SisRuaSettings.IsPrivacyNoticeAccepted())
             {
                 string settingsPath = SisRuaSettings.TryGetSettingsPathForDisplay();
-                string msg =
-                    "Aviso de proteção de dados (LGPD)\n\n" +
-                    "O sisRUA processa dados de geolocalização (lat/lon) e pode importar arquivos (ex.: GeoJSON) localmente.\n" +
-                    "Quando você usa \"Gerar OSM\", o sisRUA pode acessar serviços do OpenStreetMap (ex.: Overpass) para baixar dados.\n\n" +
-                    "Dados locais:\n" +
-                    "- Cache do OSM/GeoJSON pode ser salvo em %LOCALAPPDATA%\\sisRUA\\cache\n" +
-                    "- A WebView2 pode gravar dados locais (ex.: cache/cookies do componente) em %LOCALAPPDATA%\\sisRUA\\webview2\n\n" +
-                    "Ao clicar em \"Sim\", você confirma que está ciente e deseja continuar.\n" +
-                    "Você pode revisar a Política de Privacidade em PRIVACY.md (no repositório) e apagar os dados locais quando quiser.\n\n" +
-                    (string.IsNullOrWhiteSpace(settingsPath) ? "" : $"Configurações: {settingsPath}\n\n") +
-                    "Deseja continuar?";
-
                 var answer = MessageBox.Show(
-                    msg,
-                    "sisRUA — Proteção de dados",
+                    "O sisRUA utiliza serviços de mapa (OpenStreetMap) e telemetria básica para melhoria contínua.\n\n" +
+                    "Ao continuar, você aceita que o plugin se comunique com o backend local e baixe dados geográficos.\n\n" +
+                    "Deseja ativar o sisRUA?",
+                    "Privacidade e Termos - sisRUA",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Information
                 );
@@ -85,6 +94,22 @@ namespace sisRUA
                 SisRuaSettings.TryMarkPrivacyNoticeAccepted();
             }
 
+            // --- Pre-flight Health Check ---
+            // Verifica se o backend responde em até 2 segundos antes de tentar abrir o WebView2.
+            // Isso evita que o usuário veja uma tela branca se o backend demorar para subir ou falhar.
+            if (!SisRuaPlugin.EnsureBackendHealthy(TimeSpan.FromSeconds(2)))
+            {
+                MessageBox.Show(
+                    "O backend do sisRUA ainda não está pronto ou falhou ao iniciar.\n\n" +
+                    "Aguarde alguns segundos e tente novamente.\n" +
+                    "Se o problema persistir, verifique o console do AutoCAD para mensagens de erro.",
+                    "sisRUA - Backend Indisponível",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+                return;
+            }
+
             if (_paletteSet == null)
             {
                 _paletteSet = new PaletteSet("sisRUA", new Guid("FEA4C5F7-6834-4522-B968-440525C266E3"))
@@ -95,22 +120,64 @@ namespace sisRUA
                 };
 
                 var panel = new UserControl { Dock = DockStyle.Fill };
-                _webView = new WebView2 { Dock = DockStyle.Fill };
+                _webView = new WebView2 { Dock = DockStyle.Fill, Visible = false }; // Começa invisível
                 _uiInvokeTarget = panel;
                 
+                // --- Splash Screen Nativo ---
+                _splashPanel = new Panel { 
+                    Dock = DockStyle.Fill, 
+                    BackColor = System.Drawing.Color.FromArgb(15, 23, 42), // Slate 900
+                    Visible = true 
+                };
+                
+                _splashLabel = new Label {
+                    Text = _loadingMessages[0],
+                    ForeColor = System.Drawing.Color.White,
+                    Font = new System.Drawing.Font("Segoe UI", 10, System.Drawing.FontStyle.Bold),
+                    TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
+                    Dock = DockStyle.Bottom,
+                    Height = 100
+                };
+
+                var loaderIcon = new Label {
+                    Text = "⌛", // Spinner simplificado
+                    ForeColor = System.Drawing.Color.FromArgb(59, 130, 246), // Blue 500
+                    Font = new System.Drawing.Font("Segoe UI", 24, System.Drawing.FontStyle.Bold),
+                    TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
+                    Dock = DockStyle.Fill
+                };
+
+                _splashPanel.Controls.Add(loaderIcon);
+                _splashPanel.Controls.Add(_splashLabel);
+
+                // Timer para rotacionar mensagens
+                _splashTimer = new System.Windows.Forms.Timer { Interval = 2500 };
+                _splashTimer.Tick += (s, e) => {
+                    _messageIndex = (_messageIndex + 1) % _loadingMessages.Length;
+                    _splashLabel.Text = _loadingMessages[_messageIndex];
+                };
+                _splashTimer.Start();
+
                 // Habilita o Drag & Drop no painel
                 panel.AllowDrop = true;
                 panel.DragEnter += Panel_DragEnter;
                 panel.DragDrop += Panel_DragDrop;
 
                 panel.Controls.Add(_webView);
+                panel.Controls.Add(_splashPanel);
                 _paletteSet.Add("WebView", panel);
 
                 // A inicialização é assíncrona, então disparamos e não bloqueamos.
                 InitializeWebViewAsync(); 
+
+                // Monitora trocas de documento para atualizar georef
+                Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.DocumentActivated += (s, e) => {
+                    PushGeoLocationToUi();
+                };
             }
 
             _paletteSet.Visible = true;
+            PushGeoLocationToUi();
         }
 
         [CommandMethod("SISRUAESCALA", CommandFlags.Session)]
@@ -282,6 +349,47 @@ namespace sisRUA
             return File.ReadAllText(kmlFilePath);
         }
 
+        /// <summary>
+        /// Tenta extrair a GEOGRAPHICLOCATION do AutoCAD e envia para o frontend.
+        /// </summary>
+        private static void PushGeoLocationToUi()
+        {
+            try
+            {
+                var doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
+                if (doc == null) return;
+
+                /* GEOLOCATION TEMPORARILY DISABLED DUE TO BUILD ERROR
+                var db = doc.Database;
+                if (db.GeoLocationDataId == ObjectId.Null) return;
+
+                using (var tr = db.TransactionManager.StartTransaction())
+                {
+                    var geo = tr.GetObject(db.GeoLocationDataId, OpenMode.ForRead) as GeoLocationData;
+                    if (geo != null)
+                    {
+                        double lat = geo.Latitude;
+                        double lon = geo.Longitude;
+
+                        if (lat != 0 && lon != 0)
+                        {
+                            PostUiMessage(new { 
+                                action = "GEOLOCATION_SYNC", 
+                                data = new { latitude = lat, longitude = lon } 
+                            });
+                            Debug.WriteLine($"[sisRUA] Georeferenciamento detectado e enviado: {lat}, {lon}");
+                        }
+                    }
+                    tr.Commit();
+                }
+                */
+            }
+            catch (System.Exception ex)
+            {
+                Debug.WriteLine($"[sisRUA] Erro ao extrair georef: {ex.Message}");
+            }
+        }
+
         private async void InitializeWebViewAsync()
         {
             try
@@ -301,6 +409,24 @@ namespace sisRUA
                 // Configura a ponte de comunicação JS -> C#
                 _webView.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
                 
+                // Adiciona handler para navegação completa com failsafe
+                _webView.CoreWebView2.NavigationCompleted += CoreWebView2_NavigationCompleted;
+
+                // --- Mitigação Prática: Auth Interception ---
+                // Intercepta todas as chamadas para injetar o header de forma invisível.
+                // Filtramos apenas para o domínio do backend para evitar vazamento de token para fora (ex: OSM).
+                string backendHost = new Uri(SisRuaPlugin.BackendBaseUrl).Host;
+                string filter = $"*://{backendHost}/*";
+                _webView.CoreWebView2.AddWebResourceRequestedFilter(filter, CoreWebView2WebResourceContext.All);
+                
+                _webView.CoreWebView2.WebResourceRequested += (s, args) =>
+                {
+                    if (!string.IsNullOrWhiteSpace(SisRuaPlugin.BackendAuthToken))
+                    {
+                        args.Request.Headers.SetHeader(SisRuaPlugin.BackendAuthHeaderName, SisRuaPlugin.BackendAuthToken);
+                    }
+                };
+                
                 // Navega para a URL do frontend React.
                 string baseUrl = SisRuaPlugin.BackendBaseUrl;
                 if (string.IsNullOrWhiteSpace(baseUrl))
@@ -311,8 +437,12 @@ namespace sisRUA
                 else
                 {
                     // Em geral o plugin já aguardou o /health no Initialize(), mas aqui damos um "seguro" extra.
-                    SisRuaPlugin.EnsureBackendHealthy(TimeSpan.FromSeconds(5));
+                    SisRuaPlugin.EnsureBackendHealthy(TimeSpan.FromSeconds(sisRUA.Core.BackendConfiguration.WebViewBackendHealthCheckSeconds));
                 }
+                
+                // Start timeout failsafe for APP_READY message
+                StartNavigationTimeoutFailsafe();
+                
                 _webView.Source = new Uri(baseUrl);
             }
             catch (System.Exception ex)
@@ -336,6 +466,122 @@ namespace sisRUA
                 return Path.Combine(Path.GetTempPath(), "sisRUA_webview2");
             }
             return Path.Combine(localSisRuaDir, "webview2");
+        }
+
+        /// <summary>
+        /// Handles navigation completion events for the WebView.
+        /// Implements retry logic if navigation fails.
+        /// </summary>
+        private void CoreWebView2_NavigationCompleted(object sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            try
+            {
+                if (e.IsSuccess)
+                {
+                    Debug.WriteLine("[SisRuaPalette] WebView navigation completed successfully.");
+                }
+                else
+                {
+                    string errorStatus = e.WebErrorStatus.ToString();
+                    SisRuaLog.Log("ERROR", $"[SisRuaPalette] WebView navigation failed: {errorStatus}");
+                    
+                    // Retry logic for failed navigation
+                    if (_navigationAttempts < sisRUA.Core.BackendConfiguration.WebViewNavigationMaxRetries)
+                    {
+                        _navigationAttempts++;
+                        SisRuaLog.Log("WARN", $"[SisRuaPalette] Retrying navigation (attempt {_navigationAttempts}/{sisRUA.Core.BackendConfiguration.WebViewNavigationMaxRetries})...");
+                        
+                        Task.Delay(sisRUA.Core.BackendConfiguration.WebViewNavigationRetryDelayMs).ContinueWith(_ =>
+                        {
+                            if (_webView != null && _webView.IsHandleCreated)
+                            {
+                                _webView.BeginInvoke((Action)(() =>
+                                {
+                                    string baseUrl = SisRuaPlugin.BackendBaseUrl;
+                                    if (!string.IsNullOrWhiteSpace(baseUrl))
+                                    {
+                                        _webView.Source = new Uri(baseUrl);
+                                    }
+                                }));
+                            }
+                        });
+                    }
+                    else
+                    {
+                        SisRuaLog.Log("ERROR", $"[SisRuaPalette] Navigation failed after {_navigationAttempts} attempts. Error: {errorStatus}");
+                        StopNavigationTimeout();
+                        
+                        MessageBox.Show(
+                            $"Falha ao carregar a interface do sisRUA após múltiplas tentativas.\\n\\n" +
+                            $"Erro: {errorStatus}\\n\\n" +
+                            $"Verifique:\\n" +
+                            $"1. Se o backend está em execução (consulte os logs em %LOCALAPPDATA%\\sisRUA\\logs\\)\\n" +
+                            $"2. Se há problemas de rede ou firewall\\n" +
+                            $"3. Se o port {SisRuaPlugin.BackendPort} está disponível",
+                            "Erro sisRUA - Navegação",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error
+                        );
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.WriteLine($"[SisRuaPalette] Error in NavigationCompleted handler: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Starts a timeout timer that shows an error if APP_READY is not received within the configured timeout.
+        /// </summary>
+        private void StartNavigationTimeoutFailsafe()
+        {
+            StopNavigationTimeout(); // Clear any existing timer
+            
+            _navigationTimeoutTimer = new System.Windows.Forms.Timer
+            {
+                Interval = sisRUA.Core.BackendConfiguration.WebViewNavigationTimeoutSeconds * 1000
+            };
+            
+            _navigationTimeoutTimer.Tick += (s, e) =>
+            {
+                StopNavigationTimeout();
+                
+                // Only show error if splash is still visible (APP_READY not received)
+                if (_splashPanel != null && _splashPanel.Visible)
+                {
+                    SisRuaLog.Log("WARN", $"[SisRuaPalette] APP_READY timeout: Frontend não enviou mensagem de inicialização em {sisRUA.Core.BackendConfiguration.WebViewNavigationTimeoutSeconds}s");
+                    
+                    MessageBox.Show(
+                        $"A interface do sisRUA não completou a inicialização no tempo esperado.\\n\\n" +
+                        $"Possíveis causas:\\n" +
+                        $"1. Backend está lento ou sobrecarregado\\n" +
+                        $"2. Recursos frontend não foram carregados corretamente\\n" +
+                        $"3. Problema de comunicação entre WebView e backend\\n\\n" +
+                        $"Tente fechar e reabrir o sisRUA. Se o problema persistir, consulte os logs em:\\n" +
+                        $"%LOCALAPPDATA%\\sisRUA\\logs\\",
+                        "Aviso sisRUA - Tempo Esgotado",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning
+                    );
+                }
+            };
+            
+            _navigationTimeoutTimer.Start();
+            Debug.WriteLine($"[SisRuaPalette] Navigation timeout failsafe started ({sisRUA.Core.BackendConfiguration.WebViewNavigationTimeoutSeconds}s)");
+        }
+
+        /// <summary>
+        /// Stops the navigation timeout timer.
+        /// </summary>
+        private void StopNavigationTimeout()
+        {
+            if (_navigationTimeoutTimer != null)
+            {
+                _navigationTimeoutTimer.Stop();
+                _navigationTimeoutTimer.Dispose();
+                _navigationTimeoutTimer = null;
+            }
         }
 
         /// <summary>
@@ -374,9 +620,12 @@ namespace sisRUA
                                 // O evento WebMessageReceived executa em uma thread de UI do WinForms, não na thread do AutoCAD.
                                 // Usamos ExecuteInApplicationContext para delegar a execução do nosso comando para o contexto correto,
                                 // garantindo a estabilidade e prevenindo "fatal errors".
-                                Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
-                                    (state) => { SisRuaCommands.ImportarDadosCampo(geojsonData); }, null
-                                );
+                                // Usamos Task.Run para evitar warning CS4014 e permitir que a UI continue fluida.
+                                _ = Task.Run(() => {
+                                    Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
+                                        (state) => { _ = SisRuaCommands.ImportarDadosCampo(geojsonData); }, null
+                                    );
+                                });
                             }
                             else
                             {
@@ -398,14 +647,27 @@ namespace sisRUA
 
                                 if (lat.HasValue && lon.HasValue && radius.HasValue)
                                 {
-                                    Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
-                                        (state) => { SisRuaCommands.GerarProjetoOsm(lat.Value, lon.Value, radius.Value); }, null
-                                    );
+                                    _ = Task.Run(() => {
+                                        Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
+                                            (state) => { _ = SisRuaCommands.GerarProjetoOsm(lat.Value, lon.Value, radius.Value); }, null
+                                        );
+                                    });
                                 }
                                 else
                                 {
                                     Debug.WriteLine("[sisRUA] Ação 'GENERATE_OSM' recebida, mas dados incompletos (lat/lon/radius).");
                                 }
+                            }
+                            break;
+
+                        case "APP_READY":
+                            Debug.WriteLine("[sisRUA] Handshake recebido: React está pronto.");
+                            StopNavigationTimeout(); // Stop the timeout failsafe
+                            if (_splashPanel != null && _webView != null)
+                            {
+                                _splashTimer?.Stop();
+                                _splashPanel.Visible = false;
+                                _webView.Visible = true;
                             }
                             break;
 

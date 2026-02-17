@@ -1,0 +1,15 @@
+{
+  "properties": {
+    "status": {
+      "description": "Operational status of the API",
+      "example": "ok",
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "status"
+  ],
+  "title": "HealthResponse",
+  "type": "object"
+}

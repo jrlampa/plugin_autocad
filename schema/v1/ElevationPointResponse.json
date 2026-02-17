@@ -1,0 +1,33 @@
+{
+  "properties": {
+    "latitude": {
+      "description": "Requested latitude",
+      "title": "Latitude",
+      "type": "number"
+    },
+    "longitude": {
+      "description": "Requested longitude",
+      "title": "Longitude",
+      "type": "number"
+    },
+    "elevation": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Elevation in meters (Z value)",
+      "title": "Elevation"
+    }
+  },
+  "required": [
+    "latitude",
+    "longitude"
+  ],
+  "title": "ElevationPointResponse",
+  "type": "object"
+}

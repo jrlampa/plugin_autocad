@@ -1,0 +1,31 @@
+{
+  "properties": {
+    "url": {
+      "description": "Target URL to receive webhook events",
+      "example": "https://example.com/webhook",
+      "title": "Url",
+      "type": "string"
+    },
+    "events": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional list of events to subscribe to (default: all)",
+      "title": "Events"
+    }
+  },
+  "required": [
+    "url"
+  ],
+  "title": "WebhookRegistrationRequest",
+  "type": "object"
+}

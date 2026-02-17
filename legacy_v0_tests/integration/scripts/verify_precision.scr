@@ -1,0 +1,19 @@
+
+; sisRUA Precision Verification Script
+; Checks if imported geometry allows HATCH (indicates closed polygons)
+(setq old_cmdecho (getvar "CMDECHO"))
+(setvar "CMDECHO" 0)
+
+; Create a test polygon
+LINE 0,0 100,0 100,100 0,100 c
+
+; Attempt to HATCH
+-HATCH P solid 0,0 
+
+(if (entlast)
+    (princ "\nPRECISION_VERIFICATION: SUCCESS")
+    (princ "\nPRECISION_VERIFICATION: FAILED")
+)
+
+(setvar "CMDECHO" old_cmdecho)
+_.QUIT y

@@ -11,6 +11,7 @@ import argparse
 import logging
 import os
 import sys
+from typing import Any
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -89,7 +90,32 @@ def _configure_proj_data_dir() -> None:
         return
 
 
+def _ensure_single_instance() -> Any:
+    """
+    ISO 27001 / Robustness: Cria um Mutex nomeado para que o Inno Setup
+    consiga detectar se o backend está rodando e fechar antes de atualizar.
+    Também impede múltiplas instâncias acidentais.
+    """
+    if os.name != "nt":
+        return None
+    try:
+        import win32event
+        import win32api
+        import winerror
+        
+        mutex_name = "sisRUA_Backend_Mutex"
+        mutex = win32event.CreateMutex(None, False, mutex_name)
+        if win32api.GetLastError() == winerror.ERROR_ALREADY_EXISTS:
+            print(f"ERRO: Outra instancia do sisRUA Backend ja esta rodando (Mutex: {mutex_name}).")
+            sys.exit(0)
+        return mutex
+    except ImportError:
+        # Fallback se pywin32 não estiver disponível no env de dev
+        return None
+
 def main(argv: list[str] | None = None) -> int:
+    # Segura o mutex durante toda a execução do processo
+    _backend_mutex = _ensure_single_instance()
     parser = argparse.ArgumentParser(description="sisRUA backend (standalone)")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8000)
@@ -123,6 +149,10 @@ def main(argv: list[str] | None = None) -> int:
         pass
 
     from backend.api import app  # noqa: WPS433 (import local intencional para empacotamento)
+
+    # Log debug paths para troubleshooting
+    from backend.core.utils import log_debug_paths
+    log_debug_paths()
 
     uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level, log_config=log_config, access_log=False)
     return 0

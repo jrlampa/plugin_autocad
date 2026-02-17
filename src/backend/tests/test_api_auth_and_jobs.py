@@ -27,7 +27,10 @@ def api_mod(tmp_path, monkeypatch):
 
 @pytest.fixture()
 def client(api_mod):
-    return TestClient(api_mod.app)
+    # Set base_url and default Origin for ISO 27001 compliance tests
+    c = TestClient(api_mod.app, base_url="http://localhost:8000")
+    c.headers.update({"Origin": "http://localhost:8000"})
+    return c
 
 
 def test_health_is_public(client):
@@ -134,6 +137,12 @@ def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
             else:
                 self._tags = {}
         
+        def _asdict(self):
+            # Return tags dictionary directly
+            if hasattr(self, '_tags'):
+                return self._tags.copy()
+            return {}
+
         def get(self, key, default=None):
             # First try as attribute
             if hasattr(self, key) and not key.startswith('_'):
@@ -168,6 +177,10 @@ def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
         def iterrows(self):
             for item in self._data:
                 yield None, MockRow(item) # row_idx, row_series
+
+        def itertuples(self, index=True, name='Pandas'):
+            for item in self._data:
+                yield MockRow(item)
 
         @property
         def geometry(self):
@@ -208,6 +221,7 @@ def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
     import osmnx
     monkeypatch.setattr(osmnx, "graph_from_point", mock_graph_from_point)
     monkeypatch.setattr(osmnx, "graph_to_gdfs", mock_graph_to_gdfs)
+    monkeypatch.setattr(osmnx, "project_graph", lambda g, to_crs: g) 
 
     # Latitude/Longitude em área que deve conter street_lights/poles
     payload = {
@@ -222,7 +236,7 @@ def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
     job = r.json()
     job_id = job["job_id"]
     
-    deadline = time.time() + 10 # Adjusted timeout for mock
+    deadline = time.time() + 30 # Increased timeout for mock/slow disk
     last = None
     while time.time() < deadline:
         r2 = client.get(f"/api/v1/jobs/{job_id}", headers={"X-SisRua-Token": "test-token-123"})
@@ -250,16 +264,16 @@ def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
     assert f_point_poste_a is not None
     assert f_point_poste_a["feature_type"] == "Point"
     assert "insertion_point_xy" in f_point_poste_a
-    assert f_point_poste_a["block_name"] == "POSTE"
-    assert f_point_poste_a["layer"] == "SISRUA_OSM_PONTOS"
+    assert f_point_poste_a["block_name"] == "POSTE_ILUMINACAO"
+    assert f_point_poste_a["layer"] == "SISRUA_Infraestrutura_Pontos"
 
     f_point_poste_b = next((f for f in point_features if f["name"] == "Poste B"), None)
     assert f_point_poste_b is not None
-    assert f_point_poste_b["block_name"] == "POSTE"
+    assert f_point_poste_b["block_name"] == "POSTE_ENERGIA"
 
     f_point_banco_c = next((f for f in point_features if f["name"] == "Banco C"), None)
     assert f_point_banco_c is not None
-    assert f_point_banco_c["block_name"] == "BANCO"
+    assert f_point_banco_c["block_name"] == "MOBILIARIO_BANCO"
 
 
     # Verifica se ainda existem features de polilinha

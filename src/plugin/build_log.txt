@@ -1,0 +1,30 @@
+  Determinando os projetos a serem restaurados...
+  Todos os projetos est├úo atualizados para restaura├º├úo.
+  sisRUA.Core -> c:\plugin_autocad\src\sisRUA.Core\bin\Debug\netstandard2.0\sisRUA.Core.dll
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(5,7): warning CS0105: A diretiva using para "System.Linq" apareceu anteriormente neste namespace [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(30,55): error CS0103: O nome "Encoding" n├úo existe no contexto atual [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(31,17): error CS0246: O nome do tipo ou do namespace "StringBuilder" n├úo pode ser encontrado (est├í faltando uma diretiva using ou uma refer├¬ncia de assembly?) [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(31,45): error CS0246: O nome do tipo ou do namespace "StringBuilder" n├úo pode ser encontrado (est├í faltando uma diretiva using ou uma refer├¬ncia de assembly?) [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+c:\plugin_autocad\src\plugin\SisRuaCommands.cs(49,31): warning CS0414: O campo "SisRuaCommands._lastCrs" ├® atribu├¡do, mas seu valor nunca ├® usado [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(5,7): warning CS0105: A diretiva using para "System.Linq" apareceu anteriormente neste namespace [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(30,55): error CS0103: O nome "Encoding" n├úo existe no contexto atual [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(31,17): error CS0246: O nome do tipo ou do namespace "StringBuilder" n├úo pode ser encontrado (est├í faltando uma diretiva using ou uma refer├¬ncia de assembly?) [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(31,45): error CS0246: O nome do tipo ou do namespace "StringBuilder" n├úo pode ser encontrado (est├í faltando uma diretiva using ou uma refer├¬ncia de assembly?) [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+c:\plugin_autocad\src\plugin\SisRuaCommands.cs(49,31): warning CS0414: O campo "SisRuaCommands._lastCrs" ├® atribu├¡do, mas seu valor nunca ├® usado [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+
+FALHA da compila├º├úo.
+
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(5,7): warning CS0105: A diretiva using para "System.Linq" apareceu anteriormente neste namespace [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+c:\plugin_autocad\src\plugin\SisRuaCommands.cs(49,31): warning CS0414: O campo "SisRuaCommands._lastCrs" ├® atribu├¡do, mas seu valor nunca ├® usado [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(5,7): warning CS0105: A diretiva using para "System.Linq" apareceu anteriormente neste namespace [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+c:\plugin_autocad\src\plugin\SisRuaCommands.cs(49,31): warning CS0414: O campo "SisRuaCommands._lastCrs" ├® atribu├¡do, mas seu valor nunca ├® usado [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(30,55): error CS0103: O nome "Encoding" n├úo existe no contexto atual [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(31,17): error CS0246: O nome do tipo ou do namespace "StringBuilder" n├úo pode ser encontrado (est├í faltando uma diretiva using ou uma refer├¬ncia de assembly?) [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(31,45): error CS0246: O nome do tipo ou do namespace "StringBuilder" n├úo pode ser encontrado (est├í faltando uma diretiva using ou uma refer├¬ncia de assembly?) [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net8.0-windows]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(30,55): error CS0103: O nome "Encoding" n├úo existe no contexto atual [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(31,17): error CS0246: O nome do tipo ou do namespace "StringBuilder" n├úo pode ser encontrado (est├í faltando uma diretiva using ou uma refer├¬ncia de assembly?) [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+c:\plugin_autocad\src\plugin\GeometryCleaner.cs(31,45): error CS0246: O nome do tipo ou do namespace "StringBuilder" n├úo pode ser encontrado (est├í faltando uma diretiva using ou uma refer├¬ncia de assembly?) [c:\plugin_autocad\src\plugin\sisRUA.csproj::TargetFramework=net48]
+    4 Aviso(s)
+    6 Erro(s)
+
+Tempo Decorrido 00:00:01.26

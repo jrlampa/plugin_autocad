@@ -1,0 +1,20 @@
+{
+  "properties": {
+    "latitude": {
+      "description": "Target latitude (EPSG:4326)",
+      "title": "Latitude",
+      "type": "number"
+    },
+    "longitude": {
+      "description": "Target longitude (EPSG:4326)",
+      "title": "Longitude",
+      "type": "number"
+    }
+  },
+  "required": [
+    "latitude",
+    "longitude"
+  ],
+  "title": "ElevationQueryRequest",
+  "type": "object"
+}

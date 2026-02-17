@@ -6,7 +6,8 @@ REM  Gera Contents\backend\sisrua_backend.exe via PyInstaller
 REM  Objetivo: rodar backend sem Python instalado no usuário.
 REM ======================================================
 
-set ROOT=%~dp0..
+set ROOT_UNSAFE=%~dp0..
+for %%i in ("%ROOT_UNSAFE%") do set ROOT=%%~fi
 set BACKEND_SRC=%ROOT%\src\backend
 set BACKEND_OUT=%ROOT%\bundle-template\sisRUA.bundle\Contents\backend
 REM Por padrão, fazemos build fora do "Meu Drive" (path com espaços), pois venv/ensurepip/PyInstaller
@@ -28,6 +29,13 @@ REM Força temporários em um caminho sem espaços
 if not exist "%BUILD_TMP%" mkdir "%BUILD_TMP%"
 set TEMP=%BUILD_TMP%
 set TMP=%BUILD_TMP%
+
+echo Matando processos sisrua_backend antigos...
+taskkill /F /IM sisrua_backend.exe /T 2>nul
+taskkill /F /IM python.exe /T 2>nul
+taskkill /F /IM uvicorn.exe /T 2>nul
+timeout /t 2 /nobreak >nul
+
 
 if not exist "%BACKEND_SRC%\standalone.py" (
   echo ERRO: standalone.py nao encontrado em %BACKEND_SRC%
@@ -54,36 +62,36 @@ for /f "tokens=1-3 delims=." %%a in ("%APP_VERSION%") do (
 )
 
 echo # UTF-8
-echo #include "winver.h" > %VERSION_RC_FILE%
-echo 1 VERSIONINFO >> %VERSION_RC_FILE%
-echo FILEVERSION %MAJOR_VERSION%,%MINOR_VERSION%,%PATCH_VERSION%,0 >> %VERSION_RC_FILE%
-echo PRODUCTVERSION %MAJOR_VERSION%,%MINOR_VERSION%,%PATCH_VERSION%,0 >> %VERSION_RC_FILE%
-echo FILEFLAGSMASK 0x17L >> %VERSION_RC_FILE%
-echo #ifdef _DEBUG >> %VERSION_RC_FILE%
-echo FILEFLAGS 0x1L >> %VERSION_RC_FILE%
-echo #else >> %VERSION_RC_FILE%
-echo FILEFLAGS 0x0L >> %VERSION_RC_FILE%
-echo #endif >> %VERSION_RC_FILE%
-echo BEGIN >> %VERSION_RC_FILE%
-echo   BLOCK "StringFileInfo" >> %VERSION_RC_FILE%
-echo   BEGIN >> %VERSION_RC_FILE%
-echo     BLOCK "040904b0" >> %VERSION_RC_FILE%
-echo     BEGIN >> %VERSION_RC_FILE%
-echo       VALUE "CompanyName", "sisRUA" >> %VERSION_RC_FILE%
-echo       VALUE "FileDescription", "sisRUA Backend" >> %VERSION_RC_FILE%
-echo       VALUE "FileVersion", "%APP_VERSION%" >> %VERSION_RC_FILE%
-echo       VALUE "InternalName", "sisrua_backend" >> %VERSION_RC_FILE%
-echo       VALUE "LegalCopyright", "Copyright (C) sisRUA" >> %VERSION_RC_FILE%
-echo       VALUE "OriginalFilename", "sisrua_backend.exe" >> %VERSION_RC_FILE%
-echo       VALUE "ProductName", "sisRUA Backend" >> %VERSION_RC_FILE%
-echo       VALUE "ProductVersion", "%APP_VERSION%" >> %VERSION_RC_FILE%
-echo     END >> %VERSION_RC_FILE%
-echo   END >> %VERSION_RC_FILE%
-echo   BLOCK "VarFileInfo" >> %VERSION_RC_FILE%
-echo   BEGIN >> %VERSION_RC_FILE%
-echo     VALUE "Translation", 0x0409, 0x04B0 >> %VERSION_RC_FILE%
-echo   END >> %VERSION_RC_FILE%
-echo END >> %VERSION_RC_FILE%
+echo #include "winver.h"> %VERSION_RC_FILE%
+echo 1 VERSIONINFO>> %VERSION_RC_FILE%
+echo FILEVERSION %MAJOR_VERSION%,%MINOR_VERSION%,%PATCH_VERSION%,0>> %VERSION_RC_FILE%
+echo PRODUCTVERSION %MAJOR_VERSION%,%MINOR_VERSION%,%PATCH_VERSION%,0>> %VERSION_RC_FILE%
+echo FILEFLAGSMASK 0x17>> %VERSION_RC_FILE%
+echo #ifdef _DEBUG>> %VERSION_RC_FILE%
+echo FILEFLAGS 0x1>> %VERSION_RC_FILE%
+echo #else>> %VERSION_RC_FILE%
+echo FILEFLAGS 0x0>> %VERSION_RC_FILE%
+echo #endif>> %VERSION_RC_FILE%
+echo BEGIN>> %VERSION_RC_FILE%
+echo   BLOCK "StringFileInfo">> %VERSION_RC_FILE%
+echo   BEGIN>> %VERSION_RC_FILE%
+echo     BLOCK "040904b0">> %VERSION_RC_FILE%
+echo     BEGIN>> %VERSION_RC_FILE%
+echo       VALUE "CompanyName", "sisRUA">> %VERSION_RC_FILE%
+echo       VALUE "FileDescription", "sisRUA Backend">> %VERSION_RC_FILE%
+echo       VALUE "FileVersion", "%APP_VERSION%">> %VERSION_RC_FILE%
+echo       VALUE "InternalName", "sisrua_backend">> %VERSION_RC_FILE%
+echo       VALUE "LegalCopyright", "Copyright (C) sisRUA">> %VERSION_RC_FILE%
+echo       VALUE "OriginalFilename", "sisrua_backend.exe">> %VERSION_RC_FILE%
+echo       VALUE "ProductName", "sisRUA Backend">> %VERSION_RC_FILE%
+echo       VALUE "ProductVersion", "%APP_VERSION%">> %VERSION_RC_FILE%
+echo     END>> %VERSION_RC_FILE%
+echo   END>> %VERSION_RC_FILE%
+echo   BLOCK "VarFileInfo">> %VERSION_RC_FILE%
+echo   BEGIN>> %VERSION_RC_FILE%
+echo     VALUE "Translation", 0x0409, 0x04B0>> %VERSION_RC_FILE%
+echo   END>> %VERSION_RC_FILE%
+echo END>> %VERSION_RC_FILE%
 REM --- Fim Versionamento ---
 
 REM Se já existe um EXE pronto e não foi pedido rebuild, reutiliza.
@@ -96,6 +104,13 @@ if exist "%BACKEND_OUT%\sisrua_backend.exe" (
     echo OK: %BACKEND_OUT%\sisrua_backend.exe
     exit /b 0
   )
+)
+
+REM --- Build Hygiene (ISO 27001) ---
+if "%SISRUA_CLEAN_BUILD%"=="1" (
+  echo INFO: SISRUA_CLEAN_BUILD=1 detectado. Limpando ambiente de build...
+  if exist "%BUILD_VENV%" rmdir /s /q "%BUILD_VENV%"
+  if exist "%DIST_TMP%" rmdir /s /q "%DIST_TMP%"
 )
 
 if not exist "%PY%" (
@@ -134,28 +149,74 @@ if errorlevel 1 (
 "%PY%" -m pip install pyinstaller
 
 echo [licenses] Auditando licencas do backend (pip-licenses)...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\audit_licenses_backend.ps1" -PythonExe "%PY%" -RepoRoot "%ROOT%" -RequirementsPath "%BACKEND_SRC%\requirements.txt"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\tools\audit_licenses_backend.ps1"
 if errorlevel 1 (
   echo ERRO: auditoria de licencas falhou. Possivel GPL/LGPL/AGPL ou problema de coleta.
   exit /b 1
 )
 
+echo [IP-PROTECT] Running Obfuscation Engine (sisRUA GIS Core)...
+set SISRUA_BUILD_ROOT=%BUILD_ROOT%
+"%PY%" "%ROOT%\tools\obfuscate_backend.py"
+if errorlevel 1 (
+  echo ERRO: Falha na ofuscacao do codigo. Abortando build para proteger IP.
+  exit /b 1
+)
+
+echo Preparando pasta de backend para o bundle...
+if exist "%BACKEND_OUT%" rmdir /s /q "%BACKEND_OUT%" 2>nul
+mkdir "%BACKEND_OUT%"
+
+REM Copia o código ofuscado
+xcopy /E /I /Y "%BUILD_ROOT%\obfuscated_backend\*" "%BACKEND_OUT%\" >nul
+
+REM Copia o frontend dist (agora reside dentro do backend no novo modelo)
+if exist "%ROOT%\src\frontend\dist" (
+    mkdir "%BACKEND_OUT%\frontend\dist" 2>nul
+    xcopy /E /I /Y "%ROOT%\src\frontend\dist\*" "%BACKEND_OUT%\frontend\dist\" >nul
+)
+
+REM Copia o launcher .bat
+copy /Y "%BACKEND_SRC%\sisrua_backend.bat" "%BACKEND_OUT%\sisrua_backend.bat" >nul
+
+REM Copia requirements.txt (caso precise de install no destino)
+copy /Y "%BACKEND_SRC%\requirements.txt" "%BACKEND_OUT%\requirements.txt" >nul
+
+echo OK: Fonte preparado em %BACKEND_OUT%
+
 echo Gerando sisrua_backend.exe...
 REM Gera em uma pasta temporária e só substitui no final (mais seguro).
 if exist "%DIST_TMP%" rmdir /s /q "%DIST_TMP%" 2>nul
 if not exist "%DIST_TMP%" mkdir "%DIST_TMP%"
+
+REM Force clean PyInstaller paths to avoid caching old geometry logic
+if exist "%BUILD_ROOT%\pyinstaller-work" rmdir /s /q "%BUILD_ROOT%\pyinstaller-work" 2>nul
+if exist "%BUILD_ROOT%\pyinstaller-spec" rmdir /s /q "%BUILD_ROOT%\pyinstaller-spec" 2>nul
+
 "%PY%" -m PyInstaller ^
+  --paths "%BUILD_ROOT%\obfuscated_backend" ^
   --noconfirm ^
   --clean ^
   --onefile ^
   --name sisrua_backend ^
+  --collect-all rasterio ^
+  --collect-all matplotlib ^
+  --collect-all fiona ^
   --copy-metadata osmnx ^
   --copy-metadata pyproj ^
   --collect-data pyproj ^
-  --version-file %VERSION_RC_FILE% ^
   --distpath "%DIST_TMP%" ^
   --workpath "%BUILD_ROOT%\\pyinstaller-work" ^
   --specpath "%BUILD_ROOT%\\pyinstaller-spec" ^
+  --add-data "%ROOT%\\src\\frontend\\dist;frontend/dist" ^
+  --exclude-module PyQt5 ^
+  --exclude-module PyQt5.QtCore ^
+  --exclude-module PyQt5.QtGui ^
+  --exclude-module PySide2 ^
+  --exclude-module tkinter ^
+  --exclude-module IPython ^
+  --exclude-module notebook ^
+  --exclude-module nbformat ^
   "%BACKEND_SRC%\\standalone.py"
 
 if not exist "%DIST_TMP%\\sisrua_backend.exe" (
@@ -164,6 +225,7 @@ if not exist "%DIST_TMP%\\sisrua_backend.exe" (
 )
 
 copy /Y "%DIST_TMP%\\sisrua_backend.exe" "%BACKEND_OUT%\\sisrua_backend.exe" >nul
-echo OK: %BACKEND_OUT%\\sisrua_backend.exe
+
+echo OK: sisrua_backend.exe gerado com sucesso em %BACKEND_OUT%
 endlocal
 

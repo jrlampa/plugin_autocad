@@ -1,0 +1,13 @@
+{
+  "properties": {
+    "geojson": {
+      "description": "GeoJSON string or object to process",
+      "title": "Geojson"
+    }
+  },
+  "required": [
+    "geojson"
+  ],
+  "title": "PrepareGeoJsonRequest",
+  "type": "object"
+}

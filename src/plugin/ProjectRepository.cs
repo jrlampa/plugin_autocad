@@ -3,15 +3,18 @@ using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text;
 using System.Text.Json;
-using Autodesk.AutoCAD.ApplicationServices; // For LogToEditor
-
+using sisRUA.Core.DTOs;
+using System.Threading.Tasks;
 namespace sisRUA
 {
     public class ProjectRepository
     {
         private static string _databasePath;
         private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions { WriteIndented = false };
+        private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
 
         public ProjectRepository()
         {
@@ -23,14 +26,9 @@ namespace sisRUA
         {
             if (!string.IsNullOrEmpty(_databasePath)) return;
 
-            string localSisRuaDir = SisRuaPlugin.GetLocalSisRuaDir(); // Reusing method from SisRuaPlugin
-            if (string.IsNullOrEmpty(localSisRuaDir))
-            {
-                // Fallback or throw error if local SisRua dir cannot be determined
-                throw new InvalidOperationException("Não foi possível determinar o diretório local para o banco de dados.");
-            }
+            string localSisRuaDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "sisRUA");
             _databasePath = Path.Combine(localSisRuaDir, "projects.db");
-            SisRuaCommands.Log($"INFO: SQLite Database path: {_databasePath}");
+            SisRuaLog.Info($"SQLite Database path: {_databasePath}");
         }
 
         private SQLiteConnection GetConnection()
@@ -52,14 +50,51 @@ namespace sisRUA
                             project_id TEXT PRIMARY KEY NOT NULL,
                             project_name TEXT NOT NULL,
                             creation_date TEXT NOT NULL,
-                            crs_out TEXT
-                        );";
-                    command.ExecuteNonQuery();
-                    SisRuaCommands.Log("DEBUG: 'Projects' table ensured.");
+                            crs_out TEXT,
+                            total_mileage_km REAL DEFAULT 0
+                        );
+                        
+                        -- GEOPACKAGE COMPATIBILITY (Enterprise-Anexável)
+                        CREATE TABLE IF NOT EXISTS gpkg_spatial_ref_sys (
+                            srs_name TEXT NOT NULL,
+                            srs_id INTEGER PRIMARY KEY NOT NULL,
+                            organization TEXT NOT NULL,
+                            organization_coordsys_id INTEGER NOT NULL,
+                            definition TEXT NOT NULL,
+                            description TEXT
+                        );
 
-                    // Tabela CadFeatures
+                        CREATE TABLE IF NOT EXISTS gpkg_contents (
+                            table_name TEXT NOT NULL PRIMARY KEY,
+                            data_type TEXT NOT NULL,
+                            identifier TEXT UNIQUE,
+                            description TEXT DEFAULT '',
+                            last_change DATETIME NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                            min_x DOUBLE,
+                            min_y DOUBLE,
+                            max_x DOUBLE,
+                            max_y DOUBLE,
+                            srs_id INTEGER,
+                            CONSTRAINT fk_gc_r_srs_id FOREIGN KEY (srs_id) REFERENCES gpkg_spatial_ref_sys(srs_id)
+                        );
+
+                        CREATE TABLE IF NOT EXISTS gpkg_geometry_columns (
+                            table_name TEXT NOT NULL,
+                            column_name TEXT NOT NULL,
+                            geometry_type_name TEXT NOT NULL,
+                            srs_id INTEGER NOT NULL,
+                            z TINYINT NOT NULL,
+                            m TINYINT NOT NULL,
+                            CONSTRAINT pk_ggc PRIMARY KEY (table_name, column_name),
+                            CONSTRAINT fk_ggc_srs FOREIGN KEY (srs_id) REFERENCES gpkg_spatial_ref_sys(srs_id)
+                        );
+                    ";
+                    command.ExecuteNonQuery();
+                    SisRuaLog.Info("DEBUG: 'Projects' table ensured.");
+
+                    // Tabela CadFeatureDtos
                     command.CommandText = @"
-                        CREATE TABLE IF NOT EXISTS CadFeatures (
+                        CREATE TABLE IF NOT EXISTS CadFeatureDtos (
                             feature_id TEXT PRIMARY KEY NOT NULL,
                             project_id TEXT NOT NULL,
                             feature_type TEXT NOT NULL,
@@ -73,19 +108,22 @@ namespace sisRUA
                             block_filepath TEXT,
                             rotation REAL,
                             scale REAL,
+                            color TEXT,
+                            elevation REAL,
+                            slope REAL,
                             original_geojson_properties_json TEXT,
                             FOREIGN KEY (project_id) REFERENCES Projects (project_id)
                         );";
                     command.ExecuteNonQuery();
-                    SisRuaCommands.Log("DEBUG: 'CadFeatures' table ensured.");
+                    SisRuaLog.Info("DEBUG: 'CadFeatureDtos' table ensured.");
                 }
             }
         }
 
         // Placeholder for SaveProject
-        public void SaveProject(string projectId, string projectName, string crsOut, IEnumerable<CadFeature> features)
+        public void SaveProject(string projectId, string projectName, string crsOut, IEnumerable<CadFeatureDto> features)
         {
-            SisRuaCommands.Log($"INFO: Attempting to save project {projectId} - {projectName}.");
+            SisRuaLog.Info($"INFO: Attempting to save project {projectId} - {projectName}.");
             using (var connection = GetConnection())
             {
                 using (var transaction = connection.BeginTransaction())
@@ -96,44 +134,73 @@ namespace sisRUA
                         using (var command = connection.CreateCommand())
                         {
                             command.CommandText = @"
-                                INSERT INTO Projects (project_id, project_name, creation_date, crs_out)
-                                VALUES (@projectId, @projectName, @creationDate, @crsOut)
+                                INSERT INTO Projects (project_id, project_name, creation_date, crs_out, total_mileage_km)
+                                VALUES (@projectId, @projectName, @creationDate, @crsOut, @mileage)
                                 ON CONFLICT(project_id) DO UPDATE SET
                                     project_name = @projectName,
                                     creation_date = @creationDate,
-                                    crs_out = @crsOut;
+                                    crs_out = @crsOut,
+                                    total_mileage_km = @mileage;
                             ";
                             command.Parameters.AddWithValue("@projectId", projectId);
                             command.Parameters.AddWithValue("@projectName", projectName);
                             command.Parameters.AddWithValue("@creationDate", DateTime.UtcNow.ToString("o"));
                             command.Parameters.AddWithValue("@crsOut", crsOut);
+                            command.Parameters.AddWithValue("@mileage", GeometryUtils.CalculateTotalMileageKm(features));
                             command.ExecuteNonQuery();
-                            SisRuaCommands.Log($"DEBUG: Project '{projectId}' saved/updated.");
+                            SisRuaLog.Info($"DEBUG: Project '{projectId}' saved/updated with mileage.");
+
+                            // GEOPACKAGE POPULATION (Audit-Readiness)
+                            try {
+                                int srsId = 4326; 
+                                if (!string.IsNullOrEmpty(crsOut) && crsOut.Contains(":")) {
+                                    int.TryParse(crsOut.Split(':')[1], out srsId);
+                                }
+
+                                command.CommandText = @"
+                                    INSERT OR REPLACE INTO gpkg_spatial_ref_sys (srs_name, srs_id, organization, organization_coordsys_id, definition)
+                                    VALUES (@srsName, @srsId, 'EPSG', @srsId, 'PROJCS[]');
+                                    
+                                    INSERT OR REPLACE INTO gpkg_contents (table_name, data_type, identifier, description, srs_id)
+                                    VALUES ('CadFeatureDtos', 'features', @projId, @projName, @srsId);
+                                    
+                                    INSERT OR REPLACE INTO gpkg_geometry_columns (table_name, column_name, geometry_type_name, srs_id, z, m)
+                                    VALUES ('CadFeatureDtos', 'geometry_blob', 'GEOMETRY', @srsId, 0, 0);
+                                ";
+                                command.Parameters.Clear();
+                                command.Parameters.AddWithValue("@srsName", "SIRGAS 2000 / UTM");
+                                command.Parameters.AddWithValue("@srsId", srsId);
+                                command.Parameters.AddWithValue("@projId", projectId);
+                                command.Parameters.AddWithValue("@projName", projectName);
+                                command.ExecuteNonQuery();
+                            } catch (Exception ex) {
+                                SisRuaLog.Error($"GEO_ERR: Failed to populate GPKG metadata: {ex.Message}");
+                            }
                         }
 
                         // Delete existing features for this project before re-inserting
                         using (var command = connection.CreateCommand())
                         {
-                            command.CommandText = "DELETE FROM CadFeatures WHERE project_id = @projectId;";
+                            command.CommandText = "DELETE FROM CadFeatureDtos WHERE project_id = @projectId;";
                             command.Parameters.AddWithValue("@projectId", projectId);
                             command.ExecuteNonQuery();
-                            SisRuaCommands.Log($"DEBUG: Existing features for project '{projectId}' cleared.");
+                            SisRuaLog.Info($"DEBUG: Existing features for project '{projectId}' cleared.");
                         }
 
-                        // Insert CadFeatures
+                        // Insert CadFeatureDtos
                         foreach (var feature in features)
                         {
                             using (var command = connection.CreateCommand())
                             {
                                 command.CommandText = @"
-                                    INSERT INTO CadFeatures (
+                                    INSERT INTO CadFeatureDtos (
                                         feature_id, project_id, feature_type, layer, name, highway, width_m,
                                         coords_xy_json, insertion_point_xy_json, block_name, block_filepath,
-                                        rotation, scale, original_geojson_properties_json
+                                        rotation, scale, color, elevation, slope, original_geojson_properties_json
                                     ) VALUES (
                                         @featureId, @projectId, @featureType, @layer, @name, @highway, @widthM,
                                         @coordsXyJson, @insertionPointXyJson, @blockName, @blockFilepath,
-                                        @rotation, @scale, @originalGeoJsonPropertiesJson
+                                        @rotation, @scale, @color, @elevation, @slope, @originalGeoJsonPropertiesJson
                                     );";
                                 command.Parameters.AddWithValue("@featureId", Guid.NewGuid().ToString());
                                 command.Parameters.AddWithValue("@projectId", projectId);
@@ -148,18 +215,41 @@ namespace sisRUA
                                 command.Parameters.AddWithValue("@blockFilepath", feature.BlockFilePath ?? (object)DBNull.Value);
                                 command.Parameters.AddWithValue("@rotation", feature.Rotation ?? (object)DBNull.Value);
                                 command.Parameters.AddWithValue("@scale", feature.Scale ?? (object)DBNull.Value);
-                                command.Parameters.AddWithValue("@originalGeoJsonPropertiesJson", (object)DBNull.Value); // Placeholder for now
+                                command.Parameters.AddWithValue("@color", feature.Color ?? (object)DBNull.Value);
+                                command.Parameters.AddWithValue("@elevation", feature.Elevation ?? (object)DBNull.Value);
+                                command.Parameters.AddWithValue("@slope", feature.Slope ?? (object)DBNull.Value);
+                                command.Parameters.AddWithValue("@originalGeoJsonPropertiesJson", feature.OriginalGeoJsonProperties != null ? JsonSerializer.Serialize(feature.OriginalGeoJsonProperties, _jsonOptions) : (object)DBNull.Value);
 
                                 command.ExecuteNonQuery();
                             }
                         }
                         transaction.Commit();
-                        SisRuaCommands.Log($"INFO: Project '{projectId}' saved successfully with {features.Count()} features.");
+                        SisRuaLog.Info($"INFO: Project '{projectId}' saved successfully with {features.Count()} features.");
+                        
+                        // Notify backend (fire-and-forget)
+                        double mileage = GeometryUtils.CalculateTotalMileageKm(features);
+                        _ = NotifyBackend("project_saved", new { 
+                            project_id = projectId, 
+                            project_name = projectName, 
+                            feature_count = features.Count(),
+                            mileage_km = mileage
+                        });
+
+                        // Cryptographic Audit Log (V2) - Enhanced for Valuation
+                        _ = LogAuditAsync("UPDATE", "Project", projectId, new
+                        {
+                            project_name = projectName,
+                            crs_out = crsOut,
+                            feature_count = features.Count(),
+                            mileage_km = mileage,
+                            compliance_level = "ISO_27001_READY",
+                            action = "save_project"
+                        });
                     }
-                    catch (Exception ex)
+                    catch (System.Exception ex)
                     {
                         transaction.Rollback();
-                        SisRuaCommands.Log($"ERROR: Failed to save project '{projectId}': {ex.Message}");
+                        SisRuaLog.Info($"ERROR: Failed to save project '{projectId}': {ex.Message}");
                         throw;
                     }
                 }
@@ -167,12 +257,12 @@ namespace sisRUA
         }
 
         // Placeholder for LoadProject
-        public (string projectName, string crsOut, List<CadFeature> features) LoadProject(string projectId)
+        public (string projectName, string crsOut, List<CadFeatureDto> features) LoadProject(string projectId)
         {
-            SisRuaCommands.Log($"INFO: Attempting to load project '{projectId}'.");
+            SisRuaLog.Info($"INFO: Attempting to load project '{projectId}'.");
             string projectName = null;
             string crsOut = null;
-            List<CadFeature> features = new List<CadFeature>();
+            List<CadFeatureDto> features = new List<CadFeatureDto>();
 
             using (var connection = GetConnection())
             {
@@ -190,23 +280,23 @@ namespace sisRUA
                         }
                         else
                         {
-                            SisRuaCommands.Log($"WARN: Project '{projectId}' not found.");
+                            SisRuaLog.Info($"WARN: Project '{projectId}' not found.");
                             return (null, null, null);
                         }
                     }
                 }
 
-                // Load CadFeatures
+                // Load CadFeatureDtos
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = "SELECT * FROM CadFeatures WHERE project_id = @projectId;";
+                    command.CommandText = "SELECT * FROM CadFeatureDtos WHERE project_id = @projectId;";
                     command.Parameters.AddWithValue("@projectId", projectId);
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            CadFeature feature = new CadFeature();
-                            feature.FeatureType = Enum.Parse<CadFeatureType>(reader.GetString(reader.GetOrdinal("feature_type")));
+                            CadFeatureDto feature = new CadFeatureDto();
+                            feature.FeatureType = (CadFeatureDtoType)Enum.Parse(typeof(CadFeatureDtoType), reader.GetString(reader.GetOrdinal("feature_type")));
                             feature.Layer = reader.IsDBNull(reader.GetOrdinal("layer")) ? null : reader.GetString(reader.GetOrdinal("layer"));
                             feature.Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name"));
                             feature.Highway = reader.IsDBNull(reader.GetOrdinal("highway")) ? null : reader.GetString(reader.GetOrdinal("highway"));
@@ -222,26 +312,44 @@ namespace sisRUA
                             feature.BlockFilePath = reader.IsDBNull(reader.GetOrdinal("block_filepath")) ? null : reader.GetString(reader.GetOrdinal("block_filepath"));
                             feature.Rotation = reader.IsDBNull(reader.GetOrdinal("rotation")) ? null : (double?)reader.GetDouble(reader.GetOrdinal("rotation"));
                             feature.Scale = reader.IsDBNull(reader.GetOrdinal("scale")) ? null : (double?)reader.GetDouble(reader.GetOrdinal("scale"));
+                            feature.Color = reader.IsDBNull(reader.GetOrdinal("color")) ? null : reader.GetString(reader.GetOrdinal("color"));
+                            feature.Elevation = reader.IsDBNull(reader.GetOrdinal("elevation")) ? null : (double?)reader.GetDouble(reader.GetOrdinal("elevation"));
+                            feature.Slope = reader.IsDBNull(reader.GetOrdinal("slope")) ? null : (double?)reader.GetDouble(reader.GetOrdinal("slope"));
+
+                            string propertiesJson = reader.IsDBNull(reader.GetOrdinal("original_geojson_properties_json")) ? null : reader.GetString(reader.GetOrdinal("original_geojson_properties_json"));
+                            if (propertiesJson != null) feature.OriginalGeoJsonProperties = JsonSerializer.Deserialize<Dictionary<string, object>>(propertiesJson);
 
                             features.Add(feature);
                         }
                     }
                 }
             }
-            SisRuaCommands.Log($"INFO: Project '{projectId}' loaded successfully with {features.Count} features.");
+            SisRuaLog.Info($"INFO: Project '{projectId}' loaded successfully with {features.Count} features.");
+            
+            // Notify backend (fire-and-forget)
+            _ = NotifyBackend("project_loaded", new { project_id = projectId, project_name = projectName, feature_count = features.Count });
+
+            // Cryptographic Audit Log (V2)
+            _ = LogAuditAsync("READ", "Project", projectId, new
+            {
+                project_name = projectName,
+                feature_count = features.Count,
+                action = "load_project"
+            });
+
             return (projectName, crsOut, features);
         }
 
         // Placeholder for ListProjects
-        public List<(string projectId, string projectName, string creationDate)> ListProjects()
+        public List<(string projectId, string projectName, string creationDate, string totalMileageKm)> ListProjects()
         {
-            SisRuaCommands.Log("INFO: Listing all projects.");
-            List<(string projectId, string projectName, string creationDate)> projects = new List<(string projectId, string projectName, string creationDate)>();
+            SisRuaLog.Info("INFO: Listing all projects.");
+            List<(string projectId, string projectName, string creationDate, string totalMileageKm)> projects = new List<(string projectId, string projectName, string creationDate, string totalMileageKm)>();
             using (var connection = GetConnection())
             {
                 using (var command = connection.CreateCommand())
                 {
-                    command.CommandText = "SELECT project_id, project_name, creation_date FROM Projects ORDER BY creation_date DESC;";
+                    command.CommandText = "SELECT project_id, project_name, creation_date, total_mileage_km FROM Projects ORDER BY creation_date DESC;";
                     using (var reader = command.ExecuteReader())
                     {
                         while (reader.Read())
@@ -249,14 +357,83 @@ namespace sisRUA
                             projects.Add((
                                 reader.GetString(0), // project_id
                                 reader.GetString(1), // project_name
-                                reader.GetString(2)  // creation_date
+                                reader.GetString(2), // creation_date
+                                reader.GetDouble(3).ToString("F2") + " km" // mileage as string for UI
                             ));
                         }
                     }
                 }
             }
-            SisRuaCommands.Log($"INFO: Found {projects.Count} projects.");
+            SisRuaLog.Info($"INFO: Found {projects.Count} projects.");
             return projects;
+        }
+
+        private async Task NotifyBackend(string eventType, object payload)
+        {
+            if (string.IsNullOrEmpty(SisRuaPlugin.BackendBaseUrl)) return;
+
+            try
+            {
+                var eventData = new
+                {
+                    event_type = eventType,
+                    payload = payload
+                };
+
+                string json = JsonSerializer.Serialize(eventData, _jsonOptions);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                
+                if (!string.IsNullOrEmpty(SisRuaPlugin.BackendAuthToken))
+                {
+                    content.Headers.Add(SisRuaPlugin.BackendAuthHeaderName, SisRuaPlugin.BackendAuthToken);
+                }
+                content.Headers.Add("X-Request-ID", Guid.NewGuid().ToString());
+
+                await _httpClient.PostAsync($"{SisRuaPlugin.BackendBaseUrl}/api/v1/events/emit", content);
+            }
+            catch (Exception ex)
+            {
+                SisRuaLog.Info($"DEBUG: Failed to notify backend for event {eventType}: {ex.Message}");
+            }
+        }
+
+        private async Task LogAuditAsync(string eventType, string entityType, string entityId, object data)
+        {
+            if (string.IsNullOrEmpty(SisRuaPlugin.BackendBaseUrl)) return;
+
+            try
+            {
+                var auditData = new
+                {
+                    event_type = eventType,
+                    entity_type = entityType,
+                    entity_id = entityId,
+                    user_id = Environment.UserName, // Default to system user for now
+                    data = data
+                };
+
+                string json = JsonSerializer.Serialize(auditData, _jsonOptions);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                if (!string.IsNullOrEmpty(SisRuaPlugin.BackendAuthToken))
+                {
+                    content.Headers.Add(SisRuaPlugin.BackendAuthHeaderName, SisRuaPlugin.BackendAuthToken);
+                }
+                content.Headers.Add("X-Request-ID", Guid.NewGuid().ToString());
+
+                // Call the new Audit API (V2)
+                var response = await _httpClient.PostAsync($"{SisRuaPlugin.BackendBaseUrl}/api/audit", content);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    string error = await response.Content.ReadAsStringAsync();
+                    SisRuaLog.Info($"DEBUG: Audit logging failed ({response.StatusCode}): {error}");
+                }
+            }
+            catch (Exception ex)
+            {
+                SisRuaLog.Info($"DEBUG: Failed to log audit event {eventType} for {entityType}:{entityId}: {ex.Message}");
+            }
         }
     }
 }

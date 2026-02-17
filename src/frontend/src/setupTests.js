@@ -2,6 +2,13 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 
+vi.mock('axios', () => ({
+  default: {
+    get: vi.fn(() => Promise.resolve({ data: { status: 'ok' } })),
+    post: vi.fn(() => Promise.resolve({ data: {} })),
+  },
+}));
+
 // --- Mocks para evitar dependências pesadas no JSDOM (Leaflet/WebGL/tiles) ---
 
 vi.mock('leaflet/dist/leaflet.css', () => ({}));
@@ -39,3 +46,10 @@ vi.mock('react-leaflet', async () => {
   };
 });
 
+// Mock da API para evitar bloqueio no Health Check durante os testes
+vi.mock('./api', () => ({
+  api: {
+    checkHealth: vi.fn(() => Promise.resolve(true)),
+    smartGeocode: vi.fn(),
+  },
+}));

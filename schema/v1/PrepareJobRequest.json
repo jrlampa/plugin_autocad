@@ -1,0 +1,68 @@
+{
+  "properties": {
+    "kind": {
+      "description": "Type of data preparation job",
+      "enum": [
+        "osm",
+        "geojson"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "latitude": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Required for kind='osm'",
+      "title": "Latitude"
+    },
+    "longitude": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Required for kind='osm'",
+      "title": "Longitude"
+    },
+    "radius": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Required for kind='osm'",
+      "title": "Radius"
+    },
+    "geojson": {
+      "anyOf": [
+        {},
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Required for kind='geojson'",
+      "title": "Geojson"
+    }
+  },
+  "required": [
+    "kind"
+  ],
+  "title": "PrepareJobRequest",
+  "type": "object"
+}

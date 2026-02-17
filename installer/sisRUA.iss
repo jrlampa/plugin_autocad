@@ -18,6 +18,13 @@ SolidCompression=yes
 PrivilegesRequired=admin
 UninstallDisplayName=sisRUA (AutoCAD Plugin)
 VersionInfoVersion={#AppVersion}
+SetupIconFile=assets\sisrua_installer.ico
+WizardImageFile=assets\wizard_large.bmp
+WizardSmallImageFile=assets\wizard_small.bmp
+; ISO 27001 / Robustness: Ensure processes are closed before update
+CloseApplications=yes
+RestartApplications=yes
+AppMutex=sisRUA_Backend_Mutex
 
 [Languages]
 Name: "ptbr"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
@@ -50,12 +57,25 @@ begin
     (RegQueryStringValue(HKCU, 'SOFTWARE\Microsoft\EdgeUpdate\Clients\' + WEBVIEW2_GUID, 'pv', pv) and (pv <> '') and (pv <> '0.0.0.0'));
 end;
 
+
+procedure KillBackendProcess;
+var
+  ResultCode: Integer;
+begin
+  // Tenta matar qualquer instância do backend (via script ou residual)
+  Exec('taskkill', '/F /IM python.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill', '/F /IM sisrua_backend.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
 function InitializeSetup(): Boolean;
 var
   answer: Integer;
   ErrorCode: Integer;
 begin
   Result := True;
+  
+  // Mata processos antigos antes de qualquer verificação
+  KillBackendProcess();
 
   if not HasWebView2Runtime() then
   begin

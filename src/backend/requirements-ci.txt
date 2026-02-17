@@ -1,7 +1,24 @@
 # Dependências mínimas para testes/CI (sem OSMnx/GeoPandas).
 # Objetivo: rodar testes rápidos e determinísticos, sem rede e sem stack GIS pesada.
-fastapi
-uvicorn
-pyproj
-shapely
+
+# Core framework
+fastapi==0.129.0
+uvicorn==0.40.0
+pydantic==2.12.5
+
+# Minimal GIS support
+pyproj==3.7.2
+shapely==2.1.2
+rasterio==1.5.0
+
+# Scientific computing
+numpy==2.4.2
+
+# HTTP/Networking (security-patched versions)
+requests==2.32.4  # CVE-2024-35195, CVE-2024-47081 fixed
+urllib3==2.6.3    # Multiple CVEs fixed
+
+# Monitoring & Logging (needed for tests)
+sentry-sdk[fastapi]==2.53.0
+structlog==25.5.0
 

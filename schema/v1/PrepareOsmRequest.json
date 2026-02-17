@@ -1,0 +1,29 @@
+{
+  "properties": {
+    "latitude": {
+      "description": "Target latitude (EPSG:4326)",
+      "example": -21.7634,
+      "title": "Latitude",
+      "type": "number"
+    },
+    "longitude": {
+      "description": "Target longitude (EPSG:4326)",
+      "example": -41.3235,
+      "title": "Longitude",
+      "type": "number"
+    },
+    "radius": {
+      "description": "Search radius in meters",
+      "example": 500.0,
+      "title": "Radius",
+      "type": "number"
+    }
+  },
+  "required": [
+    "latitude",
+    "longitude",
+    "radius"
+  ],
+  "title": "PrepareOsmRequest",
+  "type": "object"
+}
