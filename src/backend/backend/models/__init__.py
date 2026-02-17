@@ -1,4 +1,11 @@
-"""Models package - exports all models from backend.models module and sync models"""
+"""Models package - exports all models from backend.models module and sync models
+
+NOTE: This file uses importlib to load the sibling models.py file because Python's
+import system resolves 'backend.models' to this package directory, not the models.py file.
+This is a workaround for a naming conflict. Consider refactoring by either:
+1. Moving all models from models.py into this package structure, or
+2. Renaming the models.py file to something like api_models.py
+"""
 
 # Import from the sibling models.py file  
 # Since Python resolves 'backend.models' to this package, we import models.py using importlib
@@ -14,6 +21,7 @@ _models_module = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_models_module)
 
 # Re-export all model classes
+# TODO: Consider using dynamic export with getattr/dir to reduce maintenance burden
 FrozenBaseModel = _models_module.FrozenBaseModel
 HealthResponse = _models_module.HealthResponse
 ComponentHealth = _models_module.ComponentHealth
