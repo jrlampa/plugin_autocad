@@ -2,3 +2,5 @@ node_modules
 dist
 build
 .git
+bundle-stats.html
+playwright-report

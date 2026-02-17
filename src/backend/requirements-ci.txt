@@ -22,3 +22,6 @@ urllib3==2.6.3    # Multiple CVEs fixed
 sentry-sdk[fastapi]==2.53.0
 structlog==25.5.0
 
+# AI integration (needed for imports)
+groq==1.0.0
+
