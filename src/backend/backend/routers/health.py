@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Header, Depends
 from backend.models import HealthResponse, DeepHealthResponse
 from backend.services.health import health_service
+from backend.services.cache import cache_service
 from backend.core.security import require_token
 from backend.core.config import AUTH_HEADER_NAME
 
@@ -22,3 +23,8 @@ async def health_detailed(x_sisrua_token: str | None = Header(default=None, alia
     # Note: validation is handled inside the service if needed, 
     # but here we just pass the header for tracing/audit.
     return await health_service.get_deep_health()
+
+@router.get("/api/v1/health/cache-stats")
+async def cache_stats(_ = Depends(require_token)):
+    """Get cache performance statistics."""
+    return cache_service.get_stats()
