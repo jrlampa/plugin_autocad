@@ -767,62 +767,6 @@ details p{
   line-height: 1.5;
 }
 
-/* Advanced Features Section */
-.feature-grid{
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap: 16px;
-  margin-top: 20px;
-}
-.feature-card{
-  padding: 20px;
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.04);
-  box-shadow: 0 14px 30px rgba(0,0,0,.22);
-}
-.card__icon{
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, rgba(106,167,255,.18), rgba(178,106,255,.14));
-  font-size: 36px;
-  margin-bottom: 12px;
-  filter: grayscale(0.1);
-}
-.feature-card h3{
-  margin: 0 0 10px;
-  font-size: 18px;
-}
-.feature-card p{
-  margin: 0 0 14px;
-  color: rgba(232,236,255,.78);
-  line-height: 1.65;
-  font-size: 14px;
-}
-.feature-list{
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.feature-list li{
-  position: relative;
-  padding-left: 20px;
-  margin-bottom: 8px;
-  font-size: 13px;
-  color: rgba(232,236,255,.75);
-  line-height: 1.5;
-}
-.feature-list li::before{
-  content: "•";
-  position: absolute;
-  left: 6px;
-  color: var(--brand);
-  font-weight: 800;
-}
-
 /* Stats Section */
 .stats, .stats-grid{
   display: grid;

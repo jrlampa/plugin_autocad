@@ -48,15 +48,15 @@ async function loadLatestRelease() {
   }
 }
 
-async function loadGitHubStats(elementIds = {}, locale = undefined) {
+async function loadGitHubStats(statsElementIds = {}, locale = undefined) {
   const owner = "jrlampa";
   const repo = "plugin_autocad";
 
   const ids = {
-    stars: elementIds.stars,
-    forks: elementIds.forks,
-    watchers: elementIds.watchers,
-    releases: elementIds.releases,
+    stars: statsElementIds.stars,
+    forks: statsElementIds.forks,
+    watchers: statsElementIds.watchers,
+    releases: statsElementIds.releases,
   };
 
   try {
