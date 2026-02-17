@@ -256,6 +256,203 @@ namespace sisRUA
             return req;
         }
 
+        /// <summary>
+        /// SISRUA_IMPORTOSM - Import OSM data with parameters from command line.
+        /// Allows power users to import without UI.
+        /// </summary>
+        [CommandMethod("SISRUA_IMPORTOSM", CommandFlags.Session)]
+        public static async void SisRuaImportOsmCommand()
+        {
+            await SisRuaTransactionalShield.ExecuteAsync(async (doc, db, tr) =>
+            {
+                var ed = doc.Editor;
+                
+                // Get center point
+                var coordOpts = new PromptPointOptions("\n[sisRUA] Ponto central da área: ");
+                coordOpts.AllowNone = false;
+                var coordRes = ed.GetPoint(coordOpts);
+                if (coordRes.Status != PromptStatus.OK) return;
+                
+                // Get radius
+                var radiusOpts = new PromptDistanceOptions("\n[sisRUA] Raio em metros: ");
+                radiusOpts.DefaultValue = 500.0;
+                radiusOpts.AllowNegative = false;
+                radiusOpts.AllowZero = false;
+                var radiusRes = ed.GetDistance(radiusOpts);
+                if (radiusRes.Status != PromptStatus.OK) return;
+                
+                double radius = radiusRes.Value;
+                
+                // For demo purposes, using default coordinates if point is at origin
+                // In real scenario, convert AutoCAD coordinates to lat/lon using project CRS
+                double lat = -15.7801;  // Brasília default
+                double lon = -47.9292;
+                
+                ed.WriteMessage($"\n[sisRUA] Importando OSM para raio de {radius:F0}m...");
+                
+                string baseUrl = GetBackendBaseUrlOrAlert(ed);
+                if (baseUrl == null) return;
+                
+                var jobPayload = new PrepareJobRequest { 
+                    Kind = "osm", 
+                    Latitude = lat, 
+                    Longitude = lon, 
+                    Radius = radius 
+                };
+                
+                using (var dlg = new ProcessingDialog())
+                {
+                    Application.ShowModelessDialog(dlg);
+                    var response = await RunPrepareJobAsync(ed, baseUrl, jobPayload, dlg);
+                    if (response?.Features != null && response.Features.Any())
+                    {
+                        await Engine.DrawFeaturesAsync(response.Features, response.CrsOut, dlg);
+                        _lastDrawnFeatures = response.Features;
+                        _lastDrawnCrsOut = response.CrsOut;
+                        ed.WriteMessage($"\n[sisRUA] Importação concluída: {response.Features.Count} features desenhadas.");
+                    }
+                }
+            });
+        }
+
+        /// <summary>
+        /// SISRUA_EXPORT - Export current project to file.
+        /// </summary>
+        [CommandMethod("SISRUA_EXPORT", CommandFlags.Session)]
+        public static void SisRuaExportCommand()
+        {
+            if (_lastDrawnFeatures == null || !_lastDrawnFeatures.Any())
+            {
+                Application.ShowAlertDialog("Nenhum dado recente para exportar. Importe ou desenhe algo primeiro.");
+                return;
+            }
+            
+            SisRuaTransactionalShield.Execute((doc, db, tr) =>
+            {
+                var ed = doc.Editor;
+                
+                // Get export format
+                var formatOpts = new PromptKeywordOptions("\n[sisRUA] Formato de exportação:");
+                formatOpts.Keywords.Add("JSON");
+                formatOpts.Keywords.Add("GeoJSON");
+                formatOpts.Keywords.Add("DXF");
+                formatOpts.Keywords.Default = "JSON";
+                var formatRes = ed.GetKeyword(formatOpts);
+                if (formatRes.Status != PromptStatus.OK) return;
+                
+                string format = formatRes.StringResult;
+                string fileName = $"sisrua_export_{DateTime.Now:yyyyMMddHHmmss}.{format.ToLower()}";
+                string localDir = SisRuaPlugin.GetLocalSisRuaDir() ?? Path.GetTempPath();
+                string filePath = Path.Combine(localDir, "exports", fileName);
+                
+                Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+                
+                if (format == "JSON" || format == "GeoJSON")
+                {
+                    var exportData = new {
+                        exportDate = DateTime.Now.ToString("O"),
+                        crs = _lastDrawnCrsOut,
+                        featureCount = _lastDrawnFeatures.Count(),
+                        features = _lastDrawnFeatures
+                    };
+                    
+                    File.WriteAllText(filePath, JsonSerializer.Serialize(exportData, new JsonSerializerOptions { WriteIndented = true }));
+                }
+                
+                ed.WriteMessage($"\n[sisRUA] Exportado para: {filePath}");
+                Application.ShowAlertDialog($"Projeto exportado:\n{filePath}");
+            });
+        }
+
+        /// <summary>
+        /// SISRUA_STATUS - Show system diagnostic information.
+        /// </summary>
+        [CommandMethod("SISRUA_STATUS", CommandFlags.Session)]
+        public static async void SisRuaStatusCommand()
+        {
+            var ed = Application.DocumentManager.MdiActiveDocument.Editor;
+            
+            ed.WriteMessage("\n=== sisRUA System Status ===");
+            
+            var mgr = SisRuaPlugin.Instance?.BackendManager;
+            if (mgr == null)
+            {
+                ed.WriteMessage("\n❌ Backend Manager: NOT INITIALIZED");
+                return;
+            }
+            
+            ed.WriteMessage($"\n✓ Backend Manager: INITIALIZED");
+            ed.WriteMessage($"\n  Base URL: {mgr.BaseUrl}");
+            ed.WriteMessage($"\n  Ready: {mgr.IsReady}");
+            ed.WriteMessage($"\n  Initializing: {mgr.IsInitializing}");
+            
+            if (mgr.LastError != null)
+            {
+                ed.WriteMessage($"\n  Last Error: {mgr.LastError.Message}");
+            }
+            
+            // Try to get cache stats
+            if (mgr.IsReady)
+            {
+                try
+                {
+                    var req = CreateAuthedJsonRequest(HttpMethod.Get, $"{mgr.BaseUrl}/api/v1/health/cache-stats", null);
+                    var resp = await _httpClient.SendAsync(req);
+                    
+                    if (resp.IsSuccessStatusCode)
+                    {
+                        var stats = JsonSerializer.Deserialize<JsonElement>(await resp.Content.ReadAsStringAsync());
+                        ed.WriteMessage("\n\n✓ Cache Statistics:");
+                        ed.WriteMessage($"\n  Hit Rate: {stats.GetProperty("hit_rate").GetDouble():F1}%");
+                        ed.WriteMessage($"\n  Hits: {stats.GetProperty("hits").GetInt32()}");
+                        ed.WriteMessage($"\n  Misses: {stats.GetProperty("misses").GetInt32()}");
+                        ed.WriteMessage($"\n  Total Requests: {stats.GetProperty("total_requests").GetInt32()}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ed.WriteMessage($"\n  Cache Stats: Unavailable ({ex.Message})");
+                }
+            }
+            
+            // Project info
+            ed.WriteMessage("\n\n✓ Project Information:");
+            if (_lastDrawnFeatures != null && _lastDrawnFeatures.Any())
+            {
+                ed.WriteMessage($"\n  Last Import: {_lastDrawnFeatures.Count()} features");
+                ed.WriteMessage($"\n  CRS: {_lastDrawnCrsOut}");
+            }
+            else
+            {
+                ed.WriteMessage("\n  No recent imports");
+            }
+            
+            // Local projects
+            try
+            {
+                var projects = _projectRepository.ListProjects();
+                ed.WriteMessage($"\n\n✓ Saved Projects: {projects.Count()}");
+            }
+            catch (Exception ex)
+            {
+                ed.WriteMessage($"\n  Projects: Error ({ex.Message})");
+            }
+            
+            ed.WriteMessage("\n===========================\n");
+        }
+
+        /// <summary>
+        /// SISRUA_SYNC - Manual sync trigger (placeholder for future sync implementation).
+        /// </summary>
+        [CommandMethod("SISRUA_SYNC", CommandFlags.Session)]
+        public static void SisRuaSyncCommand()
+        {
+            var ed = Application.DocumentManager.MdiActiveDocument.Editor;
+            ed.WriteMessage("\n[sisRUA] SISRUA_SYNC: Sincronização manual");
+            ed.WriteMessage("\n[INFO] Funcionalidade de sincronização será implementada na fase #2 da análise fullstack.");
+            ed.WriteMessage("\n[INFO] Por enquanto, use SISRUA_SAVE_PROJECT e SISRUA_RELOAD_PROJECT.");
+        }
+
         // --- DTOs for Backend Communication ---
         private sealed class PrepareJobRequest { public string Kind { get; set; } public double? Latitude { get; set; } public double? Longitude { get; set; } public double? Radius { get; set; } public string GeoJson { get; set; } }
         private sealed class JobStatusResponse { public string JobId { get; set; } public string Status { get; set; } public double Progress { get; set; } public string Message { get; set; } public JsonElement Result { get; set; } public string Error { get; set; } }

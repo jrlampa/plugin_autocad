@@ -47,7 +47,8 @@ export function useDrawingCanvas(setPreviewGeoJson) {
         // Avoid duplicates
         const isDuplicate = existing.some(
           (f) =>
-            JSON.stringify(f.geometry.coordinates) === JSON.stringify(newFeature.geometry.coordinates)
+            JSON.stringify(f.geometry.coordinates) ===
+            JSON.stringify(newFeature.geometry.coordinates)
         );
 
         if (isDuplicate) return base;

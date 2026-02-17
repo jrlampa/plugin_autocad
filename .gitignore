@@ -63,3 +63,14 @@ bundle-template/sisRUA.bundle/Contents/backend/sisrua_backend.exe
 # ===== Local SDKs (BIG FILES) =====
 dll_autocad_*/
 
+# ===== Temporary output/test files =====
+*_output.txt
+*_output_*.txt
+build_error*.txt
+test_out*.txt
+all_files.txt
+*.db
+desktop.ini
+group*_output.txt
+
+*.backup

@@ -7,6 +7,7 @@ import time
 import threading
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+from contextlib import asynccontextmanager
 
 # Configure Matplotlib backend to 'Agg' BEFORE any other matplotlib imports
 try:
@@ -32,6 +33,61 @@ from backend.core.logger import configure_logging, get_logger, set_trace_id
 configure_logging()
 logger = get_logger(__name__)
 
+# --- Lifespan Context Manager (replaces on_event) ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for startup and shutdown events.
+    Replaces deprecated @app.on_event decorators.
+    """
+    # Startup
+    logger.info("api_starting")
+    
+    from backend.core.container import setup_event_bus
+    setup_event_bus()
+    
+    def run_cleanup():
+        from backend.services.jobs import cleanup_expired_jobs
+        while True:
+            try:
+                cleanup_expired_jobs(max_age_seconds=3600)
+            except Exception as e:
+                logger.error("job_cleanup_failed", error=str(e))
+            time.sleep(600)
+
+    cleanup_thread = threading.Thread(target=run_cleanup, daemon=True)
+    cleanup_thread.start()
+
+    def run_housekeeping():
+        from backend.services.housekeeper import housekeeper_service
+        targets = [Path("logs").resolve(), Path("cache").resolve()]
+        try:
+            housekeeper_service.run_daily_cleanup([t for t in targets if t.exists()])
+        except Exception as e:
+            logger.error("housekeeper_failed", error=str(e))
+
+    housekeeping_thread = threading.Thread(target=run_housekeeping, daemon=True)
+    housekeeping_thread.start()
+
+    if os.environ.get("SISRUA_TESTING") != "true":
+        try:
+            from backend.core.ipc import IpcServer
+            from backend.core.config import AUTH_TOKEN
+            IpcServer(AUTH_TOKEN).start()
+        except:
+            pass
+
+    logger.info("api_started")
+    
+    yield  # Application runs
+    
+    # Shutdown
+    logger.info("api_shutting_down")
+    from backend.core.lifecycle import SHUTDOWN_EVENT, job_registry
+    SHUTDOWN_EVENT.set()
+    job_registry.wait_for_completion(timeout=10.0)
+    logger.info("api_shutdown_complete")
+
 app = FastAPI(
     title="sisRUA: The Urban Data Engine",
     version="1.1.0",
@@ -49,7 +105,8 @@ app = FastAPI(
         {"name": "Urban Data", "description": "Core geometry and data preparation services"},
         {"name": "Intelligence", "description": "AI and predictive design services"},
         {"name": "Infrastructure", "description": "Global health, jobs, and audit services"},
-    ]
+    ],
+    lifespan=lifespan  # Use lifespan context manager instead of on_event
 )
 
 # Middleware for Audit Logging (Trace ID)
@@ -86,18 +143,47 @@ if SENTRY_DSN:
 
 # --- Core Dependencies ---
 from fastapi import Depends
-from backend.core.config import AUTH_TOKEN, AUTH_HEADER_NAME
+from backend.core.config import AUTH_TOKEN, AUTH_HEADER_NAME, IS_PROD
 from backend.core.security import is_valid_session, require_token
 from backend.core.container import setup_event_bus
 
 # --- Strict Origin Middleware ---
 # Permite file:// e qualquer porta local para WebView2
-ALLOWED_ORIGINS = ["*"]
+# Security Note: In production, restrict this to specific domains
+# For plugin use (WebView2), we allow localhost and file:// protocol
+
+# Configure allowed origins based on environment
+# In production: Use specific domains from environment variable
+# In development/plugin mode: Use explicit localhost origins for security
+# In tests: Strict validation with predefined test origins
+_env_origins = os.environ.get("ALLOWED_ORIGINS", "")
+if IS_PROD and _env_origins:
+    ALLOWED_ORIGINS = [o.strip() for o in _env_origins.split(",") if o.strip()]
+elif os.environ.get("SISRUA_TESTING") == "true":
+    # Testing mode: strict validation with predefined test origins
+    ALLOWED_ORIGINS = ["http://localhost:8000", "http://localhost:5173"]
+else:
+    # Development/plugin mode: explicit localhost origins (no wildcard)
+    # This provides security while allowing development
+    ALLOWED_ORIGINS = [
+        "http://localhost:5000", "http://localhost:5173", "http://localhost:8000",
+        "http://127.0.0.1:5000", "http://127.0.0.1:5173", "http://127.0.0.1:8000",
+        "https://localhost:5000", "https://localhost:5173", "https://localhost:8000",
+    ]
 
 @app.middleware("http")
 async def validate_origin(request: Request, call_next):
-    """ISO 27001: Strict Origin Validation."""
+    """
+    ISO 27001: Strict Origin Validation.
+    
+    Security Policy:
+    1. Health/docs endpoints: Always allowed
+    2. Browser requests (with Origin header): Must be from allowed origins or localhost
+    3. Non-browser requests (no Origin): Allowed only from localhost OR with valid auth
+    4. Testserver: Validation skipped for testing
+    """
     try:
+        # Always allow health checks and documentation
         if request.url.path in ["/api/v1/health", "/health", "/docs", "/openapi.json", "/"]:
             return await call_next(request)
 
@@ -106,38 +192,101 @@ async def validate_origin(request: Request, call_next):
         token = request.headers.get(AUTH_HEADER_NAME)
         has_valid_auth = (token == AUTH_TOKEN) or (token and is_valid_session(token))
 
-        if is_local or has_valid_auth or request.base_url.hostname == "testserver":
+        # For testserver, skip origin validation
+        if request.base_url.hostname == "testserver":
             return await call_next(request)
 
         origin = request.headers.get("Origin")
-        referer = request.headers.get("Referer")
         
-        if not origin and not referer and request.url.path.startswith("/api/v1"):
-            logger.warning("security_violation_no_origin", path=request.url.path, client=client_host)
-            return Response("Forbidden: Strict Origin Required", status_code=403)
-                
+        # Browser request (has Origin header) - strict validation required
         if origin:
-            if origin.startswith("http://localhost:") or origin.startswith("http://127.0.0.1:"):
+            # Allow localhost origins for development
+            if origin.startswith("http://localhost:") or origin.startswith("http://127.0.0.1:") or origin.startswith("https://localhost:") or origin.startswith("https://127.0.0.1:"):
                  return await call_next(request)
-            if origin not in ALLOWED_ORIGINS:
-                logger.warning("security_violation_invalid_origin", origin=origin, client=client_host)
-                return Response("Forbidden: Invalid Origin", status_code=403)
             
-        return await call_next(request)
+            # Check if origin is in allowed list
+            if origin in ALLOWED_ORIGINS:
+                return await call_next(request)
+            
+            # Origin not allowed - block even with valid auth (CSRF protection)
+            logger.warning("security_violation_invalid_origin", origin=origin, client=client_host, has_auth=has_valid_auth)
+            return Response("Forbidden: Invalid Origin", status_code=403)
+        
+        # Non-browser request (no Origin header) - API clients, desktop apps, etc.
+        # Allow if: (local connection) OR (has valid authentication)
+        # This allows the C# plugin and other API clients to work
+        if is_local or has_valid_auth:
+            return await call_next(request)
+        
+        # No origin, not local, no auth - block
+        logger.warning("security_violation_no_origin_no_auth", path=request.url.path, client=client_host)
+        return Response("Forbidden: Authentication Required", status_code=401)
+            
     except Exception as e:
         logger.error("middleware_origin_validation_failed", error=str(e), path=request.url.path)
         # Fallback to next to avoid infinite loading on health check if something crashes
         return await call_next(request)
 
 # --- CORS Middleware ---
+# CORS configuration for cross-origin requests
+# Note: WebView2 file:// protocol requires special handling
+# For WebView2 compatibility, we use wildcard when appropriate
+# The validate_origin middleware provides the primary security layer
+if IS_PROD or os.environ.get("SISRUA_TESTING") == "true":
+    # Production/Testing: Use strict ALLOWED_ORIGINS list
+    _cors_origins = ALLOWED_ORIGINS
+else:
+    # Development: Use wildcard for WebView2 file:// protocol support
+    # This is safe because validate_origin middleware still enforces security
+    _cors_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS", "PUT"],
     allow_headers=["*"],
-    expose_headers=["X-SisRua-Token", "X-Request-ID"],
+    expose_headers=["X-SisRua-Token", "X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
 )
+
+# --- Rate Limiting Middleware ---
+from backend.core.rate_limit import RateLimitMiddleware
+app.add_middleware(RateLimitMiddleware)
+
+# --- HTTPS Enforcement Middleware (Production Only) ---
+
+@app.middleware("http")
+async def enforce_https(request: Request, call_next):
+    """
+    Enforce HTTPS in production environments.
+    Redirects HTTP requests to HTTPS and adds HSTS header.
+    """
+    if IS_PROD:
+        # Check if request is over HTTPS
+        is_https = (
+            request.url.scheme == "https" or
+            request.headers.get("X-Forwarded-Proto") == "https" or
+            request.headers.get("X-Forwarded-Ssl") == "on"
+        )
+        
+        # Allow health checks over HTTP for load balancers
+        if not is_https and request.url.path not in ["/health", "/api/v1/health"]:
+            # Redirect to HTTPS
+            https_url = str(request.url).replace("http://", "https://", 1)
+            return Response(
+                content=f"Redirecting to HTTPS: {https_url}",
+                status_code=301,
+                headers={"Location": https_url}
+            )
+    
+    response = await call_next(request)
+    
+    # Add HSTS header in production
+    if IS_PROD:
+        # max-age=31536000 (1 year), includeSubDomains, preload
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    
+    return response
 
 # --- Security Headers Middleware ---
 @app.middleware("http")
@@ -157,50 +306,9 @@ async def add_security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
 
-# --- App Lifecycle ---
-@app.on_event("startup")
-async def startup_event():
-    setup_event_bus()
-    
-    def run_cleanup():
-        from backend.services.jobs import cleanup_expired_jobs
-        while True:
-            try:
-                cleanup_expired_jobs(max_age_seconds=3600)
-            except Exception as e:
-                logger.error("job_cleanup_failed", error=str(e))
-            time.sleep(600)
-
-    threading.Thread(target=run_cleanup, daemon=True).start()
-
-    def run_housekeeping():
-        from backend.services.housekeeper import housekeeper_service
-        targets = [Path("logs").resolve(), Path("cache").resolve()]
-        try:
-            housekeeper_service.run_daily_cleanup([t for t in targets if t.exists()])
-        except Exception as e:
-            logger.error("housekeeper_failed", error=str(e))
-
-    threading.Thread(target=run_housekeeping, daemon=True).start()
-
-    if os.environ.get("SISRUA_TESTING") != "true":
-        try:
-            from backend.core.ipc import IpcServer
-            IpcServer(AUTH_TOKEN).start()
-        except:
-            pass
-
-    logger.info("api_started")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    from backend.core.lifecycle import SHUTDOWN_EVENT, job_registry
-    SHUTDOWN_EVENT.set()
-    job_registry.wait_for_completion(timeout=10.0)
-
 # --- Router Registration ---
 from backend.routers import (
-    health, auth, jobs, gis, projects, ai, webhooks, audit
+    health, auth, jobs, gis, projects, ai, webhooks, audit, sync
 )
 app.include_router(health.router)
 app.include_router(auth.router)
@@ -209,6 +317,7 @@ app.include_router(gis.router)
 app.include_router(projects.router)
 app.include_router(ai.router)
 app.include_router(webhooks.router)
+app.include_router(sync.router)
 
 app.include_router(audit.router, prefix="/api")
 

@@ -1,16 +1,69 @@
+import { useEffect } from 'react';
+import { useMap } from 'react-leaflet';
 import {
   MapContainer,
   TileLayer,
   Circle,
   Marker,
   Popup,
-  useMap,
   GeoJSON,
   Polyline,
   Polygon,
 } from 'react-leaflet';
 
-// ... (MapDropHandler, MapClickHandler, MapController unchanged) ...
+// Map Controller - Updates map center when coords change
+function MapController({ coords }) {
+  const map = useMap();
+  useEffect(() => {
+    if (coords && coords[0] !== 0 && coords[1] !== 0) {
+      map.setView(coords, map.getZoom());
+    }
+  }, [coords, map]);
+  return null;
+}
+
+// Map Drop Handler - Handles symbol drops on the map
+function MapDropHandler({ onSymbolDrop }) {
+  const map = useMap();
+  useEffect(() => {
+    const handleDrop = (e) => {
+      e.preventDefault();
+      const symbolType = e.dataTransfer?.getData('symbol-type');
+      if (symbolType && onSymbolDrop) {
+        const latLng = map.mouseEventToLatLng(e);
+        onSymbolDrop({ lat: latLng.lat, lon: latLng.lng, tipo: symbolType });
+      }
+    };
+
+    const container = map.getContainer();
+    container.addEventListener('drop', handleDrop);
+    container.addEventListener('dragover', (e) => e.preventDefault());
+
+    return () => {
+      container.removeEventListener('drop', handleDrop);
+      container.removeEventListener('dragover', (e) => e.preventDefault());
+    };
+  }, [map, onSymbolDrop]);
+  return null;
+}
+
+// Map Click Handler - Handles map clicks
+function MapClickHandler({ onMapClick }) {
+  const map = useMap();
+  useEffect(() => {
+    if (onMapClick) {
+      map.on('click', (e) => {
+        onMapClick({ lat: e.latlng.lat, lon: e.latlng.lng });
+      });
+    }
+    return () => {
+      if (onMapClick) {
+        map.off('click');
+      }
+    };
+  }, [map, onMapClick]);
+  return null;
+}
 
 // Main Map View Component
 export default function MapView({
@@ -68,12 +121,15 @@ export default function MapView({
               color: drawingMode === 'polygon' ? '#3b82f6' : 'lime',
               weight: 4,
               opacity: 0.7,
-              dashArray: '10, 10'
+              dashArray: '10, 10',
             }}
           />
           {drawingMode === 'polygon' && drawingPoints.length > 2 && (
             <Polygon
-              positions={[...drawingPoints.map((p) => [p[1], p[0]]), [drawingPoints[0][1], drawingPoints[0][0]]]}
+              positions={[
+                ...drawingPoints.map((p) => [p[1], p[0]]),
+                [drawingPoints[0][1], drawingPoints[0][0]],
+              ]}
               pathOptions={{ fillColor: '#3b82f6', fillOpacity: 0.1, weight: 0 }}
             />
           )}
@@ -83,13 +139,13 @@ export default function MapView({
       {/* ACTIVE EXTRACTION AREA */}
       {extractionPolygon && extractionPolygon.length > 0 && (
         <Polygon
-          positions={extractionPolygon.map(p => [p[1], p[0]])}
+          positions={extractionPolygon.map((p) => [p[1], p[0]])}
           pathOptions={{
             color: '#3b82f6',
             weight: 3,
             fillColor: '#3b82f6',
             fillOpacity: 0.15,
-            dashArray: '5, 5'
+            dashArray: '5, 5',
           }}
         />
       )}

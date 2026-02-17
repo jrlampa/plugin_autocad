@@ -48,9 +48,55 @@ async function loadLatestRelease() {
   }
 }
 
+async function loadGitHubStats(statsElementIds = {}, locale = undefined) {
+  const owner = "jrlampa";
+  const repo = "plugin_autocad";
+
+  const ids = {
+    stars: statsElementIds.stars,
+    forks: statsElementIds.forks,
+    watchers: statsElementIds.watchers,
+    releases: statsElementIds.releases,
+  };
+
+  try {
+    const repoResp = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers: { Accept: "application/vnd.github+json" },
+    });
+    if (!repoResp.ok) throw new Error(`GitHub API: ${repoResp.status}`);
+    const repoData = await repoResp.json();
+
+    if (repoData.stargazers_count !== undefined && ids.stars) {
+      setText(ids.stars, repoData.stargazers_count.toLocaleString(locale));
+    }
+    if (repoData.forks_count !== undefined && ids.forks) {
+      setText(ids.forks, repoData.forks_count.toLocaleString(locale));
+    }
+    if (repoData.subscribers_count !== undefined && ids.watchers) {
+      setText(ids.watchers, repoData.subscribers_count.toLocaleString(locale));
+    }
+
+    if (ids.releases) {
+      const releasesResp = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases?per_page=100`, {
+        headers: { Accept: "application/vnd.github+json" },
+      });
+      if (releasesResp.ok) {
+        const releasesData = await releasesResp.json();
+        if (Array.isArray(releasesData)) {
+          setText(ids.releases, releasesData.length.toLocaleString(locale));
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load GitHub stats:', error);
+  }
+}
+
 function init() {
   setText("year", String(new Date().getFullYear()));
   loadLatestRelease();
+  loadGitHubStats({ stars: "repoStars", forks: "repoForks", watchers: "repoWatchers", releases: "repoReleases" }, "pt-BR");
+  loadGitHubStats({ stars: "ghStars", forks: "ghForks", watchers: "ghWatchers", releases: "ghReleases" });
 }
 
 document.addEventListener("DOMContentLoaded", init);
