@@ -154,17 +154,22 @@ from backend.core.container import setup_event_bus
 
 # Configure allowed origins based on environment
 # In production: Use specific domains from environment variable
-# In development/plugin mode: Allow localhost only (not wildcard)
-# In tests: Strict validation (no wildcard)
+# In development/plugin mode: Use explicit localhost origins for security
+# In tests: Strict validation with predefined test origins
 _env_origins = os.environ.get("ALLOWED_ORIGINS", "")
 if IS_PROD and _env_origins:
     ALLOWED_ORIGINS = [o.strip() for o in _env_origins.split(",") if o.strip()]
 elif os.environ.get("SISRUA_TESTING") == "true":
-    # Testing mode: strict validation, no wildcards
+    # Testing mode: strict validation with predefined test origins
     ALLOWED_ORIGINS = ["http://localhost:8000", "http://localhost:5173"]
 else:
-    # Development/plugin mode: Allow localhost variations but not wildcard
-    ALLOWED_ORIGINS = []
+    # Development/plugin mode: explicit localhost origins (no wildcard)
+    # This provides security while allowing development
+    ALLOWED_ORIGINS = [
+        "http://localhost:5000", "http://localhost:5173", "http://localhost:8000",
+        "http://127.0.0.1:5000", "http://127.0.0.1:5173", "http://127.0.0.1:8000",
+        "https://localhost:5000", "https://localhost:5173", "https://localhost:8000",
+    ]
 
 @app.middleware("http")
 async def validate_origin(request: Request, call_next):
@@ -223,9 +228,18 @@ async def validate_origin(request: Request, call_next):
         return await call_next(request)
 
 # --- CORS Middleware ---
-# CORS needs to allow all origins for WebView2 file:// protocol and dynamic ports
-# The validate_origin middleware above provides the actual security
-_cors_origins = ALLOWED_ORIGINS if ALLOWED_ORIGINS else ["*"]
+# CORS configuration for cross-origin requests
+# Note: WebView2 file:// protocol requires special handling
+# For WebView2 compatibility, we use wildcard when appropriate
+# The validate_origin middleware provides the primary security layer
+if IS_PROD or os.environ.get("SISRUA_TESTING") == "true":
+    # Production/Testing: Use strict ALLOWED_ORIGINS list
+    _cors_origins = ALLOWED_ORIGINS
+else:
+    # Development: Use wildcard for WebView2 file:// protocol support
+    # This is safe because validate_origin middleware still enforces security
+    _cors_origins = ["*"]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
