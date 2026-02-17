@@ -26,7 +26,7 @@ namespace sisRUA.Tests
             while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "bundle-template")))
             {
                 dir = dir.Parent;
-                if (dir?.Parent == null) break;
+                if (dir == null) break; // Don't go beyond root
             }
 
             if (dir != null)
