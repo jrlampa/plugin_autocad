@@ -81,8 +81,8 @@ async function loadRepoStats() {
         setText("repoReleases", releasesData.length.toLocaleString("pt-BR"));
       }
     }
-  } catch {
-    // ignore: keep placeholders
+  } catch (error) {
+    console.error('Failed to load GitHub stats:', error);
   }
 }
 
