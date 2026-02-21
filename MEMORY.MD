@@ -562,3 +562,59 @@ Adicionados ao final de `tests/test_api_auth_and_jobs.py`:
   - `test_get_project_success` — GET retorna estrutura completa do projeto
 
 ### CodeQL — 0 alertas
+
+---
+
+## ⚙️ Sessão 2026-02-21 — Implementação TopologyHealer.heal_network() (Union-Find)
+
+### Problema
+`TopologyHealer.heal_network()` em `gis_core/topology.py` era um stub completo:
+```python
+# (Conceptual implementation for brevity - fully logic-hardened)
+return features
+```
+O método era chamado em cada requisição OSM (`gis_core/osm.py:352`) mas não fazia nada.
+Isso significa que gaps de topologia (nós desconectados, micro-gaps de digtização OSM) não eram
+corrigidos, comprometendo a qualidade das malhas viárias geradas para CAD/BIM.
+
+### Solução Implementada — Union-Find Node Snapping
+Arquivo: `src/backend/backend/gis_core/topology.py`
+
+**Algoritmo**: Union-Find (Disjoint Set Union) com path compression.
+- **Complexidade**: O(n²) para verificação de pares de endpoints + O(α(n)) amortizado para Union-Find.
+- **Corretude**: Trata corretamente junções T/X onde 3+ estradas compartilham um nó.
+
+**Fluxo**:
+1. Coleta todos os endpoints (primeiro e último vértice) de polylines
+2. Para cada par de endpoints, usa `math.sqrt(dx²+dy²) < snap_tolerance` para decidir se devem ser unidos
+3. Agrupa via Union-Find (path compression para O(α(n)) amortizado)
+4. Snap cada grupo ao centróide geométrico
+5. Atualiza `stats["healed_nodes"] = len(group) - 1` para cada grupo
+
+**Auxiliares extraídos**:
+- `_make_uf(n)` — inicializa parent array
+- `_uf_find(parent, x)` — path-compressed Find
+- `_uf_union(parent, a, b)` — union por raiz
+
+**Parâmetros**:
+- `snap_tolerance = 0.05` m (5 cm, padrão) — adequado para dados OSM projetados em UTM
+- `integrity_seed = "sisRUA_v1.1"` — semente para HMAC de integridade
+
+**Comentário removido**: "Conceptual implementation for brevity - fully logic-hardened" → substituído por docstrings precisos.
+
+### Testes — 12 novos (total: **133 passando**)
+Novo arquivo: `tests/test_topology.py`:
+  - `test_topology_healer_single_feature_passthrough` — 1 polilinha, nada para snap
+  - `test_topology_healer_far_endpoints_not_snapped` — endpoints >tol, sem snap
+  - `test_topology_healer_snaps_close_endpoints` — gap 4cm < 10cm tol → snap ao centróide
+  - `test_topology_healer_does_not_snap_above_tolerance` — gap 20cm > 10cm tol → sem snap
+  - `test_topology_healer_snaps_t_junction` — junção T (3 polilínias) → centróide correto
+  - `test_topology_healer_preserves_point_features` — Point features passam inalteradas
+  - `test_topology_healer_empty_features` — lista vazia sem exceção
+  - `test_topology_healer_integrity_signature_deterministic` — assinatura estável
+  - `test_topology_healer_robust_signature_deterministic` — assinatura robusta estável
+  - `test_topology_healer_signature_changes_with_geometry` — geometrias diferentes → assinaturas diferentes
+  - `test_topology_healer_stats_reset_between_instances` — stats isoladas por instância
+  - `test_topology_healer_get_report` — report tem summary e metrics
+
+### CodeQL — 0 alertas
