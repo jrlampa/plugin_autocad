@@ -45,6 +45,7 @@ plugin_autocad/
 │   │   │   │   ├── jobs.py       # Job queue assíncrono
 │   │   │   │   ├── ai.py         # Groq LLM (gratuito) + RAG
 │   │   │   │   ├── export_service.py  # GeoJSON + GeoPackage export
+│   │   │   │   ├── dxf_export.py # Geração DXF headless (ezdxf, 2.5D)
 │   │   │   │   ├── health.py     # Deep health check
 │   │   │   │   ├── cache.py      # In-memory cache
 │   │   │   │   ├── webhooks.py   # Event broadcasting
@@ -69,7 +70,12 @@ plugin_autocad/
 │   │       └── api.js            # API client
 │   ├── plugin/           # C# AutoCAD plugin
 │   │   ├── SisRuaPlugin.cs       # Entry point
-│   │   ├── SisRuaCommands.cs     # Comandos AutoCAD (SISRUA_*)
+│   │   ├── SisRuaCommands.cs     # Comandos AutoCAD (partial class, ~300 linhas)
+│   │   ├── Commands/             # Módulos do partial class SisRuaCommands
+│   │   │   ├── SisRuaCommandDtos.cs    # DTOs HTTP privados
+│   │   │   ├── SisRuaCommandConfig.cs  # Mapeamento layer/bloco + config JSON
+│   │   │   ├── SisRuaCadUtils.cs       # Utilitários CAD de baixo nível
+│   │   │   └── SisRuaDrawHelpers.cs    # Lógica de desenho + metadados BIM-LITE
 │   │   ├── SisRuaPalette.cs      # WebView2 palette
 │   │   ├── GeometryCleaner.cs    # Limpeza de polilinhas duplicadas
 │   │   └── Engine/               # Motor de desenho CAD
@@ -150,6 +156,15 @@ plugin_autocad/
 - A elevação é armazenada como atributo `elevation` (float) em `CadFeature`, não como coordenada Z.
 - As polilinhas CAD são desenhadas em 2D com `elevation` como propriedade de atributo.
 - Perfis de elevação são gerados separadamente via `/api/v1/tools/elevation/profile`.
+
+### Modularização de SisRuaCommands.cs
+- `SisRuaCommands.cs` (1445 linhas) foi dividido em `partial class` para respeitar a regra de 500 linhas:
+  - `Commands/SisRuaCommandDtos.cs` — DTOs HTTP privados (96 linhas)
+  - `Commands/SisRuaCommandConfig.cs` — Mapeamento layer/bloco + carregamento de JSON (202 linhas)
+  - `Commands/SisRuaCadUtils.cs` — Utilitários CAD: bloco, layer, escala, HTTP (409 linhas)
+  - `Commands/SisRuaDrawHelpers.cs` — Desenho em streaming + metadados BIM-LITE (478 linhas)
+  - `SisRuaCommands.cs` reduzido a ~307 linhas (campos + comandos SISRUA_* + API pública)
+- Bug corrigido: `processingResult.Tolerance` não existia no tipo anônimo retornado por `DrawCadFeatureDtos`; adicionado `Tolerance = 0.0` ao tipo anônimo e null-guard para resultado nulo.
 
 ### Sem Mock Data
 - O endpoint `/api/v1/sync/cloud` anteriormente usava `time.sleep(1.5)` com dados estáticos fictícios. 
@@ -253,4 +268,4 @@ docker-compose build --no-cache
 
 ---
 
-*Última atualização: 2026-02-21 | Versão do projeto: 1.1.0*
+*Última atualização: 2026-02-21 | Versão do projeto: 1.1.0 | Modularização: SisRuaCommands → partial class*
