@@ -274,7 +274,37 @@ Segurança:
 
 ### Resultado Final
 - **Testes**: 408 → **448 passando**
-- **Cobertura total**: 92.05% → **91.18%** (geocode.py tem 67%; cobertura Nominatim requer rede)
+- **Cobertura total**: 92.05% → **91.18%** (geocode.py tinha 67%; cobertura Nominatim requer rede)
+- **CodeQL**: 0 alertas
+
+---
+
+## ⚡ Sessão 2026-02-21 (21:49) — Coverage Boost V2: geocode/enterprise/dxf_export
+
+### Baseline
+448 testes passando, 91.18% cobertura.
+
+### Novo Arquivo — `tests/test_coverage_boost_v2.py` (30 testes)
+Cobre os módulos com menor cobertura:
+
+| Módulo | Antes | Depois |
+|--------|-------|--------|
+| `services/geocode.py` | 63% | **97%** |
+| `routes/enterprise.py` | 83% | **90%** |
+| `services/dxf_export.py` | 83% | **91%** |
+
+Testes adicionados:
+- **`TestNominatimGeocode`** (8): retry sem país, listas vazias, HTTP error, sem display_name
+- **`TestUtmZoneDetection`** (4): zone_str "23K", "22S", fallback zona 23
+- **`TestDxfExportEdgeCases`** (8): output_path=None, elevation XDATA, width_m, block INSERT/POINT, empty coords
+- **`TestEnterpriseProdistDxfEndpoint`** (3): 409 sem PRODIST, 404/500 projeto inexistente, auth
+- **`TestEnterpriseCloudSync`** (2): com/sem SISRUA_CLOUD_URL
+- **`TestProdistBufferExceptionPath`** (2): shapely ausente, buffer geométrico falhando
+- **`TestApiFrontendFallback`** (2): root HTML fallback, health público
+
+### Resultado Final
+- **Testes**: 448 → **478 passando**
+- **Cobertura total**: 91.18% → **93%**
 - **CodeQL**: 0 alertas
 
 
@@ -291,9 +321,10 @@ Segurança:
 | DXF headless (ABNT) | ezdxf + pytest | `src/backend/tests/test_dxf_abnt.py` |
 | DXF headless (PRODIST buffers) | ezdxf + pytest | `src/backend/tests/test_dxf_prodist_buffers.py` |
 | Geocode | pytest + mock | `src/backend/tests/test_geocode.py` |
+| Coverage boost V2 | pytest + mock | `src/backend/tests/test_coverage_boost_v2.py` |
 | C# | xUnit | `src/plugin/tests/` |
 
-> **Cobertura atual**: 448 testes pytest passando (Python backend). Cobertura: **91.18%** (threshold: 80%).
+> **Cobertura atual**: 478 testes pytest passando (Python backend). Cobertura: **93%** (threshold: 80%).
 
 ---
 
