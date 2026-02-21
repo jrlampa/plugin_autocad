@@ -49,10 +49,20 @@ qa/out/
 .vscode/
 .idea/
 
+# ===== Runtime artifacts (banco e segredos gerados em execução) =====
+*.db
+*.audit_secret
+.audit_secret
+src/backend/sisRUA/
+
 # ===== Notas locais (não versionar) =====
 passo-a-passo.md
 backup/
 history/
+
+# ===== DXF temporários (gerados em testes) =====
+*.dxf.tmp
+/tmp/*.dxf
 
 # ===== Local Build / Temp =====
 local_build/

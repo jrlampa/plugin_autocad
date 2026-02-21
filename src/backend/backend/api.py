@@ -1,93 +1,48 @@
+"""
+backend/api.py
+Ponto de entrada da API FastAPI do sisRUA.
+Responsabilidade: criação do app, middleware e registro de routers.
+A lógica de negócio fica em backend/routes/*.
+"""
 from __future__ import annotations
 
 import os
 import sys
 import time
 import threading
+import uuid
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 
-# Configure Matplotlib backend to 'Agg' BEFORE any other matplotlib imports
-# this ensures thread-safety and avoids GUI-related memory leaks in headless environments.
+# Configurar Matplotlib antes de qualquer importação para evitar memory leaks em headless
 try:
     import matplotlib
     matplotlib.use('Agg')
 except ImportError:
     pass
 
-from fastapi import FastAPI, HTTPException, Header, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
-
-# --- Sentry SDK for Error Monitoring ---
 import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.starlette import StarletteIntegration
 
-# --- Metrics / Logging v2 ---
-import uuid
 import structlog
 from backend.core.logger import configure_logging, get_logger, set_trace_id
 
 configure_logging()
 logger = get_logger(__name__)
 
+# --- Garantir token de autenticação (IPC) ---
+# Se não definido no ambiente, gera um aleatório e persiste no env do processo.
+AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN")
+if not AUTH_TOKEN:
+    AUTH_TOKEN = uuid.uuid4().hex
+    os.environ["SISRUA_AUTH_TOKEN"] = AUTH_TOKEN
 
-
-
-app = FastAPI(
-    title="sisRUA: The Urban Data Engine",
-    version="1.1.0",
-    description="""
-**sisRUA** is a professional-grade Urban Geometry & Intelligence Engine.
-
-It provides high-performance services for:
-- Autonomous **OSM Geometry Processing** & Projection
-- Advanced **GeoJSON to BIM-LITE** transformation
-- Accurate **Topographic Elevation** profiling (SRTM/Lidar)
-- Decoupled **CAD Geometry Rendering** for AutoCAD, BricsCAD, and Web.
-
-This API is designed for enterprise-grade urban design workflows, ensuring 100% data portability and ISO 27001 compliant security.
-    """,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
-    contact={
-        "name": "sisRUA Enterprise Support",
-        "url": "https://sisrua.com/support",
-    },
-    openapi_tags=[
-        {"name": "Urban Data", "description": "Core geometry and data preparation services"},
-        {"name": "Intelligence", "description": "AI and predictive design services"},
-        {"name": "Infrastructure", "description": "Global health, jobs, and audit services"},
-    ]
-)
-
-# Prometheus metrics removed for local standalone plugin
-
-# Middleware for Audit Logging (Trace ID)
-@app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    trace_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
-    set_trace_id(trace_id)
-    
-    structlog.contextvars.bind_contextvars(trace_id=trace_id)
-    
-    start_time = time.time()
-    response = await call_next(request)
-    process_time = time.time() - start_time
-    
-    response.headers["X-Request-ID"] = trace_id
-    
-    logger.info("request_processed", 
-                method=request.method, 
-                path=request.url.path, 
-                status_code=response.status_code, 
-                duration=process_time)
-                
-    return response
-
+# --- Inicialização do Sentry (apenas se DSN configurado) ---
 SENTRY_DSN = os.environ.get("SENTRY_DSN")
 if SENTRY_DSN:
     sentry_sdk.init(
@@ -96,157 +51,146 @@ if SENTRY_DSN:
             StarletteIntegration(transaction_style="endpoint"),
             FastApiIntegration(transaction_style="endpoint"),
         ],
-        traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
+        traces_sample_rate=0.1,
         profiles_sample_rate=0.1,
         environment=os.environ.get("SENTRY_ENVIRONMENT", "development"),
-        release=f"sisrua-backend@0.7.0",
-        send_default_pii=False,  # Do not send personally identifiable information
+        release="sisrua-backend@1.1.0",
+        send_default_pii=False,
     )
 
+# --- App FastAPI ---
+app = FastAPI(
+    title="sisRUA: The Urban Data Engine",
+    version="1.1.0",
+    description="""
+**sisRUA** é um motor profissional de geometria urbana e inteligência GIS.
 
-# --- New Imports from SoC ---
-from backend.models import (
-    PrepareOsmRequest, PrepareGeoJsonRequest, PrepareJobRequest,
-    PrepareResponse, JobStatusResponse, ElevationQueryRequest, 
-    ElevationProfileRequest, CadFeature, HealthResponse,
-    ElevationPointResponse, ElevationProfileResponse, WebhookRegistrationRequest,
-    InternalEvent
+Serviços principais:
+- **Processamento OSM** autônomo com projeção de alta precisão
+- **Transformação GeoJSON → BIM-LITE** para AutoCAD/BricsCAD
+- **Perfil de Elevação Topográfica** (SRTM/Lidar, offline-first)
+- **Renderização CAD desacoplada** com suporte a 2.5D
+
+API projetada para fluxos de trabalho de design urbano enterprise,
+com portabilidade total de dados e conformidade ISO 27001.
+    """,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    contact={"name": "sisRUA Enterprise Support", "url": "https://sisrua.com/support"},
+    openapi_tags=[
+        {"name": "Urban Data", "description": "Serviços de geometria e preparação de dados"},
+        {"name": "AI", "description": "Assistente inteligente"},
+        {"name": "Infrastructure", "description": "Saúde, jobs e auditoria"},
+    ],
 )
-from backend.services.jobs import (
-    job_store, init_job, update_job, check_cancellation, 
-    get_job, cancel_job
-)
-from backend.services.webhooks import webhook_service
-from backend.gis_core.osm import prepare_osm_compute
-from backend.services.geojson import prepare_geojson_compute
-from backend.services.geojson import prepare_geojson_compute
-from backend.core.utils import sanitize_jsonable
-from backend.core.rate_limit import RateLimiter
-from fastapi import Depends
-import uuid
 
-# Security: If no token provided (EXE mode), generate one for IPC handshake.
-AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN")
-if not AUTH_TOKEN:
-    AUTH_TOKEN = uuid.uuid4().hex
-    # We do NOT log this token to console for security, it is available via Secure IPC.
+# --- Middleware: Trace ID e audit log ---
+@app.middleware("http")
+async def add_trace_header(request: Request, call_next):
+    trace_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    set_trace_id(trace_id)
+    structlog.contextvars.bind_contextvars(trace_id=trace_id)
 
-AUTH_HEADER_NAME = "X-SisRua-Token"
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
 
-# --- Session Token Management (ISO 27001 Hardening) ---
-# Store for short-lived session tokens. {token: expiry_timestamp}
-SESSION_TOKENS: Dict[str, float] = {}
-SESSION_DURATION = 1800 # 30 minutes
+    response.headers["X-Request-ID"] = trace_id
+    logger.info(
+        "request_processed",
+        method=request.method,
+        path=request.url.path,
+        status_code=response.status_code,
+        duration=process_time,
+    )
+    return response
 
-def _is_valid_session(token: str) -> bool:
-    """Checks if a session token exists and is not expired."""
-    if token not in SESSION_TOKENS:
-        return False
-    if time.time() > SESSION_TOKENS[token]:
-        del SESSION_TOKENS[token] # Cleanup
-        return False
-    # Slide the window (optional but good for UX)
-    SESSION_TOKENS[token] = time.time() + SESSION_DURATION
-    return True
 
-def _require_token(x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
-    """
-    Protege endpoints sensíveis contra chamadas externas na máquina do usuário.
-    Aceita Master Token (bootstrap) ou Session Token (uso contínuo).
-    """
-    if not AUTH_TOKEN:
-        raise HTTPException(status_code=500, detail="Server Authentication Not Configured")
-    
-    if not x_sisrua_token:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+# --- Middleware: Validação de Origem (ISO 27001) ---
+from backend.core.auth import AUTH_HEADER_NAME, is_valid_session, _get_master_token
 
-    # Verifica se é o Master Token ou um Session Token válido
-    if x_sisrua_token == AUTH_TOKEN:
-        return # Master token is always valid (backend-to-backend or bootstrap)
-    
-    if _is_valid_session(x_sisrua_token):
-        return
-        
-    raise HTTPException(status_code=401, detail="Invalid or Expired Token")
-
-@app.post("/api/v1/audit/telemetry", tags=["Audit"])
-async def receive_telemetry(payload: Dict[str, Any]):
-    """
-    Recebe telemetria silenciosa do plugin para monitoramento de erros e auto-healing.
-    """
-    # Silently log the telemetry. In a scaled SaaS, this would go to Sentry/Elastic.
-    logger.info("telemetry_received", **payload)
-    return {"status": "received"}
-
-# --- Strict Origin Middleware ---
 ALLOWED_ORIGINS = {
     "http://localhost:8000", "http://127.0.0.1:8000",
     "http://localhost:5173", "http://127.0.0.1:5173",
-    "http://localhost:4173"
+    "http://localhost:4173",
 }
+
+_PUBLIC_PATHS = {"/api/v1/health", "/health", "/docs", "/openapi.json", "/"}
+
 
 @app.middleware("http")
 async def validate_origin(request: Request, call_next):
-    """
-    ISO 27001: Strict Origin Validation.
-    Blocks requests from external domains or malformed origins.
-    
-    SPECIAL HANDLING (WebView2): 
-    AutoCAD's internal browser often omits 'Origin' or 'Referer' headers.
-    We allow requests if:
-    1. They come from the local machine (127.0.0.1/localhost).
-    2. They possess a valid Master/Session token (indicates trusted plugin comms).
-    """
-    if request.url.path in ["/api/v1/health", "/health", "/docs", "/openapi.json", "/"]:
+    """ISO 27001: Bloqueio de origens externas e requisições suspeitas."""
+    if request.url.path in _PUBLIC_PATHS:
         return await call_next(request)
 
-    # 1. Check local trust (Bypass for localhost)
     client_host = request.client.host if request.client else "unknown"
     is_local = client_host in ("127.0.0.1", "localhost", "::1", "unknown")
-    
-    # 2. Token Trust (Bypass if valid token is present - WebView2 specific)
+
     token = request.headers.get(AUTH_HEADER_NAME)
-    has_valid_auth = (token == AUTH_TOKEN) or (token and _is_valid_session(token))
+    master = _get_master_token()
+    has_valid_auth = (token == master) or bool(token and is_valid_session(token))
 
     if is_local or has_valid_auth:
-        # Trusted environment or trusted caller
         return await call_next(request)
 
-    # 3. Origin/Referer Validation (for non-local or non-token environments)
-    origin = request.headers.get("Origin")
-    referer = request.headers.get("Referer")
-    
-    # Allow TestClient internal requests
+    # Permite TestClient interno
     if request.base_url.hostname == "testserver":
         return await call_next(request)
 
-    if not origin and not referer:
-        if request.url.path.startswith("/api/v1"):
-            logger.warning("security_violation_no_origin", 
-                           path=request.url.path, 
-                           client=client_host,
-                           has_token=bool(token))
-            return Response("Forbidden: Strict Origin Required", status_code=403)
-            
+    origin = request.headers.get("Origin")
+    referer = request.headers.get("Referer")
+
+    if not origin and not referer and request.url.path.startswith("/api/v1"):
+        logger.warning(
+            "security_violation_no_origin",
+            path=request.url.path,
+            client=client_host,
+            has_token=bool(token),
+        )
+        return Response("Forbidden: Strict Origin Required", status_code=403)
+
     if origin:
         if origin.startswith("http://localhost:") or origin.startswith("http://127.0.0.1:"):
-             return await call_next(request)
+            return await call_next(request)
         if origin not in ALLOWED_ORIGINS:
             logger.warning("security_violation_invalid_origin", origin=origin, client=client_host)
             return Response("Forbidden: Invalid Origin", status_code=403)
-        
+
     return await call_next(request)
 
-# --- CORS Middleware ---
-# Allows requests from the WebView2 control (localhost origins)
+
+# --- Middleware: Cabeçalhos de Segurança ---
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Adiciona cabeçalhos de segurança HTTP a todas as respostas."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https://*.tile.openstreetmap.org https://mt1.google.com "
+        "https://*.basemaps.cartocdn.com; "
+        "connect-src 'self' https://*.ingest.sentry.io; "
+        "object-src 'none';"
+    )
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
+# --- CORS ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:8000",
         "http://127.0.0.1:8000",
-        "http://localhost:5173",  # Vite dev server
+        "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "http://localhost:4173",  # Vite preview
+        "http://localhost:4173",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
@@ -254,559 +198,145 @@ app.add_middleware(
     expose_headers=["X-SisRua-Token"],
 )
 
-# --- Security Headers Middleware ---
-@app.middleware("http")
-async def add_security_headers(request: Request, call_next):
-    """Adds security headers to all responses efficiently."""
-    response = await call_next(request)
-    
-    # Prevent XSS attacks
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    
-    # Prevent clickjacking (Relaxed for WebView2)
-    response.headers["X-Frame-Options"] = "SAMEORIGIN"
-    
-    # Content Security Policy (Tightened for ISO 27001)
-    # Allows scripts and styles only from 'self' (no unsafe-inline if possible)
-    # Allows tile images from trusted providers
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        "script-src 'self'; "
-        "style-src 'self' 'unsafe-inline'; " # Keep unsafe-inline for style if needed by Leaflet/Radix
-        "img-src 'self' data: https://*.tile.openstreetmap.org https://mt1.google.com https://*.basemaps.cartocdn.com; "
-        "connect-src 'self' https://*.ingest.sentry.io; "
-        "object-src 'none';"
-    )
-    
-    # Referrer Policy
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    
-    return response
 
-# --- Warm-up logic (Internal performance) ---
+# --- Telemetria (recebe do plugin, sem autenticação necessária) ---
+@app.post("/api/v1/audit/telemetry", tags=["Audit"])
+async def receive_telemetry(payload: Dict[str, Any]):
+    """Recebe telemetria silenciosa do plugin para monitoramento e auto-healing."""
+    logger.info("telemetry_received", **payload)
+    return {"status": "received"}
+
+
+# --- Startup ---
 @app.on_event("startup")
 async def startup_event():
-    """Warms up the environment to reduce latency on first user request."""
-    # Start background cleanup thread for jobs
+    """Inicializa serviços de background (cleanup, housekeeping, IPC)."""
+
     def run_cleanup():
         from backend.services.jobs import cleanup_expired_jobs
         while True:
             try:
                 count = cleanup_expired_jobs(max_age_seconds=3600)
                 if count > 0:
-                    print(f"[cleanup] Removed {count} expired jobs.")
+                    print(f"[cleanup] {count} jobs expirados removidos.")
             except Exception as e:
-                print(f"[cleanup] Error: {e}")
-            time.sleep(600) # Run every 10 minutes
+                print(f"[cleanup] Erro: {e}")
+            time.sleep(600)
 
-    cleanup_thread = threading.Thread(target=run_cleanup, daemon=True)
-    cleanup_thread.start()
+    threading.Thread(target=run_cleanup, daemon=True).start()
 
-    # Privacy by Design: Data Lifecycle Management
     def run_housekeeping():
-        from backend.services.housekeeper import housekeeper_service
-        # Define targets relative to project root or user data
-        # Assuming logs are at project_root/logs or similar
-        # For now, we'll try to find them dynamically or use known paths
-        
-        targets = []
         try:
-            # logs dir
-            logs_dir = Path("logs").resolve()
-            if logs_dir.exists(): targets.append(logs_dir)
-            
-            # cache dir
-            cache_dir = Path("cache").resolve()
-            if cache_dir.exists(): targets.append(cache_dir)
-            
+            from backend.services.housekeeper import housekeeper_service
+            targets = []
+            for name in ("logs", "cache"):
+                d = Path(name).resolve()
+                if d.exists():
+                    targets.append(d)
             housekeeper_service.run_daily_cleanup(targets)
         except Exception as e:
-            print(f"[housekeeper] Error: {e}")
+            print(f"[housekeeper] Erro: {e}")
 
     threading.Thread(target=run_housekeeping, daemon=True).start()
 
-    # Secure IPC (Phase 10 Recovery)
     if os.environ.get("SISRUA_TESTING") != "true":
         try:
             from backend.core.ipc import IpcServer
-            # existing AUTH_TOKEN from env or generated
             ipc_server = IpcServer(AUTH_TOKEN)
             ipc_server.start()
-            print(f"[startup] IPC Server started on {IpcServer.PIPE_NAME}")
+            print(f"[startup] IPC Server iniciado em {IpcServer.PIPE_NAME}")
         except ImportError:
-            print("[startup] Warning: pywin32 not installed, IPC disabled.")
+            print("[startup] Aviso: pywin32 não instalado, IPC desativado.")
         except Exception as e:
-            print(f"[startup] IPC Server failed: {e}")
+            print(f"[startup] IPC Server falhou: {e}")
 
-    # Pre-calculate or pre-import anything that doesn't depend on heavy GIS libs
-    # (Heavy GIS libs are deferred to usage time now)
-    print("[startup] sisRUA API ready.")
+    print("[startup] sisRUA API pronta.")
 
 
-
-@app.get("/api/v1/health", tags=["Health"], response_model=HealthResponse)
-async def health_check():
-    """Verifica se a API está online."""
-    return HealthResponse(status="ok")
-
-@app.get("/health", tags=["Health"], include_in_schema=False)
-async def health_check_legacy():
-    """Fallback para versões antigas do plugin ou monitoramento simples."""
-    return {"status": "ok"}
-
-@app.get("/api/v1/auth/check", tags=["Health"])
-async def auth_check(_ = Depends(_require_token)):
-    """Verifica se o token de autenticação é válido."""
-    return {"status": "ok", "message": "Authenticated"}
-
-@app.post("/api/v1/auth/session", tags=["Health"])
-async def create_session(x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
-    """
-    ISO 27001: Session Token Handshake.
-    Troca o Master Token por um Session Token de curta duração.
-    """
-    if not AUTH_TOKEN or x_sisrua_token != AUTH_TOKEN:
-        raise HTTPException(status_code=401, detail="Invalid Master Token")
-    
-    session_token = f"sess_{uuid.uuid4().hex}"
-    SESSION_TOKENS[session_token] = time.time() + SESSION_DURATION
-    
-    logger.info("session_created", token_id=session_token[:10])
-    return {"session_token": session_token, "expires_in": SESSION_DURATION}
-
-from backend.models import DeepHealthResponse
-from backend.services.health import health_service
-
-@app.get("/api/v1/health/detailed", tags=["Health"], response_model=DeepHealthResponse)
-async def health_detailed(x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)):
-    """Deep health check verifying DB, Cache, and Configuration."""
-    _require_token(x_sisrua_token) # Deep check is protected
-    return health_service.check_health()
-
-from backend.services.projects import ProjectService, ConflictError, NotFoundError
-from backend.models import ProjectUpdateRequest
-
-@app.put("/api/v1/projects/{project_id}", tags=["Projects"])
-async def update_project(
-    project_id: str,
-    req: ProjectUpdateRequest,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """
-    Update project metadata safely using Optimistic Locking.
-    Requires 'version' in body matching the database version.
-    """
-    _require_token(x_sisrua_token)
-    try:
-        updated = project_service.update_project(
-            project_id=project_id,
-            updates=req.model_dump(exclude={"version"}, exclude_unset=True),
-            expected_version=req.version
-        )
-        return updated
-    except ConflictError as e:
-        raise HTTPException(status_code=409, detail=str(e))
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-
-from backend.services.cache import cache_service
-from backend.core.bus import InMemoryEventBus
-
-# --- Composition Root ---
-event_bus = InMemoryEventBus(cache=cache_service)
-project_service = ProjectService(event_bus=event_bus)
-from backend.services.executor import JobExecutor
-job_executor = JobExecutor(cache_service=cache_service)
-
-# Wiring: WebhookService listens to events
-def webhook_adapter(payload: Dict[str, Any]):
-    pass
-
-# Direct subscriptions for known job events
-event_bus.subscribe("job_started", lambda p: webhook_service.broadcast("job_started", p))
-event_bus.subscribe("job_completed", lambda p: webhook_service.broadcast("job_completed", p))
-event_bus.subscribe("job_failed", lambda p: webhook_service.broadcast("job_failed", p))
-event_bus.subscribe("project_saved", lambda p: webhook_service.broadcast("project_saved", p))
-event_bus.subscribe("project_updated", lambda p: webhook_service.broadcast("project_updated", p))
-
+# --- Shutdown ---
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Graceful shutdown handler."""
-    print("[shutdown] Stopping background services...")
-    
-    # Signal shutdown
+    """Encerramento gracioso: sinaliza jobs ativos e aguarda conclusão."""
+    print("[shutdown] Encerrando serviços...")
     from backend.core.lifecycle import SHUTDOWN_EVENT, job_registry
     SHUTDOWN_EVENT.set()
-    
-    # Wait for active jobs
     job_registry.wait_for_completion(timeout=10.0)
-    print("[shutdown] Bye.")
-
-def _run_prepare_job_sync(job_id: str, payload: PrepareJobRequest, trace_id: str) -> None:
-    try:
-        # Restore Trace Context in the new thread
-        set_trace_id(trace_id)
-        structlog.contextvars.bind_contextvars(trace_id=trace_id)
-        
-        job_executor.execute_prepare_job(job_id, payload, event_bus)
-    finally:
-        from backend.core.lifecycle import job_registry
-        job_registry.remove(threading.current_thread())
+    print("[shutdown] Encerrado.")
 
 
-@app.post("/api/v1/jobs/prepare", tags=["Jobs"], response_model=JobStatusResponse)
-async def create_prepare_job(
-    payload: PrepareJobRequest,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME),
-    _ = Depends(RateLimiter(calls=5, period=60)) # 5 jobs per minute per IP
-):
-    """Start an asynchronous data preparation job (OSM or GeoJSON). returns the initial job status."""
-    _require_token(x_sisrua_token)
-    
-    try:
-        import hashlib
-        import json
-        payload_dict = payload.model_dump()
-        payload_json = json.dumps(payload_dict, sort_keys=True)
-        idempotency_key = hashlib.sha256(payload_json.encode()).hexdigest()
-        
-        from backend.core.logger import get_trace_id
-        current_trace_id = get_trace_id()
-        from backend.core.lifecycle import job_registry
-        
-        job_id, is_new = init_job(payload.kind, idempotency_key=idempotency_key)
-        
-        if is_new:
-            t = threading.Thread(target=_run_prepare_job_sync, args=(job_id, payload, current_trace_id), daemon=True)
-            job_registry.add(t)
-            t.start()
-        else:
-            logger.info("job_creation_skipped_dedup", job_id=job_id)
-            
-        return get_job(job_id)
-    except (ValueError, TypeError, json.JSONDecodeError) as e:
-        logger.error("create_job_invalid_payload", error=str(e))
-        raise HTTPException(status_code=422, detail="Invalid job payload")
-    except Exception as e:
-        logger.error("create_job_system_failure", error=str(e), traceback=True)
-        raise HTTPException(status_code=500, detail="Internal server error during job creation")
-
-@app.get("/api/v1/jobs/{job_id}", tags=["Jobs"], response_model=JobStatusResponse)
-async def get_job_endpoint(
-    job_id: str,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """Retrieve the current status, progress, and result (if completed) of a job."""
-    _require_token(x_sisrua_token)
-    job = get_job(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return job
-
-# --- Security Helpers ---
-def _require_token(token: str | None):
-    # ISO 27001 Security: Deny if token is missing or invalid.
-    # In production, this validates against the master or session token.
-    if not token:
-        raise HTTPException(status_code=401, detail="X-SisRua-Token header required.")
-
-# --- GIS Export Services ---
-from backend.services.export_service import ExportService
-export_service = ExportService(db_path=Path(os.environ.get("LOCALAPPDATA", "")) / "sisRUA" / "projects.db")
-
-@app.delete("/api/v1/jobs/{job_id}", tags=["Jobs"], response_model=HealthResponse)
-async def cancel_job_endpoint(
-    job_id: str,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """Request cancellation of a running job."""
-    _require_token(x_sisrua_token)
-    
-    # Use service method
-    cancelled = cancel_job(job_id)
-    if not cancelled:
-        # Check if it was because it wasn't found or because it was already done
-        job = get_job(job_id)
-        if not job:
-            raise HTTPException(status_code=404, detail="Job not found")
-        # if found but return false, it means it was already done, which counts as success/ignored?
-        # api spec says if already finished do nothing and return ok.
-        
-    return HealthResponse(status="ok")
-
-@app.post("/api/v1/tools/elevation/query", tags=["Tools"], response_model=ElevationPointResponse)
-async def query_elevation(
-    req: ElevationQueryRequest,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """Query numeric elevation (Z) at a single lat/lon point."""
-    _require_token(x_sisrua_token)
-    try:
-        from backend.services.elevation import ElevationService
-        svc = ElevationService(cache=cache_service)
-        z = svc.get_elevation_at_point(req.latitude, req.longitude)
-        return ElevationPointResponse(latitude=req.latitude, longitude=req.longitude, elevation=z)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error("elevation_query_failed", error=str(e))
-        raise HTTPException(status_code=500, detail="Error retrieving elevation data")
-
-@app.post("/api/v1/tools/elevation/profile", tags=["Tools"], response_model=ElevationProfileResponse)
-async def query_profile(
-    req: ElevationProfileRequest,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """Retrieve an elevation profile (list of Z values) along a given path."""
-    _require_token(x_sisrua_token)
-    try:
-        from backend.services.elevation import ElevationService
-        svc = ElevationService(cache=cache_service)
-        # Convert list of lists to list of tuples for the service
-        coords = [(p[0], p[1]) for p in req.path]
-        elevations = svc.get_elevation_profile(coords)
-        return ElevationProfileResponse(elevations=elevations)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error("elevation_profile_failed", error=str(e))
-        raise HTTPException(status_code=500, detail="Error generating elevation profile")
-
-from backend.services.ai import AiService
-from pydantic import BaseModel
-
-class ChatRequest(BaseModel):
-    message: str
-    context: Optional[Dict[str, Any]] = None
-    job_id: Optional[str] = None
-
-class ChatResponse(BaseModel):
-    response: str
-
-ai_service = AiService()
-
-@app.post("/api/v1/ai/chat", tags=["AI"], response_model=ChatResponse)
-async def chat_with_ai(
-    req: ChatRequest,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """Interact with sisRUA AI based on Groq."""
-    _require_token(x_sisrua_token)
-    try:
-        reply = ai_service.generate_response(req.message, req.context, req.job_id)
-        return ChatResponse(response=reply)
-    except Exception as e:
-        # Graceful degradation with logging
-        logger.error("ai_chat_failed", error=str(e))
-        return ChatResponse(response="AI unavailable.")
-
-
-@app.post("/api/v1/prepare/osm", tags=["Urban Data"], response_model=PrepareResponse)
-async def prepare_osm(
-    req: PrepareOsmRequest,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """
-    **Enterprise Asset Acquisition**: High-performance OpenStreetMap processing.
-    
-    This endpoint executes the proprietary **sisRUA GIS Core** engine:
-    1. Fetches world-scale urban data via custom OSMnx filters.
-    2. Projects to high-precision local coordinate systems (0,0 origin).
-    3. Heals topological orphans and validates network integrity.
-    4. Returns CAD-ready, BIM-LITE structures optimized for AutoCAD/BricsCAD.
-    """
-    _require_token(x_sisrua_token)
-    from backend.services.elevation import ElevationService
-    elev_svc = ElevationService(cache=cache_service)
-    return prepare_osm_compute(
-        req.latitude, 
-        req.longitude, 
-        req.radius, 
-        cache_service=cache_service,
-        elevation_service=elev_svc
-    )
-
-@app.post("/api/v1/prepare/geojson", tags=["Prepare"], response_model=PrepareResponse)
-async def prepare_geojson(
-    req: PrepareGeoJsonRequest,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """
-    Synchronous GeoJSON data preparation.
-    Accepts GeoJSON (EPSG:4326), projects to SIRGAS 2000 UTM, 
-    and returns a list of CAD-ready features.
-    """
-    _require_token(x_sisrua_token)
-    return prepare_geojson_compute(req.geojson)
-
-@app.post("/api/v1/webhooks/register", tags=["Webhooks"], response_model=HealthResponse)
-async def register_webhook(
-    req: WebhookRegistrationRequest,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """Register a new URL to receive system events via webhook."""
-    _require_token(x_sisrua_token)
-    webhook_service.register_url(req.url)
-    return HealthResponse(status="ok")
-
-@app.post("/api/v1/events/emit", tags=["Webhooks"], response_model=HealthResponse)
-async def emit_event(
-    req: InternalEvent,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """
-    Internal endpoint for the AutoCAD plugin to emit events for webhook broadcasting.
-    e.g. project_saved, project_loaded.
-    """
-    _require_token(x_sisrua_token)
-    webhook_service.broadcast(req.event_type, req.payload)
-    return HealthResponse(status="ok")
-
-@app.get("/api/v1/export/geopackage/{project_id}", tags=["Enterprise"])
-async def export_geopackage(
-    project_id: str,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """
-    Exporta um projeto completo no formato OGC GeoPackage (.gpkg).
-    Essencial para interoperabilidade com ArcGIS, QGIS e Digital Twins corporativos.
-    """
-    _require_token(x_sisrua_token)
-    from fastapi.responses import FileResponse
-    try:
-        path = export_service.export_project_to_geopackage(project_id)
-        return FileResponse(
-            path=str(path),
-            media_type="application/geopackage+sqlite3",
-            filename=f"sisrua_{project_id}.gpkg"
-        )
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error("export_geopackage_failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoPackage: {str(e)}")
-
-@app.post("/api/v1/sync/cloud", tags=["Enterprise"])
-async def sync_to_cloud(
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """
-    **Cloud Centralization Interface** (Enterprise Proof-of-Concept).
-    
-    Synchronizes local SQLite/GeoPackage data with a central sisRUA Cloud/GIS node.
-    Enables multi-user urban data collaboration and audit-grade durability.
-    """
-    _require_token(x_sisrua_token)
-    # Mock behavior: Proof of centralized connectivity
-    import time
-    time.sleep(1.5) # Simulate sync latency
-    return {
-        "status": "success",
-        "synced_features": 1250,
-        "cloud_node": "enterprise-gis-01.sisrua.com",
-        "timestamp": time.time()
-    }
-
-@app.get("/api/v1/export/geojson/{project_id}", tags=["Enterprise"])
-async def export_geojson(
-    project_id: str,
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """
-    Exporta um projeto completo no formato GeoJSON padrão.
-    Portabilidade total para ferramentas web e análise espacial leve.
-    """
-    _require_token(x_sisrua_token)
-    from fastapi.responses import FileResponse
-    try:
-        path = export_service.export_project_to_geojson(project_id)
-        return FileResponse(
-            path=str(path),
-            media_type="application/geo+json",
-            filename=f"sisrua_{project_id}.geojson"
-        )
-    except NotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.error("export_geojson_failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoJSON: {str(e)}")
-
-@app.post("/api/v1/management/shutdown", tags=["Infrastructure"], response_model=HealthResponse)
-async def shutdown_server(
-    x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME)
-):
-    """
-    **Graceful Shutdown**: Requests the server to terminate itself.
-    Used by the plugin to stop the backend cleanly without force-killing.
-    Requires Master Token.
-    """
-    _require_token(x_sisrua_token)
-    
-    # Schedule shutdown in a separate thread/task to allow response to be sent
-    def self_terminate():
-        time.sleep(1.0) # Give time for the response to flush
-        logger.warning("api_shutdown_requested_by_client")
-        import signal
-        os.kill(os.getpid(), signal.SIGINT)
-
-    threading.Thread(target=self_terminate, daemon=True).start()
-    return HealthResponse(status="shutting_down")
-
-# --- Audit Log Routes ---
+# --- Registro de Routers (SoC) ---
+from backend.routes.health import router as health_router
+from backend.routes.projects import router as projects_router
+from backend.routes.jobs import router as jobs_router
+from backend.routes.tools import router as tools_router
+from backend.routes.ai_routes import router as ai_router
+from backend.routes.prepare import router as prepare_router
+from backend.routes.webhooks import router as webhooks_router
+from backend.routes.enterprise import router as enterprise_router
 from backend.audit_routes import audit_bp
+
+app.include_router(health_router)
+app.include_router(projects_router)
+app.include_router(jobs_router)
+app.include_router(tools_router)
+app.include_router(ai_router)
+app.include_router(prepare_router)
+app.include_router(webhooks_router)
+app.include_router(enterprise_router)
 app.include_router(audit_bp, prefix="/api", tags=["Audit"])
 
+# --- Exposição de serviços para compatibilidade com testes existentes ---
+# Os testes acessam estes atributos via `backend.api.<service>`.
+from backend.routes.deps import (
+    ai_service,
+    export_service,
+)
+from backend.services.webhooks import webhook_service
 
+
+# --- Montagem do Frontend Estático ---
 def _maybe_mount_frontend():
     """
-    Serve o frontend em '/' (WebView2 navega para http://localhost:8000).
-    Mantém as rotas de API em /api/v1/**.
+    Serve o frontend React em '/' (WebView2 navega para http://localhost:8000).
+    As rotas /api/v1/* têm precedência sobre os arquivos estáticos.
     """
     from fastapi.responses import HTMLResponse
     from fastapi.staticfiles import StaticFiles
 
-    # Quando empacotado (ex.: PyInstaller), __file__ pode apontar para uma pasta temporária (MEIPASS).
-    # Preferimos resolver o caminho do bundle via executável.
+    dist_dir: Path | None = None
+
     if getattr(sys, "frozen", False):
-        # Em produção (EXE)
-        # Tenta primeiro no _MEIPASS (embutido)
         if hasattr(sys, "_MEIPASS"):
             candidate = Path(sys._MEIPASS) / "frontend" / "dist"
             if candidate.exists():
                 dist_dir = candidate
-        
-        # Se não achou embutido (ou dist_dir ainda None), tenta na pasta externa (Contents/frontend/dist)
         if not dist_dir:
-            contents_dir = Path(sys.executable).resolve().parent.parent
-            dist_dir = contents_dir / "frontend" / "dist"
+            dist_dir = Path(sys.executable).resolve().parent.parent / "frontend" / "dist"
     else:
-        # Em desenvolvimento...
         current_file = Path(__file__).resolve()
-        # BIM-LITE: O src/backend/backend/api.py -> parent.parent.parent -> src/
         repo_src = current_file.parent.parent.parent
         dist_dir = repo_src / "frontend" / "dist"
-    
-    if not dist_dir.exists():
-        # Fallback para layout de bundle (Contents/frontend/dist)
-        dist_dir = current_file.parent.parent / "frontend" / "dist"
 
-    if dist_dir.exists() and (dist_dir / "index.html").exists():
-        # Importante: montar após as rotas de API, para não interceptar /api/v1/*
+    if dist_dir and not dist_dir.exists():
+        dist_dir = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+
+    if dist_dir and dist_dir.exists() and (dist_dir / "index.html").exists():
         app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="frontend")
     else:
         @app.get("/", response_class=HTMLResponse)
         async def root():
             return HTMLResponse(
-                '''
+                """
                 <html>
                   <head>
                     <title>sisRUA - Build Necessário</title>
                     <style>
-                      body { font-family: Segoe UI, Arial, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; text-align: center; }
-                      .card { border: 1px solid #1e293b; padding: 24px; border-radius: 8px; max-width: 600px; margin: 0 auto; background: #1e293b; }
-                      code { background: #334155; padding: 2px 4px; border-radius: 4px; }
-                      h2 { color: #3b82f6; }
+                      body{font-family:Segoe UI,Arial,sans-serif;background:#0f172a;
+                           color:#f8fafc;padding:40px;text-align:center}
+                      .card{border:1px solid #1e293b;padding:24px;border-radius:8px;
+                            max-width:600px;margin:0 auto;background:#1e293b}
+                      code{background:#334155;padding:2px 4px;border-radius:4px}
+                      h2{color:#3b82f6}
                     </style>
                   </head>
                   <body>
@@ -814,19 +344,21 @@ def _maybe_mount_frontend():
                       <h2>Build do Frontend Não Encontrado</h2>
                       <p>O backend está pronto, mas os arquivos estáticos do React não foram detectados.</p>
                       <p>Para o AutoCAD Plugin funcionar corretamente:</p>
-                      <p>1. Vá para <code>src/frontend</code><br/>2. Execute <code>npm run build</code></p>
-                      <hr style="border: 0; border-top: 1px solid #334155; margin: 20px 0;"/>
-                      <p style="font-size: 0.85em; color: #94a3b8;">sisRUA v1.1 - Hardening Mode (Anti-Injeção Ativo)</p>
+                      <p>1. Acesse <code>src/frontend</code><br/>2. Execute <code>npm run build</code></p>
+                      <hr style="border:0;border-top:1px solid #334155;margin:20px 0"/>
+                      <p style="font-size:0.85em;color:#94a3b8">
+                        sisRUA v1.1 — Modo Backend Apenas
+                      </p>
                     </div>
                   </body>
                 </html>
-                '''
+                """
             )
+
 
 _maybe_mount_frontend()
 
-# Para rodar com: python -m api
+# Para execução direta: python -m backend.api
 if __name__ == "__main__":
     import uvicorn
-    # Em dev, recarrega e roda na 8000
     uvicorn.run("backend.api:app", host="127.0.0.1", port=8000, reload=True)

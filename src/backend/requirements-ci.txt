@@ -10,4 +10,5 @@ requests
 groq
 structlog
 sentry-sdk[fastapi]
+ezdxf
 
