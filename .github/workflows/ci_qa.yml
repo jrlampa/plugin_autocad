@@ -2,7 +2,7 @@ name: QA (tests + artifacts)
 
 on:
   push:
-    branches: ["main", "v1.1", "release/*"]
+    branches: ["main", "dev", "v1.1", "release/*"]
   pull_request: {}
   workflow_dispatch: {}
 
