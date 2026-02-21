@@ -131,4 +131,21 @@ export const api = {
   exportGeoPackage: (projectId) => {
     window.open(`${API_BASE}/export/geopackage/${projectId}`, '_blank');
   },
+
+  /**
+   * ANEEL/PRODIST: Retorna a norma técnica ativa.
+   */
+  getNormaAtiva: async () => {
+    const response = await axios.get(`${API_BASE}/normas/ativas`);
+    return response.data;
+  },
+
+  /**
+   * ANEEL/PRODIST: Configura a norma técnica ativa (ABNT ou PRODIST).
+   * @param {{ ativa: boolean, concessionaria: string, classe_tensao: string, numero_processo: string }} payload
+   */
+  setNormaConfig: async (payload) => {
+    const response = await axios.post(`${API_BASE}/normas/config`, payload);
+    return response.data;
+  },
 };

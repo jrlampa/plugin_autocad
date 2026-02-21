@@ -1,6 +1,7 @@
 """
 backend/routes/enterprise.py
 Router enterprise: exportação (GeoJSON/GeoPackage), sincronização e gestão do servidor.
+Inclui endpoints ANEEL/PRODIST para configuração de normas da concessionária.
 """
 from __future__ import annotations
 
@@ -13,11 +14,115 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from backend.core.auth import require_token
 from backend.core.logger import get_logger
-from backend.models import HealthResponse
+from backend.models import HealthResponse, ProdistConfigRequest
 from backend.services.projects import NotFoundError
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+# ---------------------------------------------------------------------------
+# Estado em memória da norma ativa (persiste durante a execução do processo)
+# Thread-safe via _norma_lock. Em produção: usar Redis ou DB para persistência.
+# ---------------------------------------------------------------------------
+_norma_lock = threading.Lock()
+_norma_config: dict = {
+    "ativa": "ABNT",            # "ABNT" ou "PRODIST"
+    "concessionaria": "",
+    "classe_tensao": "MT",
+    "numero_processo": "",
+    "toast": None,              # Mensagem toast para o frontend
+}
+
+
+# ---------------------------------------------------------------------------
+# Endpoints ANEEL/PRODIST
+# ---------------------------------------------------------------------------
+
+@router.get("/api/v1/normas/ativas", tags=["Normas"])
+async def get_norma_ativa(_: None = Depends(require_token)):
+    """
+    Retorna a norma técnica ativa para o projeto corrente.
+
+    Quando a norma é PRODIST, o campo `toast` contém a mensagem de
+    notificação que o frontend deve exibir ao usuário (substituição de ABNT).
+
+    Responses:
+        200: Configuração atual da norma ativa.
+    """
+    from backend.gis_core.prodist import TOAST_NORMA_OVERRIDE
+    with _norma_lock:
+        config = dict(_norma_config)
+    if config["ativa"] == "PRODIST" and not config["toast"]:
+        config["toast"] = TOAST_NORMA_OVERRIDE
+    return config
+
+
+@router.post("/api/v1/normas/config", tags=["Normas"])
+async def set_norma_config(
+    req: ProdistConfigRequest,
+    _: None = Depends(require_token),
+):
+    """
+    Configura a norma técnica ativa para o projeto corrente.
+
+    Quando `ativa=true`, ativa ANEEL/PRODIST e define a mensagem toast
+    informando que as regras ABNT foram substituídas pelas regras da
+    concessionária (PRODIST Módulo 1 §4).
+
+    Quando `ativa=false`, restaura ABNT como norma padrão.
+
+    Args:
+        req: Configuração PRODIST (concessionária, classe de tensão).
+    """
+    from backend.gis_core.prodist import (
+        TensaoClasse,
+        buffer_de_seguranca_m,
+        faixa_servidao_m,
+        TOAST_NORMA_OVERRIDE,
+        TOAST_NORMA_ABNT_RESTAURADA,
+    )
+
+    if req.ativa:
+        try:
+            classe = TensaoClasse(req.classe_tensao)
+        except ValueError:
+            raise HTTPException(
+                status_code=422,
+                detail=f"classe_tensao inválida: {req.classe_tensao!r}. Use BT, MT ou AT.",
+            )
+        with _norma_lock:
+            _norma_config["ativa"] = "PRODIST"
+            _norma_config["concessionaria"] = req.concessionaria
+            _norma_config["classe_tensao"] = req.classe_tensao
+            _norma_config["numero_processo"] = req.numero_processo
+            _norma_config["toast"] = TOAST_NORMA_OVERRIDE
+        logger.info(
+            "norma_prodist_ativada",
+            concessionaria=req.concessionaria,
+            classe_tensao=req.classe_tensao,
+        )
+        return {
+            "norma_ativa": "PRODIST",
+            "concessionaria": req.concessionaria,
+            "classe_tensao": req.classe_tensao,
+            "buffer_seguranca_m": buffer_de_seguranca_m(classe),
+            "faixa_servidao_m": faixa_servidao_m(classe),
+            "toast": TOAST_NORMA_OVERRIDE,
+            "abnt_substituida": True,
+        }
+    else:
+        with _norma_lock:
+            _norma_config["ativa"] = "ABNT"
+            _norma_config["concessionaria"] = ""
+            _norma_config["classe_tensao"] = "MT"
+            _norma_config["numero_processo"] = ""
+            _norma_config["toast"] = None
+        logger.info("norma_abnt_restaurada")
+        return {
+            "norma_ativa": "ABNT",
+            "toast": TOAST_NORMA_ABNT_RESTAURADA,
+            "abnt_substituida": False,
+        }
 
 
 @router.get("/api/v1/export/geopackage/{project_id}", tags=["Enterprise"])
@@ -43,6 +148,39 @@ async def export_geopackage(
     except Exception as e:
         logger.error("export_geopackage_failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoPackage: {e}")
+
+
+@router.get("/api/v1/export/dxf/{project_id}", tags=["Enterprise"])
+async def export_dxf(
+    project_id: str,
+    escala: int = 1_000,
+    _: None = Depends(require_token),
+):
+    """
+    Exporta projeto como arquivo DXF R2010 com metadados ABNT.
+
+    Princípio 2.5D: elevação preservada como XDATA (não como coordenada Z).
+    Conformidade: ABNT NBR 14166:1998 e NBR 13133:2021.
+
+    Args:
+        project_id: ID do projeto a exportar.
+        escala: Escala cartográfica ABNT (padrão: 1000 = 1:1.000).
+    """
+    from fastapi.responses import FileResponse
+    import backend.api as _api
+    try:
+        path = _api.export_service.export_project_to_dxf(project_id, escala=escala)
+        return FileResponse(
+            path=str(path),
+            media_type="application/dxf",
+            filename=f"sisrua_{project_id}.dxf",
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error("export_dxf_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Erro ao exportar DXF: {e}")
+
 
 
 @router.get("/api/v1/export/geojson/{project_id}", tags=["Enterprise"])

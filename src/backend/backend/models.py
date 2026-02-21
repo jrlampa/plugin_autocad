@@ -17,6 +17,10 @@ class DeepHealthResponse(HealthResponse):
     components: Dict[str, ComponentHealth] = Field(..., description="Health status of internal dependencies")
     system_latency_ms: float = Field(..., description="Total time taken to perform health check")
 
+class ProjectCreateRequest(FrozenBaseModel):
+    project_name: str = Field(..., min_length=1, max_length=255, description="Nome do projeto")
+    crs_out: Optional[str] = Field("EPSG:31983", description="CRS de saída (padrão: SIRGAS 2000 Zona 23S)")
+
 class ProjectUpdateRequest(FrozenBaseModel):
     version: int = Field(..., description="Current version of the project for optimistic locking")
     project_name: Optional[str] = Field(None, description="New project name")
@@ -137,3 +141,30 @@ class WebhookRegistrationRequest(FrozenBaseModel):
 class InternalEvent(FrozenBaseModel):
     event_type: str = Field(..., description="Type of the internal event", json_schema_extra={"example": "project_saved"})
     payload: Dict[str, Any] = Field(..., description="Event payload data")
+
+class ProdistConfigRequest(FrozenBaseModel):
+    """Configuração de norma ANEEL/PRODIST para o projeto atual."""
+    ativa: bool = Field(..., description="True para ativar PRODIST, False para ABNT")
+    concessionaria: str = Field(
+        "Não informada",
+        max_length=128,
+        description="Nome da distribuidora de energia (ex.: 'Light S.A.')",
+    )
+    classe_tensao: str = Field(
+        "MT",
+        description="Classe de tensão: BT (baixa), MT (média) ou AT (alta)",
+    )
+    numero_processo: str = Field(
+        "",
+        max_length=64,
+        description="Nº do processo ANEEL (opcional)",
+    )
+
+    @field_validator("classe_tensao")
+    @classmethod
+    def validate_classe_tensao(cls, v: str) -> str:
+        allowed = {"BT", "MT", "AT"}
+        upper = v.strip().upper()
+        if upper not in allowed:
+            raise ValueError(f"classe_tensao deve ser BT, MT ou AT. Recebido: {v!r}")
+        return upper

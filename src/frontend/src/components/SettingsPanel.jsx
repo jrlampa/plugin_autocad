@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Settings, Globe, LayoutTemplate, Download, FileJson } from 'lucide-react';
 import JobOverlay from './JobOverlay';
+import NormaPanel from './NormaPanel';
 
 export default function SettingsPanel({
   showSettings,
@@ -23,6 +24,7 @@ export default function SettingsPanel({
   setEngConfig,
   uiJob,
   api,
+  onToast,
 }) {
   return (
     <div className="absolute top-6 right-6 z-[1000] w-[400px] animate-enter">
@@ -219,6 +221,9 @@ export default function SettingsPanel({
                   </button>
                 </div>
               </div>
+
+              {/* NORMA TÉCNICA (ABNT / ANEEL PRODIST) */}
+              <NormaPanel onToast={onToast} />
 
               <div className="pt-8 border-t border-slate-200/50">
                 <button

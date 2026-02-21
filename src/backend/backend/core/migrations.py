@@ -15,9 +15,6 @@ from pathlib import Path
 from datetime import datetime
 from backend.core.database import get_db_connection, DB_PATH
 
-# Database path (same as seed.py)
-DB_PATH = Path(os.environ.get("LOCALAPPDATA", ".")) / "sisRUA" / "projects.db"
-
 # Current schema version
 CURRENT_VERSION = 3
 

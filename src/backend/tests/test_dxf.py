@@ -447,3 +447,4 @@ def test_dxf_ref1_coord_geojson_pipeline():
 
     x0 = coords[0][0]
     assert abs(x0 - REF_E) < 1.0, f"Easting esperado ≈{REF_E} m, obteve {x0:.1f} m"
+

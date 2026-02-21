@@ -159,3 +159,214 @@ def test_create_prepare_job_geojson_blocks_completes(client, api_mod):
 
     assert last is not None
     assert last["status"] == "completed"
+
+
+# --- Projects endpoint tests ---
+
+def test_get_project_not_found(client):
+    """GET /api/v1/projects/{id} deve retornar 404 para projeto inexistente."""
+    from unittest.mock import patch
+    import backend.routes.deps as deps
+
+    with patch.object(deps.project_service, "get_project", return_value=None):
+        r = client.get(
+            "/api/v1/projects/nao-existe",
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+    assert r.status_code == 404
+    assert "não encontrado" in r.json()["detail"]
+
+
+def test_get_project_requires_auth(client):
+    """GET /api/v1/projects/{id} deve exigir token de autenticação."""
+    r = client.get("/api/v1/projects/qualquer-id")
+    assert r.status_code == 401
+
+
+def test_get_project_success(client):
+    """GET /api/v1/projects/{id} deve retornar o projeto quando encontrado."""
+    from unittest.mock import patch
+    import backend.routes.deps as deps
+
+    fake_project = {
+        "project_id": "proj-001",
+        "project_name": "Rua Referência",
+        "crs_out": "EPSG:31983",
+        "version": 1,
+        "creation_date": "2026-02-21T00:00:00",
+    }
+
+    with patch.object(deps.project_service, "get_project", return_value=fake_project):
+        r = client.get(
+            "/api/v1/projects/proj-001",
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["project_id"] == "proj-001"
+    assert body["project_name"] == "Rua Referência"
+    assert body["crs_out"] == "EPSG:31983"
+    assert body["version"] == 1
+
+
+# --- Projects LIST endpoint ---
+
+def test_list_projects_requires_auth(client):
+    """GET /api/v1/projects deve exigir token de autenticação."""
+    r = client.get("/api/v1/projects")
+    assert r.status_code == 401
+
+
+def test_list_projects_returns_list(client):
+    """GET /api/v1/projects deve retornar uma lista (pode ser vazia)."""
+    from unittest.mock import patch
+    import backend.routes.deps as deps
+
+    with patch.object(deps.project_service, "list_projects", return_value=[]):
+        r = client.get(
+            "/api/v1/projects",
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+    assert r.status_code == 200
+    assert isinstance(r.json(), list)
+
+
+def test_list_projects_returns_all(client):
+    """GET /api/v1/projects deve retornar todos os projetos."""
+    from unittest.mock import patch
+    import backend.routes.deps as deps
+
+    fake_projects = [
+        {"project_id": "p1", "project_name": "Rua A", "crs_out": "EPSG:31983", "version": 1, "creation_date": "2026-01-01"},
+        {"project_id": "p2", "project_name": "Rua B", "crs_out": "EPSG:31983", "version": 2, "creation_date": "2026-01-02"},
+    ]
+
+    with patch.object(deps.project_service, "list_projects", return_value=fake_projects):
+        r = client.get(
+            "/api/v1/projects",
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body) == 2
+    assert body[0]["project_id"] == "p1"
+    assert body[1]["project_id"] == "p2"
+
+
+# --- Projects DELETE endpoint ---
+
+def test_delete_project_requires_auth(client):
+    """DELETE /api/v1/projects/{id} deve exigir token de autenticação."""
+    r = client.delete("/api/v1/projects/qualquer-id")
+    assert r.status_code == 401
+
+
+def test_delete_project_not_found(client):
+    """DELETE /api/v1/projects/{id} deve retornar 404 para projeto inexistente."""
+    from unittest.mock import patch
+    import backend.routes.deps as deps
+    from backend.services.projects import NotFoundError
+
+    with patch.object(
+        deps.project_service, "delete_project",
+        side_effect=NotFoundError("Projeto 'nao-existe' não encontrado.")
+    ):
+        r = client.delete(
+            "/api/v1/projects/nao-existe",
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+    assert r.status_code == 404
+    assert "não encontrado" in r.json()["detail"]
+
+
+def test_delete_project_success(client):
+    """DELETE /api/v1/projects/{id} deve retornar 204 No Content em caso de sucesso."""
+    from unittest.mock import patch, MagicMock
+    import backend.routes.deps as deps
+
+    with patch.object(deps.project_service, "delete_project", return_value=None):
+        r = client.delete(
+            "/api/v1/projects/proj-001",
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+    assert r.status_code == 204
+    assert r.content == b""
+
+
+# --- Projects CREATE endpoint ---
+
+def test_create_project_requires_auth(client):
+    """POST /api/v1/projects deve exigir token de autenticação."""
+    r = client.post(
+        "/api/v1/projects",
+        json={"project_name": "Rua Nova"},
+    )
+    assert r.status_code == 401
+
+
+def test_create_project_validates_empty_name(client):
+    """POST /api/v1/projects deve rejeitar project_name vazio."""
+    r = client.post(
+        "/api/v1/projects",
+        json={"project_name": ""},
+        headers={"X-SisRua-Token": "test-token-123"},
+    )
+    assert r.status_code == 422
+
+
+def test_create_project_success(client):
+    """POST /api/v1/projects deve retornar 201 com project_id, version=1."""
+    from unittest.mock import patch
+    import backend.routes.deps as deps
+
+    fake_project = {
+        "project_id": "uuid-001",
+        "project_name": "Rua das Flores",
+        "crs_out": "EPSG:31983",
+        "version": 1,
+        "creation_date": "2026-02-21T00:00:00+00:00",
+    }
+
+    with patch.object(deps.project_service, "create_project", return_value=fake_project):
+        r = client.post(
+            "/api/v1/projects",
+            json={"project_name": "Rua das Flores"},
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+
+    assert r.status_code == 201
+    body = r.json()
+    assert body["project_id"] == "uuid-001"
+    assert body["project_name"] == "Rua das Flores"
+    assert body["version"] == 1
+    assert body["crs_out"] == "EPSG:31983"
+
+
+def test_create_project_default_crs(client):
+    """POST /api/v1/projects sem crs_out deve usar EPSG:31983 como padrão."""
+    from unittest.mock import patch, call
+    import backend.routes.deps as deps
+
+    called_with = {}
+
+    def capture(**kwargs):
+        called_with.update(kwargs)
+        return {
+            "project_id": "uuid-002",
+            "project_name": "Avenida Central",
+            "crs_out": kwargs.get("crs_out", "EPSG:31983"),
+            "version": 1,
+            "creation_date": "2026-02-21T00:00:00+00:00",
+        }
+
+    with patch.object(deps.project_service, "create_project", side_effect=capture):
+        r = client.post(
+            "/api/v1/projects",
+            json={"project_name": "Avenida Central"},
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+
+    assert r.status_code == 201
+    assert called_with.get("crs_out") == "EPSG:31983"

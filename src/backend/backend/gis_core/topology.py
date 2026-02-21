@@ -3,26 +3,114 @@ from typing import List, Tuple, Dict, Any, Optional
 import math
 import hashlib
 
+
 class TopologyHealer:
     """
-    Proprietary sisRUA Topology Healing Engine.
+    sisRUA Topology Healing Engine.
     Corrects common OSM artifacts (orphan nodes, gaps) and signs the geometry.
+
+    Pipeline aplicado em cada requisição OSM:
+      1. Node Snapping (Union-Find) — agrupa e centraliza endpoints próximos
+      2. (futuro) Orphan Node Removal
+      3. (futuro) Gap Closure
     """
+
     def __init__(self, snap_tolerance: float = 0.05, integrity_seed: str = "sisRUA_v1.1"):
         self.snap_tolerance = snap_tolerance
         self.integrity_seed = integrity_seed
-        self.stats = {"healed_nodes": 0, "closed_polygons": 0}
+        self.stats: Dict[str, int] = {"healed_nodes": 0, "closed_polygons": 0}
+
+    # ------------------------------------------------------------------
+    # Union-Find (Disjoint Set Union) — auxiliar para node snapping
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _make_uf(n: int) -> List[int]:
+        return list(range(n))
+
+    @staticmethod
+    def _uf_find(parent: List[int], x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]  # path compression
+            x = parent[x]
+        return x
+
+    @staticmethod
+    def _uf_union(parent: List[int], a: int, b: int) -> None:
+        ra, rb = TopologyHealer._uf_find(parent, a), TopologyHealer._uf_find(parent, b)
+        if ra != rb:
+            parent[rb] = ra
+
+    # ------------------------------------------------------------------
+    # Node Snapping
+    # ------------------------------------------------------------------
 
     def heal_network(self, features: List[Any]) -> List[Any]:
-        # Implementation of node snapping and gap closure logic
-        # For Valuation: This is where we prove our algorithms add value 
-        # beyond raw OSMnx data.
-        
-        # 1. Coordinate Clustering (Snapping)
-        # 2. Orphan Node Removal
-        # 3. Micro-gap Closure (Deterministic Snap)
-        
-        # (Conceptual implementation for brevity - fully logic-hardened)
+        """
+        Heals network topology by snapping polyline endpoints within
+        `snap_tolerance` metres to a common centroid.
+
+        Algorithm: Union-Find (O(n² α(n))) over all endpoint pairs.
+        Correctly handles junctions where 3+ roads share a node.
+
+        Args:
+            features: List of CadFeature objects (Polyline or Point).
+
+        Returns:
+            Same list with snapped endpoint coordinates (mutated in-place).
+        """
+        polyline_indices = [
+            i for i, f in enumerate(features)
+            if getattr(f, "feature_type", None) == "Polyline"
+            and getattr(f, "coords_xy", None)
+            and len(f.coords_xy) >= 2
+        ]
+
+        if len(polyline_indices) < 2:
+            return features
+
+        # Build endpoint table: (feature_idx, vertex_idx, x, y)
+        # vertex_idx=0 → first vertex; vertex_idx=-1 → last vertex
+        eps: List[Tuple[int, int, float, float]] = []
+        for fi in polyline_indices:
+            coords = features[fi].coords_xy
+            eps.append((fi, 0, float(coords[0][0]), float(coords[0][1])))
+            eps.append((fi, -1, float(coords[-1][0]), float(coords[-1][1])))
+
+        n = len(eps)
+        parent = self._make_uf(n)
+
+        # Connect endpoints within snap_tolerance.
+        # O(n²) pairwise distance checks + O(α(n)) amortized Union-Find ops.
+        for i in range(n):
+            xi, yi = eps[i][2], eps[i][3]
+            for j in range(i + 1, n):
+                xj, yj = eps[j][2], eps[j][3]
+                if math.sqrt((xi - xj) ** 2 + (yi - yj) ** 2) < self.snap_tolerance:
+                    self._uf_union(parent, i, j)
+
+        # Group endpoints by their Union-Find root
+        groups: Dict[int, List[int]] = {}
+        for i in range(n):
+            root = self._uf_find(parent, i)
+            groups.setdefault(root, []).append(i)
+
+        # Snap each group (≥2 endpoints) to centroid
+        healed = 0
+        for group in groups.values():
+            if len(group) < 2:
+                continue
+            cx = sum(eps[k][2] for k in group) / len(group)
+            cy = sum(eps[k][3] for k in group) / len(group)
+            for k in group:
+                fi, vi = eps[k][0], eps[k][1]
+                if vi == 0:
+                    features[fi].coords_xy[0] = [cx, cy]
+                else:
+                    features[fi].coords_xy[-1] = [cx, cy]
+            healed += len(group) - 1
+
+        self.stats["healed_nodes"] = healed
         return features
 
     def get_integrity_signature(self, features: List[Any]) -> str:
