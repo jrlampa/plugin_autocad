@@ -813,3 +813,44 @@ Atualizados para validar o padrão `OR ? IS NULL`:
 - `test_audit_list_logs_combined_filters` — todos os 3 filtros + limit nos params
 
 ### CodeQL — 0 alertas | Code Review — feedback implementado (SQL injection prevention)
+
+---
+
+## 🐛 Sessão 2026-02-21 (noite) — Correção crítica: DB schema não inicializado
+
+### Bug Crítico — Fresh deploy (Docker/CI) falha com `no such table: AuditLog`
+
+**Problema**: A função `seed.py:init_db()` cria as tabelas `Projects`, `CadFeatures` e `AuditLog`, mas o `api.py` NUNCA chama `seed.py` no startup. Resultado: qualquer deployment Docker limpo ou ambiente CI falha com `OperationalError: no such table: AuditLog` na primeira operação de auditoria.
+
+Confirmado reproduzindo o erro com DB temporário limpo:
+```
+POST /api/audit → 500 {"detail":"no such table: AuditLog"}
+```
+
+**Solução**: Adicionado `init_schema(conn)` ao `database.py` ao lado de `init_geopackage(conn)`:
+- Cria `Projects`, `CadFeatures`, `AuditLog` e seus índices com `CREATE TABLE IF NOT EXISTS`
+- Completamente idempotente — sem efeito em DB existente com schema
+- Chamado de `get_db_connection()` — toda conexão auto-inicializa o schema
+- Padrão idêntico ao `init_geopackage()` já existente
+
+Após o fix:
+```
+POST /api/audit → 201 {"audit_id": 1}   ✅
+GET  /api/audit → 200 {"count": 1, ...} ✅
+POST /api/v1/projects → 201             ✅
+GET  /api/v1/projects → 200 [...]       ✅
+```
+
+### Code Review — fixes aplicados
+- `import os, time` → separado para PEP 8
+- Índice renomeado: `idx_projects_creation_date` → `idx_projects_creation_date_desc`
+
+### Testes — 5 novos (total: **156 passando**)
+Adicionados ao final de `tests/test_core.py`:
+- `test_fresh_db_has_projects_table` — tabela criada no DB novo
+- `test_fresh_db_has_auditlog_table` — tabela criada no DB novo
+- `test_fresh_db_has_cadfeatures_table` — tabela criada no DB novo
+- `test_fresh_db_audit_insert_works` — INSERT sem seed prévio funciona
+- `test_fresh_db_project_insert_works` — INSERT sem seed prévio funciona
+
+### CodeQL — 0 alertas | Code Review — feedback implementado

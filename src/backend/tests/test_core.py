@@ -393,3 +393,93 @@ def test_ipc_server_noop_on_non_windows():
     # Should NOT have started a thread
     assert server.thread is None
     assert server.running is False
+
+
+# --- database.py: init_schema() Tests ---
+
+def test_fresh_db_has_projects_table(tmp_path):
+    """A new connection should automatically create the Projects table."""
+    from backend.core.database import get_db_connection
+    import os
+    db_path = tmp_path / "test.db"
+    os.environ["SISRUA_TESTING"] = "true"
+    conn = get_db_connection(db_path=db_path)
+    try:
+        tables = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        assert "Projects" in tables
+    finally:
+        conn.close()
+
+
+def test_fresh_db_has_auditlog_table(tmp_path):
+    """A new connection should automatically create the AuditLog table."""
+    from backend.core.database import get_db_connection
+    import os
+    db_path = tmp_path / "test_audit.db"
+    os.environ["SISRUA_TESTING"] = "true"
+    conn = get_db_connection(db_path=db_path)
+    try:
+        tables = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        assert "AuditLog" in tables
+    finally:
+        conn.close()
+
+
+def test_fresh_db_has_cadfeatures_table(tmp_path):
+    """A new connection should automatically create the CadFeatures table."""
+    from backend.core.database import get_db_connection
+    import os
+    db_path = tmp_path / "test_cad.db"
+    os.environ["SISRUA_TESTING"] = "true"
+    conn = get_db_connection(db_path=db_path)
+    try:
+        tables = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        assert "CadFeatures" in tables
+    finally:
+        conn.close()
+
+
+def test_fresh_db_audit_insert_works(tmp_path):
+    """INSERT into AuditLog must succeed on a fresh DB without prior seed."""
+    from backend.core.database import get_db_connection
+    import os
+    import time
+    db_path = tmp_path / "test_insert.db"
+    os.environ["SISRUA_TESTING"] = "true"
+    conn = get_db_connection(db_path=db_path)
+    try:
+        conn.execute(
+            "INSERT INTO AuditLog (event_type, entity_type, entity_id, user_id, timestamp, data_json, signature) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("CREATE", "Project", "p-1", "system", time.time(), '{"test": 1}', "sig123"),
+        )
+        conn.commit()
+        count = conn.execute("SELECT COUNT(*) FROM AuditLog").fetchone()[0]
+        assert count == 1
+    finally:
+        conn.close()
+
+
+def test_fresh_db_project_insert_works(tmp_path):
+    """INSERT into Projects must succeed on a fresh DB without prior seed."""
+    from backend.core.database import get_db_connection
+    import os
+    db_path = tmp_path / "test_proj.db"
+    os.environ["SISRUA_TESTING"] = "true"
+    conn = get_db_connection(db_path=db_path)
+    try:
+        conn.execute(
+            "INSERT INTO Projects (project_id, project_name, crs_out, version) VALUES (?, ?, ?, ?)",
+            ("uuid-test", "My Project", "EPSG:31983", 1),
+        )
+        conn.commit()
+        row = conn.execute("SELECT project_name FROM Projects WHERE project_id = ?", ("uuid-test",)).fetchone()
+        assert row[0] == "My Project"
+    finally:
+        conn.close()
