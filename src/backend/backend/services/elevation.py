@@ -223,4 +223,3 @@ class ElevationService:
                         })
             
             return results
-            return results

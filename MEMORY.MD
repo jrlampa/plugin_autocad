@@ -224,7 +224,7 @@ Estas funções encapsulam pyproj e são o ponto único de conversão CRS no bac
 | DXF headless | ezdxf + pytest | `src/backend/tests/test_dxf.py` |
 | C# | xUnit | `src/plugin/tests/` |
 
-> **Cobertura atual**: 84 testes pytest passando (Python backend).
+> **Cobertura atual**: 96 testes pytest passando (Python backend).
 
 ---
 
@@ -334,3 +334,34 @@ docker-compose build --no-cache
   - `test_valuation_requires_auth` — sem token → 401
   - `test_audit_post_with_valid_token` — token válido → 201
   - `test_audit_sanitizes_oversized_fields` — truncamento verificado
+
+---
+
+## 🔐 Sessão 2026-02-21 — Bug Fix e Segurança (Webhook)
+
+### Bug Corrigido — `services/elevation.py` (`get_contours`)
+- **Problema**: Instrução `return results` duplicada (linhas 225–226). A segunda instrução era código morto (unreachable), encobrindo possíveis futuros refactors.
+- **Correção**: Linha duplicada removida.
+- **Impacto**: Sem impacto funcional imediato, mas melhora legibilidade e evita confusão em refactors futuros.
+
+### Segurança — `models.py` (`WebhookRegistrationRequest`)
+- **Problema**: O campo `url` aceitava qualquer string, incluindo esquemas `ftp://`, `file://`, ausência de hostname — vetor de SSRF (Server-Side Request Forgery).
+- **Correção**: Adicionado `@field_validator("url")` que:
+  - Exige prefixo `http://` ou `https://` (case-insensitive).
+  - Exige `netloc` (hostname) via `urllib.parse.urlparse`.
+  - Retorna HTTP 422 com mensagem clara para URLs inválidas.
+- Adicionado `@field_validator("events")`:
+  - Trunca cada item a 128 caracteres (DoS prevention).
+  - Retira espaços em branco.
+  - Retorna `None` se a lista ficar vazia após sanitização.
+
+### Testes — Cobertura de Webhook (`test_core.py`)
+- 8 novos testes adicionados (total: **96 passando**):
+  - `test_webhook_valid_https_url` — URL HTTPS aceita
+  - `test_webhook_valid_http_url` — URL HTTP aceita
+  - `test_webhook_invalid_scheme_rejected` — `ftp://` rejeitado (422)
+  - `test_webhook_file_scheme_rejected` — `file://` rejeitado (422)
+  - `test_webhook_no_scheme_rejected` — URL sem esquema rejeitada (422)
+  - `test_webhook_events_sanitized` — truncamento a 128 chars verificado
+  - `test_webhook_events_empty_list_becomes_none` — lista vazia → `None`
+  - `test_webhook_events_none_allowed` — `None` é aceito normalmente
