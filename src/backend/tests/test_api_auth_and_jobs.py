@@ -208,3 +208,88 @@ def test_get_project_success(client):
     assert body["project_name"] == "Rua Referência"
     assert body["crs_out"] == "EPSG:31983"
     assert body["version"] == 1
+
+
+# --- Projects LIST endpoint ---
+
+def test_list_projects_requires_auth(client):
+    """GET /api/v1/projects deve exigir token de autenticação."""
+    r = client.get("/api/v1/projects")
+    assert r.status_code == 401
+
+
+def test_list_projects_returns_list(client):
+    """GET /api/v1/projects deve retornar uma lista (pode ser vazia)."""
+    from unittest.mock import patch
+    import backend.routes.deps as deps
+
+    with patch.object(deps.project_service, "list_projects", return_value=[]):
+        r = client.get(
+            "/api/v1/projects",
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+    assert r.status_code == 200
+    assert isinstance(r.json(), list)
+
+
+def test_list_projects_returns_all(client):
+    """GET /api/v1/projects deve retornar todos os projetos."""
+    from unittest.mock import patch
+    import backend.routes.deps as deps
+
+    fake_projects = [
+        {"project_id": "p1", "project_name": "Rua A", "crs_out": "EPSG:31983", "version": 1, "creation_date": "2026-01-01"},
+        {"project_id": "p2", "project_name": "Rua B", "crs_out": "EPSG:31983", "version": 2, "creation_date": "2026-01-02"},
+    ]
+
+    with patch.object(deps.project_service, "list_projects", return_value=fake_projects):
+        r = client.get(
+            "/api/v1/projects",
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body) == 2
+    assert body[0]["project_id"] == "p1"
+    assert body[1]["project_id"] == "p2"
+
+
+# --- Projects DELETE endpoint ---
+
+def test_delete_project_requires_auth(client):
+    """DELETE /api/v1/projects/{id} deve exigir token de autenticação."""
+    r = client.delete("/api/v1/projects/qualquer-id")
+    assert r.status_code == 401
+
+
+def test_delete_project_not_found(client):
+    """DELETE /api/v1/projects/{id} deve retornar 404 para projeto inexistente."""
+    from unittest.mock import patch
+    import backend.routes.deps as deps
+    from backend.services.projects import NotFoundError
+
+    with patch.object(
+        deps.project_service, "delete_project",
+        side_effect=NotFoundError("Projeto 'nao-existe' não encontrado.")
+    ):
+        r = client.delete(
+            "/api/v1/projects/nao-existe",
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+    assert r.status_code == 404
+    assert "não encontrado" in r.json()["detail"]
+
+
+def test_delete_project_success(client):
+    """DELETE /api/v1/projects/{id} deve retornar 204 No Content em caso de sucesso."""
+    from unittest.mock import patch, MagicMock
+    import backend.routes.deps as deps
+
+    with patch.object(deps.project_service, "delete_project", return_value=None):
+        r = client.delete(
+            "/api/v1/projects/proj-001",
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+    assert r.status_code == 204
+    assert r.content == b""

@@ -618,3 +618,51 @@ Novo arquivo: `tests/test_topology.py`:
   - `test_topology_healer_get_report` — report tem summary e metrics
 
 ### CodeQL — 0 alertas
+
+---
+
+## 🏗️ Sessão 2026-02-21 — CRUD Completo de Projetos + Correção migrations.py
+
+### Bug Fix — `core/migrations.py` (`DB_PATH` duplicado)
+- **Problema**: `migrations.py` importava `DB_PATH` de `database.py` e imediatamente o redefinia com o mesmo valor:
+  ```python
+  from backend.core.database import get_db_connection, DB_PATH
+  # Database path (same as seed.py)
+  DB_PATH = Path(os.environ.get("LOCALAPPDATA", ".")) / "sisRUA" / "projects.db"
+  ```
+  A redefinição sobrescreve (shadows) o import, criando confusão e inconsistência se `database.DB_PATH` for alterado.
+- **Correção**: Removida a linha de redefinição. `DB_PATH` agora vem exclusivamente de `database.py` (single source of truth).
+
+### Novo Método — `ProjectService.list_projects()`
+- Retorna lista de todos os projetos ordenados por `creation_date DESC`.
+- Query: `SELECT project_id, project_name, crs_out, version, creation_date FROM Projects ORDER BY creation_date DESC`
+
+### Novo Método — `ProjectService.delete_project(project_id)`
+- Remove um projeto e todas as suas `CadFeatures` (cascade manual via SQL sequencial).
+- Verifica existência antes da deleção → lança `NotFoundError` se não encontrado.
+- Grava entrada no log de auditoria (`event_type="DELETE"`, `entity_type="Project"`).
+- Publica evento `project_deleted` no barramento de eventos (para webhooks).
+
+### Novos Endpoints — `routes/projects.py`
+CRUD de projetos agora é completo:
+
+| Método | Rota | Resposta | Descrição |
+|--------|------|----------|-----------|
+| `GET` | `/api/v1/projects` | `200 [{}...]` | Lista todos os projetos |
+| `GET` | `/api/v1/projects/{id}` | `200 {}` | Detalhe de um projeto |
+| `PUT` | `/api/v1/projects/{id}` | `200 {}` | Atualiza (Optimistic Locking) |
+| `DELETE` | `/api/v1/projects/{id}` | `204` | Remove projeto e features |
+
+Todos os endpoints requerem `X-SisRua-Token` (ISO 27001).
+
+### Testes — 6 novos (total: **139 passando**)
+Adicionados ao final de `tests/test_api_auth_and_jobs.py`:
+  - `test_list_projects_requires_auth` — GET /projects sem token → 401
+  - `test_list_projects_returns_list` — GET /projects retorna lista (mesmo vazia)
+  - `test_list_projects_returns_all` — GET /projects retorna todos com campos corretos
+  - `test_delete_project_requires_auth` — DELETE sem token → 401
+  - `test_delete_project_not_found` — DELETE projeto inexistente → 404 pt-BR
+  - `test_delete_project_success` — DELETE projeto existente → 204 No Content
+
+### CodeQL — 0 alertas
+### Code Review — sem comentários
