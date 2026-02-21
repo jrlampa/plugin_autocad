@@ -397,3 +397,54 @@ docker-compose build --no-cache
 ### Infraestrutura de Testes
 - Cobertura total: **101 testes passando** (sem alterações).
 - `SISRUA_TESTING=true` é agora definido automaticamente em toda sessão de testes via `conftest.py`.
+
+---
+
+## 📐 Sessão 2026-02-21 — Conformidade ABNT + DXF Aprimorado
+
+### Novo Módulo — `gis_core/abnt.py`
+- **Criado**: módulo de conformidade ABNT para exportação CAD urbana.
+- **Normas aplicadas**:
+  - ABNT NBR 14166:1998 — Rede de referência cadastral municipal
+  - ABNT NBR 13133:2021 — Execução de levantamento topográfico
+  - ABNT NBR 15777:2009 — Representação de informação geográfica digital
+- **Principais exports**:
+  - `AbntDrawingMetadata` (dataclass frozen) — metadados de desenho técnico (CRS, escala, tolerância, órgão, datum, projeção, zona UTM)
+  - `validate_utm_coordinates(easting, northing, epsg)` — valida limites do território brasileiro (NBR 14166 §4.1)
+  - `nearest_abnt_escala(value)` — retorna escala ABNT NBR 13133 mais próxima da lista padronizada
+  - `build_default_metadata(epsg)` — constrói metadados a partir do EPSG (deriva zona_utm e crs_label)
+  - `ABNT_ESCALAS_CADASTRAIS` — lista de escalas tabeladas: 500, 1000, 2000, 5000, 10000, 25000, 50000, 100000
+- **Tolerâncias**: mapeadas por escala (0,2 mm × denominador conforme §8.5 da NBR 13133:2021).
+
+### Evolução — `services/dxf_export.py`
+- **Assinatura atualizada**: `export_features_to_dxf(features, output_path, crs_label, metadata, epsg)`.
+  - Parâmetro `metadata: Optional[AbntDrawingMetadata]` — metadados ABNT explícitos.
+  - Parâmetro `epsg: int = 31983` — usado em `build_default_metadata` quando `metadata` não fornecido.
+- **Injeção ABNT**: `_inject_abnt_metadata(doc, metadata)` grava `$FINGERPRINTGUID` com string de rastreabilidade sisRUA (datum, zona, escala) — rastreabilidade BIM-LITE.
+- **Log aprimorado**: `dxf_exported` agora loga `crs` e `escala` além de `path` e `features`.
+- **Retrocompatibilidade**: chamadas sem `metadata` e sem `epsg` continuam funcionando (padrão 31983).
+
+### Testes — 11 novos testes ABNT (total: **112 passando**)
+Adicionados ao final de `tests/test_dxf.py`:
+  - `test_abnt_module_imports` — importações do módulo sem erros
+  - `test_abnt_metadata_defaults` — campos padrão corretos (SIRGAS 2000, 'm', EPSG:31983)
+  - `test_abnt_escala_str` — notação '1:1.000' e '1:25.000'
+  - `test_abnt_tolerancia_por_escala` — tolerâncias para escalas 500, 1000, 10000
+  - `test_abnt_validate_utm_coordinates_valid` — REF_1 e REF_2 aprovados
+  - `test_abnt_validate_utm_coordinates_invalid` — coordenadas fora do Brasil rejeitadas
+  - `test_abnt_nearest_escala` — escala mais próxima para valores intermediários
+  - `test_abnt_build_default_metadata_epsg` — derivação de zona e label a partir de EPSG
+  - `test_abnt_comment_lines_content` — campos obrigatórios NBR 14166 presentes
+  - `test_dxf_with_abnt_metadata` — DXF gerado com metadata explícito tem FINGERPRINTGUID
+  - `test_dxf_without_explicit_metadata_uses_default` — DXF sem metadata usa build_default_metadata
+
+### .gitignore — Artefatos excluídos
+- `all_files.txt` (1.5 MB — gerado por análise interna, não deve ser versionado)
+- `desktop.ini` (artefato Windows)
+- `build_out.txt`, `test_out_full.txt` (saídas de build/teste)
+- `pytest_v110_output.txt`, `vitest_results.txt`, `vitest_results_v2.txt`, `vitest_v110_output.txt`
+- `src/backend/backend/gis_core/topology_report.json` (artefato gerado em runtime)
+
+### Infraestrutura de Testes
+- Cobertura total: **112 testes passando** (~3.6 segundos).
+- Novos testes são todos headless (sem rede, sem filesystem externo), executáveis em CI.
