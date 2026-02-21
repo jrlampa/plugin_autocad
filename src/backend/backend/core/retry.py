@@ -1,4 +1,5 @@
 
+import os
 import time
 import functools
 import random
@@ -45,13 +46,15 @@ class Retry:
                         logger.warning("retry_gave_up", function=func.__name__, attempts=attempt, error=str(e))
                         raise e
                     
-                    # Calculate next delay
-                    sleep_time = delay
-                    if self.jitter:
-                        sleep_time *= (0.5 + random.random()) # 0.5x to 1.5x jitter
-                        
-                    logger.info("retry_backing_off", function=func.__name__, attempt=attempt, sleep_time=f"{sleep_time:.2f}s", error=str(e))
-                    time.sleep(sleep_time)
+                    # Em modo de teste, não aguardar entre tentativas
+                    if os.environ.get("SISRUA_TESTING") != "true":
+                        sleep_time = delay
+                        if self.jitter:
+                            sleep_time *= (0.5 + random.random()) # 0.5x to 1.5x jitter
+                        logger.info("retry_backing_off", function=func.__name__, attempt=attempt, sleep_time=f"{sleep_time:.2f}s", error=str(e))
+                        time.sleep(sleep_time)
+                    else:
+                        logger.info("retry_backing_off", function=func.__name__, attempt=attempt, sleep_time="0.00s", error=str(e))
                     
                     delay *= self.backoff_factor
                     
