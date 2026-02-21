@@ -54,6 +54,10 @@ passo-a-passo.md
 backup/
 history/
 
+# ===== DXF temporários (gerados em testes) =====
+*.dxf.tmp
+/tmp/*.dxf
+
 # ===== Local Build / Temp =====
 local_build/
 
