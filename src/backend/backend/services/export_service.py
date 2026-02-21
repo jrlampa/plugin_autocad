@@ -170,16 +170,24 @@ class ExportService:
         self,
         project_id: str,
         escala: int = 1_000,
+        prodist_metadata=None,
+        include_prodist_buffers: bool = False,
     ) -> Path:
         """
-        Exporta um projeto como arquivo DXF R2010 com metadados ABNT.
+        Exporta um projeto como arquivo DXF R2010 com metadados ABNT ou PRODIST.
 
         Princípio 2.5D: elevação armazenada como XDATA, não como coordenada Z.
-        Conformidade: ABNT NBR 14166:1998 e NBR 13133:2021.
+        Conformidade: ABNT NBR 14166:1998 e NBR 13133:2021 (padrão).
+        Quando `prodist_metadata` é fornecido, usa ANEEL/PRODIST (substitui ABNT).
 
         Args:
-            project_id: Identificador do projeto no banco de dados.
-            escala:     Escala cartográfica padrão ABNT (padrão: 1:1.000).
+            project_id:             Identificador do projeto no banco de dados.
+            escala:                 Escala cartográfica padrão ABNT (padrão: 1:1.000).
+            prodist_metadata:       Metadados PRODIST. Quando presente, substitui ABNT
+                                    no cabeçalho DXF.
+            include_prodist_buffers: Quando True e `prodist_metadata` não é None,
+                                    gera faixas de segurança NR-10:2016 nas camadas
+                                    SISRUA_ANEEL_BUFFER_*.
 
         Returns:
             Path para o arquivo .dxf gerado em diretório temporário.
@@ -238,27 +246,36 @@ class ExportService:
                     )
                 )
 
-            abnt_escala = nearest_abnt_escala(escala)
-            default_meta = build_default_metadata(epsg)
-            metadata = AbntDrawingMetadata(
-                crs_label=default_meta.crs_label,
-                epsg=epsg,
-                escala=abnt_escala,
-                orgao=f"sisRUA — {project_name}",
-                datum=default_meta.datum,
-                projecao=default_meta.projecao,
-                unidade=default_meta.unidade,
-                zona_utm=default_meta.zona_utm,
-            )
-
             temp_dir = Path(tempfile.mkdtemp())
             export_file = temp_dir / f"sisrua_{project_id}.dxf"
-            export_features_to_dxf(
-                features,
-                output_path=export_file,
-                metadata=metadata,
-                epsg=epsg,
-            )
+
+            if prodist_metadata is not None:
+                export_features_to_dxf(
+                    features,
+                    output_path=export_file,
+                    prodist_metadata=prodist_metadata,
+                    include_prodist_buffers=include_prodist_buffers,
+                    epsg=epsg,
+                )
+            else:
+                abnt_escala = nearest_abnt_escala(escala)
+                default_meta = build_default_metadata(epsg)
+                metadata = AbntDrawingMetadata(
+                    crs_label=default_meta.crs_label,
+                    epsg=epsg,
+                    escala=abnt_escala,
+                    orgao=f"sisRUA — {project_name}",
+                    datum=default_meta.datum,
+                    projecao=default_meta.projecao,
+                    unidade=default_meta.unidade,
+                    zona_utm=default_meta.zona_utm,
+                )
+                export_features_to_dxf(
+                    features,
+                    output_path=export_file,
+                    metadata=metadata,
+                    epsg=epsg,
+                )
             return export_file
         finally:
             conn.close()

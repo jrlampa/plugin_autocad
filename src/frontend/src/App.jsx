@@ -193,9 +193,10 @@ export default function App() {
       };
       window.chrome.webview.postMessage(message);
     } else {
-      // Use Toast instead of alert!
-      // For now, simpler to alert or we can add a local state for this warning
-      alert('Esta funcionalidade está disponível apenas ao rodar o sisRUA dentro do AutoCAD.');
+      handleNormaToast(
+        'Esta funcionalidade está disponível apenas ao rodar o sisRUA dentro do AutoCAD.',
+        'info'
+      );
     }
   };
 

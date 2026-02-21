@@ -1,10 +1,10 @@
 """
 backend/routes/tools.py
-Router de ferramentas GIS (elevação SRTM, perfil de terreno).
+Router de ferramentas GIS (geocodificação, elevação SRTM, perfil de terreno).
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.core.auth import require_token
 from backend.core.logger import get_logger
@@ -15,10 +15,36 @@ from backend.models import (
     ElevationQueryRequest,
 )
 import backend.services.elevation as _elev_mod
+import backend.services.geocode as _geocode_mod
 from backend.routes.deps import cache_service
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+
+@router.get("/api/v1/tools/geocode", tags=["Tools"])
+async def geocode_query(
+    query: str = Query(..., min_length=1, max_length=200, description="Endereço, Lat/Lon ou UTM"),
+    _: None = Depends(require_token),
+):
+    """
+    Geocodifica um texto de entrada em coordenadas geográficas (EPSG:4326).
+
+    Estratégia (custo zero, em ordem de prioridade):
+      1. Coordenadas decimais diretas — ex.: ``-22.15018, -42.92185``
+      2. Coordenadas UTM SIRGAS 2000  — ex.: ``23K 788547 7634925``
+      3. Endereço por Nominatim/OSM   — ex.: ``Rua das Flores, Nova Friburgo``
+
+    Returns:
+        ``{ latitude, longitude, source, display_name? }``
+    """
+    result = _geocode_mod.geocode(query)
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Não foi possível geocodificar: {query!r}",
+        )
+    return result
 
 
 @router.post(

@@ -182,6 +182,71 @@ async def export_dxf(
         raise HTTPException(status_code=500, detail=f"Erro ao exportar DXF: {e}")
 
 
+@router.get("/api/v1/export/dxf-prodist/{project_id}", tags=["Enterprise"])
+async def export_dxf_prodist(
+    project_id: str,
+    include_buffers: bool = True,
+    _: None = Depends(require_token),
+):
+    """
+    Exporta projeto como DXF R2010 com metadados ANEEL/PRODIST.
+
+    Quando `include_buffers=true` (padrão), gera faixas de segurança
+    geométricas (polígonos) conforme NR-10:2016 e PRODIST Módulo 3 §3.4
+    nas camadas SISRUA_ANEEL_BUFFER_BT/MT/AT.
+
+    A norma ANEEL/PRODIST é lida da configuração ativa do servidor
+    (definida via POST /api/v1/normas/config). Se a norma ativa for ABNT,
+    retorna erro 409 orientando o usuário a ativar PRODIST primeiro.
+
+    Args:
+        project_id:      ID do projeto a exportar.
+        include_buffers: Inclui faixas de segurança (padrão: true).
+    """
+    from fastapi.responses import FileResponse
+    from backend.gis_core.prodist import build_prodist_metadata, TensaoClasse
+    import backend.api as _api
+
+    with _norma_lock:
+        config = dict(_norma_config)
+
+    if config.get("ativa") != "PRODIST":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Norma ANEEL/PRODIST não está ativa. "
+                "Ative via POST /api/v1/normas/config antes de exportar."
+            ),
+        )
+
+    try:
+        classe = TensaoClasse(config["classe_tensao"])
+    except ValueError:
+        classe = TensaoClasse.MT
+
+    prodist_meta = build_prodist_metadata(
+        concessionaria=config.get("concessionaria", "Não informada"),
+        classe_tensao=classe,
+        numero_processo=config.get("numero_processo", ""),
+    )
+
+    try:
+        path = _api.export_service.export_project_to_dxf(
+            project_id,
+            prodist_metadata=prodist_meta,
+            include_prodist_buffers=include_buffers,
+        )
+        return FileResponse(
+            path=str(path),
+            media_type="application/dxf",
+            filename=f"sisrua_{project_id}_prodist.dxf",
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error("export_dxf_prodist_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Erro ao exportar DXF PRODIST: {e}")
+
 
 @router.get("/api/v1/export/geojson/{project_id}", tags=["Enterprise"])
 async def export_geojson(
