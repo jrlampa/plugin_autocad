@@ -761,3 +761,55 @@ Adicionados ao final de `tests/test_core.py`:
 - `test_ipc_server_noop_on_non_windows` — `IpcServer.start()` é no-op em Linux
 
 ### CodeQL — 0 alertas | Code Review — feedback implementado (docstrings em inglês)
+
+---
+
+## 🐛 Sessão 2026-02-21 (tarde) — Correção crítica: list_logs() assinatura
+
+### Bug Crítico — `audit.py` `list_logs()` assinatura errada (crash em produção)
+
+**Problema**: A sessão anterior implementou `list_logs(self, limit: int = 20, entity_type: Optional[str] = None)`, mas `audit_routes.py` já chamava o método com a assinatura `list_logs(entity_type, entity_id, event_type, limit)` em 4 argumentos posicionais:
+```python
+# audit_routes.py linha 134:
+logs = audit.list_logs(
+    _safe_str(entity_type),   # arg 1 → era mapeado como limit (ERRADO)
+    _safe_str(entity_id),     # arg 2 → era mapeado como entity_type (ERRADO)
+    _safe_str(event_type),    # arg 3 → TypeError (arg extra)
+    limit,                    # arg 4 → TypeError (arg extra)
+)
+```
+Isso causaria `TypeError` em runtime ao chamar `GET /api/v1/audit`.
+
+**Solução v2**: 
+```python
+def list_logs(
+    self,
+    entity_type: Optional[str] = None,
+    entity_id: Optional[str] = None,
+    event_type: Optional[str] = None,
+    limit: int = 100,
+) -> list:
+```
+Com SQL completamente estático usando padrão `(column = ? OR ? IS NULL)` para cada filtro opcional — elimina f-string na SQL (prevenção de SQL injection por design):
+```sql
+WHERE (entity_type = ? OR ? IS NULL)
+  AND (entity_id   = ? OR ? IS NULL)  
+  AND (event_type  = ? OR ? IS NULL)
+ORDER BY audit_id DESC LIMIT ?
+```
+
+**Callers compatíveis**:
+- `audit_routes.py`: `list_logs(entity_type, entity_id, event_type, limit)` → ✅ 4 posicionais
+- `ai.py`: `audit.list_logs(limit=5)` → ✅ kwarg
+
+### Segurança — Sem f-string em SQL
+O code review identificou que a versão anterior usava f-string para construir o WHERE clause. Refatorado para SQL estático com guards `OR ? IS NULL` — todas as colunas e estrutura do SQL são hardcoded, sem interpolação de string.
+
+### Testes — 3 atualizados + 1 novo (total: **151 passando**)
+Atualizados para validar o padrão `OR ? IS NULL`:
+- `test_audit_list_logs_entity_type_filter` — valor aparece 2x nos params (coluna + guard IS NULL)
+- `test_audit_list_logs_entity_id_filter` — idem para entity_id
+- `test_audit_list_logs_event_type_filter` — idem para event_type
+- `test_audit_list_logs_combined_filters` — todos os 3 filtros + limit nos params
+
+### CodeQL — 0 alertas | Code Review — feedback implementado (SQL injection prevention)

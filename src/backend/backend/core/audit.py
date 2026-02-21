@@ -215,40 +215,48 @@ class AuditLogger:
             }
         finally:
             conn.close()
-    def list_logs(self, limit: int = 20, entity_type: Optional[str] = None) -> list:
+    def list_logs(
+        self,
+        entity_type: Optional[str] = None,
+        entity_id: Optional[str] = None,
+        event_type: Optional[str] = None,
+        limit: int = 100,
+    ) -> list:
         """
-        Returns the most recent audit log entries.
+        Returns the most recent audit log entries with optional filters.
 
         Args:
-            limit:       Maximum number of records to return (default: 20).
             entity_type: Optional filter by entity type (e.g., "Project").
+            entity_id:   Optional filter by specific entity ID.
+            event_type:  Optional filter by event type (e.g., "CREATE", "DELETE").
+            limit:       Maximum number of records to return (default: 100).
 
         Returns:
             List of dicts with the fields of each AuditLog entry.
         """
+        # Fixed SQL template with optional filter guards — no f-string SQL construction.
+        # Each filter is evaluated as: (column = ? OR ? IS NULL).
+        # This keeps the SQL structure constant and fully parameterized.
+        _SQL = """
+            SELECT audit_id, event_type, entity_type, entity_id,
+                   user_id, timestamp, data_json, created_at
+            FROM AuditLog
+            WHERE (entity_type = ? OR ? IS NULL)
+              AND (entity_id   = ? OR ? IS NULL)
+              AND (event_type  = ? OR ? IS NULL)
+            ORDER BY audit_id DESC LIMIT ?
+        """
         conn = get_db_connection()
         try:
-            if entity_type:
-                rows = conn.execute(
-                    """
-                    SELECT audit_id, event_type, entity_type, entity_id,
-                           user_id, timestamp, data_json, created_at
-                    FROM AuditLog
-                    WHERE entity_type = ?
-                    ORDER BY audit_id DESC LIMIT ?
-                    """,
-                    (entity_type, limit),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    """
-                    SELECT audit_id, event_type, entity_type, entity_id,
-                           user_id, timestamp, data_json, created_at
-                    FROM AuditLog
-                    ORDER BY audit_id DESC LIMIT ?
-                    """,
-                    (limit,),
-                ).fetchall()
+            rows = conn.execute(
+                _SQL,
+                (
+                    entity_type, entity_type,
+                    entity_id,   entity_id,
+                    event_type,  event_type,
+                    limit,
+                ),
+            ).fetchall()
 
             result = []
             for row in rows:

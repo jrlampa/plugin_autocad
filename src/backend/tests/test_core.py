@@ -287,8 +287,8 @@ def test_audit_list_logs_returns_correct_fields():
 
 
 def test_audit_list_logs_entity_type_filter():
-    """list_logs(entity_type=...) should filter results by entity_type."""
-    from unittest.mock import patch, MagicMock, call
+    """list_logs(entity_type=...) should pass entity_type as SQL parameter."""
+    from unittest.mock import patch, MagicMock
     from backend.core.audit import AuditLogger
 
     mock_conn = MagicMock()
@@ -297,12 +297,68 @@ def test_audit_list_logs_entity_type_filter():
     with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
         logger_inst = AuditLogger.__new__(AuditLogger)
         logger_inst._secret = b"x" * 32
-        logger_inst.list_logs(limit=5, entity_type="CadFeature")
+        logger_inst.list_logs(entity_type="CadFeature", limit=5)
 
-    # The second call arg should include the entity_type
+    # entity_type should appear twice in params (column = ? OR ? IS NULL)
     call_args = mock_conn.execute.call_args
-    sql_or_args = call_args[0]
-    assert "entity_type" in sql_or_args[0].lower() or "WHERE" in sql_or_args[0]
+    sql_params = call_args[0][1]
+    assert sql_params.count("CadFeature") == 2
+
+
+def test_audit_list_logs_entity_id_filter():
+    """list_logs(entity_id=...) should pass entity_id as SQL parameter."""
+    from unittest.mock import patch, MagicMock
+    from backend.core.audit import AuditLogger
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = []
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        logger_inst.list_logs(entity_id="proj-999")
+
+    call_args = mock_conn.execute.call_args
+    sql_params = call_args[0][1]
+    assert sql_params.count("proj-999") == 2
+
+
+def test_audit_list_logs_event_type_filter():
+    """list_logs(event_type=...) should pass event_type as SQL parameter."""
+    from unittest.mock import patch, MagicMock
+    from backend.core.audit import AuditLogger
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = []
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        logger_inst.list_logs(event_type="DELETE")
+
+    call_args = mock_conn.execute.call_args
+    sql_params = call_args[0][1]
+    assert sql_params.count("DELETE") == 2
+
+
+def test_audit_list_logs_combined_filters():
+    """list_logs() with all three filters should pass all values as parameters."""
+    from unittest.mock import patch, MagicMock
+    from backend.core.audit import AuditLogger
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = []
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        logger_inst.list_logs(entity_type="Project", event_type="CREATE", limit=10)
+
+    call_args = mock_conn.execute.call_args
+    sql_params = call_args[0][1]
+    assert sql_params.count("Project") == 2
+    assert sql_params.count("CREATE") == 2
+    assert 10 in sql_params
 
 
 def test_audit_list_logs_invalid_json_data_handled():
