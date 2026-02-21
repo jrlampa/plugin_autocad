@@ -133,6 +133,13 @@ export const api = {
   },
 
   /**
+   * Enterprise: Export project to DXF (ABNT NBR 14166 / 2.5D)
+   */
+  exportDxf: (projectId) => {
+    window.open(`${API_BASE}/export/dxf/${projectId}`, '_blank');
+  },
+
+  /**
    * ANEEL/PRODIST: Retorna a norma técnica ativa.
    */
   getNormaAtiva: async () => {

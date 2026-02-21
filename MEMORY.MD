@@ -154,6 +154,7 @@ plugin_autocad/
 | 5 — Drag & Drop | ✅ Completo | GeoJSON drop → CAD |
 | 5.5 — Cadastro Técnico | ✅ Completo | XData via Extension Dicts |
 | 5.6 — PRODIST Buffers | ✅ Completo | Faixas de segurança NR-10 no DXF |
+| 5.7 — Geocode Backend | ✅ Completo | `/api/v1/tools/geocode` + DXF btn UI |
 | 6 — Nuvem | 🔄 Interfaces | Interfaces desacopladas prontas |
 
 ---
@@ -226,6 +227,56 @@ Estas funções encapsulam pyproj e são o ponto único de conversão CRS no bac
   - Raios testados: 100 m, 500 m, 1000 m.
   - Testes de DXF headless via ezdxf (sem AutoCAD/accoreconsole.exe).
 
+---
+
+## ⚡ Sessão 2026-02-21 (21:24) — Geocode endpoint + DXF button + alert→Toast
+
+### Baseline
+408 testes passando, 92.05% cobertura.
+
+### Bug Corrigido — `/api/v1/tools/geocode` ausente no backend
+- **Problema**: `api.js` chamava `GET /api/v1/tools/geocode?query=...` mas o endpoint não existia.
+  O frontend exibia erro 404 silencioso ao tentar geocodificar qualquer texto.
+- **Correção**: Criado `services/geocode.py` e endpoint em `routes/tools.py`.
+
+### Novo Serviço — `services/geocode.py` (168 linhas)
+Geocodificação inteligente de custo zero:
+1. **lat/lon decimal** direto (sem rede) — ex.: `-22.15018, -42.92185`
+2. **UTM SIRGAS 2000** direto (sem rede) — ex.: `23K 788547 7634925`
+3. **Nominatim/OSM** para endereços (gratuito, sem chave de API)
+
+Segurança:
+- `_sanitize_query()`: remove HTML/script, CRLF injection, null bytes, trunca a 200 chars
+- Conformidade Nominatim Usage Policy: User-Agent identificado; endpoint protegido por rate limiter existente (5 req/min/IP)
+
+### Novo Endpoint — `GET /api/v1/tools/geocode?query=...`
+- Retorna `{ latitude, longitude, source, display_name? }`
+- Auth obrigatório (`X-SisRua-Token`)
+- 404 quando não encontrado, 422 quando query inválida (min=1, max=200)
+
+### Frontend — Fix `alert()` → Toast (`App.jsx`)
+- `handleGenerate()` usava `alert()` no contexto de navegador (não-WebView)
+- Substituído por `handleNormaToast()` (tipo `'info'`) — sem dependências novas
+
+### Frontend — Botão DXF Export (`SettingsPanel.jsx` + `api.js`)
+- Seção "Interoperabilidade GIS" expandida de 2 para 3 botões: GeoJSON | GeoPackage | DXF
+- `api.exportDxf(projectId)` adicionado a `api.js`
+- Chama o endpoint existente `GET /api/v1/export/dxf/{project_id}`
+
+### Testes — `tests/test_geocode.py` (40 testes)
+| Classe | Testes | Cobertura |
+|--------|--------|-----------|
+| `TestSanitizeQuery` | 6 | Sanitização, CRLF, null byte |
+| `TestTryParseLatlon` | 7 | REF_2 + separadores + range |
+| `TestTryParseUtm` | 7 | REF_1 + REF_2 UTM + heurísticas |
+| `TestGeocode` | 8 | Priority chain + mocks Nominatim |
+| `TestGeocodeEndpoint` | 12 | API 200/404/422/403 + REF_1/REF_2 |
+
+### Resultado Final
+- **Testes**: 408 → **448 passando**
+- **Cobertura total**: 92.05% → **91.18%** (geocode.py tem 67%; cobertura Nominatim requer rede)
+- **CodeQL**: 0 alertas
+
 
 ---
 
@@ -239,9 +290,10 @@ Estas funções encapsulam pyproj e são o ponto único de conversão CRS no bac
 | DXF headless (geral) | ezdxf + pytest | `src/backend/tests/test_dxf.py` |
 | DXF headless (ABNT) | ezdxf + pytest | `src/backend/tests/test_dxf_abnt.py` |
 | DXF headless (PRODIST buffers) | ezdxf + pytest | `src/backend/tests/test_dxf_prodist_buffers.py` |
+| Geocode | pytest + mock | `src/backend/tests/test_geocode.py` |
 | C# | xUnit | `src/plugin/tests/` |
 
-> **Cobertura atual**: 408 testes pytest passando (Python backend). Cobertura: **92.05%** (threshold: 80%).
+> **Cobertura atual**: 448 testes pytest passando (Python backend). Cobertura: **91.18%** (threshold: 80%).
 
 ---
 
