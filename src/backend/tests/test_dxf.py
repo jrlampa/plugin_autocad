@@ -369,3 +369,81 @@ def test_dxf_crs_pipeline_integration():
     # O easting deve ser próximo de 714316 m (tolerância ±1 m para conversão CRS)
     x0 = coords[0][0]
     assert abs(x0 - REF_E) < 1.0, f"Easting UTM esperado ≈{REF_E}, obteve {x0:.1f}"
+
+
+def test_dxf_ref2_field_coord_100m(tmp_path):
+    """
+    REF_2 campo: UTM 23K 788547 7634925 com raio de 100 m.
+    A polilinha de 100 m partindo desta origem deve ter comprimento correto.
+    """
+    import ezdxf
+
+    features = [
+        CadFeature(
+            feature_type="Polyline",
+            layer="SISRUA_OSM_HIGHWAY",
+            name="Via Campo REF_2 100m",
+            highway="residential",
+            coords_xy=[
+                [REF2_E, REF2_N],
+                [REF2_E + 100.0, REF2_N],
+            ],
+            elevation=900.0,
+            width_m=6.0,
+        )
+    ]
+    out = tmp_path / "test_ref2_100m.dxf"
+    export_features_to_dxf(features, output_path=out)
+
+    doc = ezdxf.readfile(str(out))
+    msp = doc.modelspace()
+
+    pline = next(iter(msp.query("LWPOLYLINE")))
+    vertices = list(pline.vertices())
+    x0, y0 = vertices[0]
+    x1, y1 = vertices[1]
+
+    # Verifica origem correta
+    assert abs(x0 - REF2_E) < 0.01, f"Easting REF_2 esperado {REF2_E}, obteve {x0}"
+    assert abs(y0 - REF2_N) < 0.01, f"Northing REF_2 esperado {REF2_N}, obteve {y0}"
+
+    # Verifica comprimento de 100 m
+    length = math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2)
+    assert abs(length - 100.0) < 0.1, f"Comprimento REF_2 esperado 100 m, obteve {length:.3f} m"
+
+
+def test_dxf_ref1_coord_geojson_pipeline():
+    """
+    Integração CRS: lat/lon de REF_1 (-22.15018°, -42.92185°) com raio 500m/1km.
+    O easting da feature convertida deve ser próximo de REF_E (714316 m).
+    """
+    from backend.services.geojson import prepare_geojson_compute
+
+    # Linha de ~500m partindo de REF_1
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {"highway": "primary", "name": "Avenida REF_1 500m"},
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                        [-42.92185, -22.15018],
+                        [-42.91634, -22.15018],  # ~500 m a leste
+                    ],
+                },
+            }
+        ],
+    }
+
+    result = prepare_geojson_compute(geojson)
+    assert result is not None
+    assert len(result["features"]) >= 1
+
+    feat = result["features"][0]
+    coords = feat.get("coords_xy", [])
+    assert len(coords) >= 2
+
+    x0 = coords[0][0]
+    assert abs(x0 - REF_E) < 1.0, f"Easting esperado ≈{REF_E} m, obteve {x0:.1f} m"

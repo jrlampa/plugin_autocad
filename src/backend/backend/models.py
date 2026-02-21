@@ -6,7 +6,7 @@ class FrozenBaseModel(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 class HealthResponse(FrozenBaseModel):
-    status: str = Field(..., description="Operational status of the API", example="ok")
+    status: str = Field(..., description="Operational status of the API", json_schema_extra={"example": "ok"})
 
 class ComponentHealth(FrozenBaseModel):
     status: Literal["up", "down", "degraded"] = Field(..., description="Status of the specific component")
@@ -23,9 +23,9 @@ class ProjectUpdateRequest(FrozenBaseModel):
     crs_out: Optional[str] = Field(None, description="New CRS")
 
 class PrepareOsmRequest(FrozenBaseModel):
-    latitude: float = Field(..., description="Target latitude (EPSG:4326)", example=-21.7634)
-    longitude: float = Field(..., description="Target longitude (EPSG:4326)", example=-41.3235)
-    radius: float = Field(..., description="Search radius in meters", example=500.0)
+    latitude: float = Field(..., description="Target latitude (EPSG:4326)", json_schema_extra={"example": -21.7634})
+    longitude: float = Field(..., description="Target longitude (EPSG:4326)", json_schema_extra={"example": -41.3235})
+    radius: float = Field(..., description="Search radius in meters", json_schema_extra={"example": 500.0})
 
 class PrepareGeoJsonRequest(FrozenBaseModel):
     geojson: Any = Field(..., description="GeoJSON string or object to process")
@@ -61,7 +61,7 @@ class CadFeature(BaseModel):
     original_geojson_properties: Dict[str, Any] = Field(default_factory=dict, description="Original GeoJSON properties for portability")
 
 class PrepareResponse(FrozenBaseModel):
-    crs_out: Optional[str] = Field(None, description="Projected Coordinate Reference System", example="EPSG:31983")
+    crs_out: Optional[str] = Field(None, description="Projected Coordinate Reference System", json_schema_extra={"example": "EPSG:31983"})
     features: List[CadFeature] = Field(..., description="List of CAD-ready features")
     cache_hit: Optional[bool] = Field(None, description="Indicates if the result was served from cache")
 
@@ -92,9 +92,9 @@ class ElevationProfileResponse(FrozenBaseModel):
     elevations: List[float] = Field(..., description="List of elevations in meters along the path")
 
 class WebhookRegistrationRequest(FrozenBaseModel):
-    url: str = Field(..., description="Target URL to receive webhook events", example="https://example.com/webhook")
+    url: str = Field(..., description="Target URL to receive webhook events", json_schema_extra={"example": "https://example.com/webhook"})
     events: Optional[List[str]] = Field(None, description="Optional list of events to subscribe to (default: all)")
 
 class InternalEvent(FrozenBaseModel):
-    event_type: str = Field(..., description="Type of the internal event", example="project_saved")
+    event_type: str = Field(..., description="Type of the internal event", json_schema_extra={"example": "project_saved"})
     payload: Dict[str, Any] = Field(..., description="Event payload data")

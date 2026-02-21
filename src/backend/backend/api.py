@@ -23,6 +23,7 @@ except ImportError:
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from starlette.responses import Response
 
 import sentry_sdk
@@ -58,6 +59,61 @@ if SENTRY_DSN:
         send_default_pii=False,
     )
 
+# --- Lifespan (substitui @on_event deprecated) ---
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """Startup e shutdown gracioso usando lifespan context manager (FastAPI 0.93+)."""
+    # --- Startup ---
+    def run_cleanup():
+        from backend.services.jobs import cleanup_expired_jobs
+        while True:
+            try:
+                count = cleanup_expired_jobs(max_age_seconds=3600)
+                if count > 0:
+                    print(f"[cleanup] {count} jobs expirados removidos.")
+            except Exception as e:
+                print(f"[cleanup] Erro: {e}")
+            time.sleep(600)
+
+    threading.Thread(target=run_cleanup, daemon=True).start()
+
+    def run_housekeeping():
+        try:
+            from backend.services.housekeeper import housekeeper_service
+            targets = []
+            for name in ("logs", "cache"):
+                d = Path(name).resolve()
+                if d.exists():
+                    targets.append(d)
+            housekeeper_service.run_daily_cleanup(targets)
+        except Exception as e:
+            print(f"[housekeeper] Erro: {e}")
+
+    threading.Thread(target=run_housekeeping, daemon=True).start()
+
+    if os.environ.get("SISRUA_TESTING") != "true":
+        try:
+            from backend.core.ipc import IpcServer
+            ipc_server = IpcServer(AUTH_TOKEN)
+            ipc_server.start()
+            print(f"[startup] IPC Server iniciado em {IpcServer.PIPE_NAME}")
+        except ImportError:
+            print("[startup] Aviso: pywin32 não instalado, IPC desativado.")
+        except Exception as e:
+            print(f"[startup] IPC Server falhou: {e}")
+
+    print("[startup] sisRUA API pronta.")
+
+    yield  # Aplicação em execução
+
+    # --- Shutdown ---
+    print("[shutdown] Encerrando serviços...")
+    from backend.core.lifecycle import SHUTDOWN_EVENT, job_registry
+    SHUTDOWN_EVENT.set()
+    job_registry.wait_for_completion(timeout=10.0)
+    print("[shutdown] Encerrado.")
+
+
 # --- App FastAPI ---
 app = FastAPI(
     title="sisRUA: The Urban Data Engine",
@@ -83,6 +139,7 @@ com portabilidade total de dados e conformidade ISO 27001.
         {"name": "AI", "description": "Assistente inteligente"},
         {"name": "Infrastructure", "description": "Saúde, jobs e auditoria"},
     ],
+    lifespan=_lifespan,
 )
 
 # --- Middleware: Trace ID e audit log ---
@@ -209,63 +266,6 @@ async def receive_telemetry(payload: Dict[str, Any]):
     """Recebe telemetria silenciosa do plugin para monitoramento e auto-healing."""
     logger.info("telemetry_received", **payload)
     return {"status": "received"}
-
-
-# --- Startup ---
-@app.on_event("startup")
-async def startup_event():
-    """Inicializa serviços de background (cleanup, housekeeping, IPC)."""
-
-    def run_cleanup():
-        from backend.services.jobs import cleanup_expired_jobs
-        while True:
-            try:
-                count = cleanup_expired_jobs(max_age_seconds=3600)
-                if count > 0:
-                    print(f"[cleanup] {count} jobs expirados removidos.")
-            except Exception as e:
-                print(f"[cleanup] Erro: {e}")
-            time.sleep(600)
-
-    threading.Thread(target=run_cleanup, daemon=True).start()
-
-    def run_housekeeping():
-        try:
-            from backend.services.housekeeper import housekeeper_service
-            targets = []
-            for name in ("logs", "cache"):
-                d = Path(name).resolve()
-                if d.exists():
-                    targets.append(d)
-            housekeeper_service.run_daily_cleanup(targets)
-        except Exception as e:
-            print(f"[housekeeper] Erro: {e}")
-
-    threading.Thread(target=run_housekeeping, daemon=True).start()
-
-    if os.environ.get("SISRUA_TESTING") != "true":
-        try:
-            from backend.core.ipc import IpcServer
-            ipc_server = IpcServer(AUTH_TOKEN)
-            ipc_server.start()
-            print(f"[startup] IPC Server iniciado em {IpcServer.PIPE_NAME}")
-        except ImportError:
-            print("[startup] Aviso: pywin32 não instalado, IPC desativado.")
-        except Exception as e:
-            print(f"[startup] IPC Server falhou: {e}")
-
-    print("[startup] sisRUA API pronta.")
-
-
-# --- Shutdown ---
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Encerramento gracioso: sinaliza jobs ativos e aguarda conclusão."""
-    print("[shutdown] Encerrando serviços...")
-    from backend.core.lifecycle import SHUTDOWN_EVENT, job_registry
-    SHUTDOWN_EVENT.set()
-    job_registry.wait_for_completion(timeout=10.0)
-    print("[shutdown] Encerrado.")
 
 
 # --- Registro de Routers (SoC) ---
