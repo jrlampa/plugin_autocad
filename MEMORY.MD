@@ -153,6 +153,7 @@ plugin_autocad/
 | 4 — App Campo | 🔄 Parcial | PWA conceitual |
 | 5 — Drag & Drop | ✅ Completo | GeoJSON drop → CAD |
 | 5.5 — Cadastro Técnico | ✅ Completo | XData via Extension Dicts |
+| 5.6 — PRODIST Buffers | ✅ Completo | Faixas de segurança NR-10 no DXF |
 | 6 — Nuvem | 🔄 Interfaces | Interfaces desacopladas prontas |
 
 ---
@@ -210,6 +211,20 @@ Estas funções encapsulam pyproj e são o ponto único de conversão CRS no bac
 - Impacto: quando `layers.json` existia mas era inválido (JSON malformado), ocorria `NameError` em vez
   de fallback para a configuração hardcoded — potencial 500 em produção.
 
+### Geração de Faixas de Segurança PRODIST (Buffer Geometry 2.5D)
+- Função `generate_prodist_buffer_features()` adicionada a `services/dxf_export.py`.
+- Gera polígonos de buffer 2.5D (Z=0, elevação como XDATA) ao redor de redes elétricas.
+- Distâncias conforme NR-10:2016 Tabela 1: BT=1 m, MT=3 m, AT=10 m.
+- Camadas de buffer: `SISRUA_ANEEL_BUFFER_BT/MT/AT` (≤ 31 chars — DXF R14+).
+- `export_features_to_dxf()` aceita novo parâmetro `include_prodist_buffers: bool`.
+- `export_project_to_dxf()` em `ExportService` aceita `prodist_metadata` e `include_prodist_buffers`.
+- Novo endpoint: `GET /api/v1/export/dxf-prodist/{project_id}?include_buffers=true`.
+  - Retorna 409 se norma PRODIST não estiver ativa no servidor.
+  - Usa configuração ativa de norma (classe de tensão, concessionária, processo).
+- Novo arquivo de testes: `tests/test_dxf_prodist_buffers.py` (24 testes, todos passando).
+  - Inclui testes para REF_1 (23K 788547 7634925) e REF_2 (-22.15018°, -42.92185°).
+  - Raios testados: 100 m, 500 m, 1000 m.
+  - Testes de DXF headless via ezdxf (sem AutoCAD/accoreconsole.exe).
 
 
 ---
@@ -221,10 +236,12 @@ Estas funções encapsulam pyproj e são o ponto único de conversão CRS no bac
 | Unit (Python) | pytest | `src/backend/tests/` |
 | E2E (Frontend) | Playwright | `src/frontend/e2e/` |
 | Unit (Frontend) | Vitest | `src/frontend/src/**/*.test.jsx` |
-| DXF headless | ezdxf + pytest | `src/backend/tests/test_dxf.py` |
+| DXF headless (geral) | ezdxf + pytest | `src/backend/tests/test_dxf.py` |
+| DXF headless (ABNT) | ezdxf + pytest | `src/backend/tests/test_dxf_abnt.py` |
+| DXF headless (PRODIST buffers) | ezdxf + pytest | `src/backend/tests/test_dxf_prodist_buffers.py` |
 | C# | xUnit | `src/plugin/tests/` |
 
-> **Cobertura atual**: 315 testes pytest passando (Python backend). Cobertura: **90.28%** (threshold: 80%).
+> **Cobertura atual**: 408 testes pytest passando (Python backend). Cobertura: **92.05%** (threshold: 80%).
 
 ---
 
