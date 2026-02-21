@@ -196,10 +196,21 @@ Estas funções encapsulam pyproj e são o ponto único de conversão CRS no bac
 - Origin validation middleware (ISO 27001).
 - Input sanitization via `sanitize_jsonable()`.
 
-### DXF / CAD
-- A geração de features CAD é feita em Python (backend) e enviada como JSON para o plugin C#.
-- O plugin C# (AutoCAD) consome o JSON e insere entidades no desenho.
-- Testes de DXF são executados headless via `accoreconsole.exe` ou via `ezdxf` em Python.
+### Validação de Coordenadas nos Modelos (models.py)
+- `PrepareOsmRequest`: latitude (`-90 ≤ lat ≤ 90`), longitude (`-180 ≤ lon ≤ 180`), radius (`0 < r ≤ 50000 m`).
+- `PrepareJobRequest`: mesmos limites para os campos opcionais OSM.
+- `ElevationQueryRequest`: latitude e longitude com os mesmos limites globais.
+- `ElevationProfileRequest`: mínimo de 2 pontos; cada ponto validado individualmente via `field_validator`.
+- Validação é feita no modelo (Pydantic), retornando HTTP 422 antes de qualquer processamento de negócio.
+
+### Bug Corrigido — `core/utils.py` (`get_layer_config`)
+- A linha `logger.error("json_load_failed", ..., path=path)` referenciava a variável `path`, que não
+  estava definida nesse escopo (a variável correta era `layers_path`).
+- Corrigido para `path=str(layers_path)`.
+- Impacto: quando `layers.json` existia mas era inválido (JSON malformado), ocorria `NameError` em vez
+  de fallback para a configuração hardcoded — potencial 500 em produção.
+
+
 
 ---
 
@@ -212,6 +223,8 @@ Estas funções encapsulam pyproj e são o ponto único de conversão CRS no bac
 | Unit (Frontend) | Vitest | `src/frontend/src/**/*.test.jsx` |
 | DXF headless | ezdxf + pytest | `src/backend/tests/test_dxf.py` |
 | C# | xUnit | `src/plugin/tests/` |
+
+> **Cobertura atual**: 84 testes pytest passando (Python backend).
 
 ---
 
@@ -282,4 +295,4 @@ docker-compose build --no-cache
 
 ---
 
-*Última atualização: 2026-02-21 | Versão do projeto: 1.1.0 | Modularização: SisRuaCommands → partial class*
+*Última atualização: 2026-02-21 | Versão do projeto: 1.1.0 | Modularização: SisRuaCommands → partial class | Validação de coordenadas + bug fix get_layer_config*

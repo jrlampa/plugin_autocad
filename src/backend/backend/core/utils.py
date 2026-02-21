@@ -138,7 +138,7 @@ def get_layer_config() -> Dict[str, Any]:
                 return json.load(f)
         except Exception as e:
             from backend.core.logger import logger
-            logger.error("json_load_failed", error=str(e), path=path)
+            logger.error("json_load_failed", error=str(e), path=str(layers_path))
             
     # Fallback Hardcoded (Normas Brasileiras simplificadas)
     return {
