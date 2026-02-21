@@ -295,7 +295,7 @@ docker-compose build --no-cache
 
 ---
 
-*Última atualização: 2026-02-21 | Versão do projeto: 1.1.0 | Modularização: SisRuaCommands → partial class | Validação de coordenadas + bug fix get_layer_config*
+*Última atualização: 2026-02-21 | Versão do projeto: 1.1.0 | Modularização: SisRuaCommands → partial class | Validação de coordenadas + bug fix get_layer_config + bug fix ElevationService cache em geojson.py (101 testes)*
 
 ---
 
@@ -365,3 +365,20 @@ docker-compose build --no-cache
   - `test_webhook_events_sanitized` — truncamento a 128 chars verificado
   - `test_webhook_events_empty_list_becomes_none` — lista vazia → `None`
   - `test_webhook_events_none_allowed` — `None` é aceito normalmente
+
+---
+
+## 🐛 Sessão 2026-02-21 — Bug Fix ElevationService + Qualidade de Código
+
+### Bug Corrigido — `services/geojson.py` (`prepare_geojson_compute`)
+- **Problema**: `ElevationService()` era instanciado **sem** o argumento obrigatório `cache`, causando `TypeError` silencioso (capturado pelo bloco `except Exception`) durante injeção de elevação no pipeline GeoJSON. O resultado era que features GeoJSON nunca recebiam dados de elevação, sem qualquer aviso ao operador.
+- **Correção**:
+  - `ElevationService()` substituído por `ElevationService(cache=_cache_svc)`, onde `_cache_svc` é o `cache_service` singleton importado de `backend.services.cache`.
+  - `print(f"Error injecting elevation data for GeoJSON: {e}")` substituído por `logger.warning("elevation_injection_failed_geojson", error=str(e))` (logging estruturado — clean code).
+  - `get_logger(__name__)` adicionado ao módulo `geojson.py`.
+- **Impacto**: Features GeoJSON passam a receber elevação corretamente quando o DEM está disponível (online ou cache local). Falhas de elevação agora são registradas no log estruturado.
+
+### Testes — Cobertura da Correção (`test_services.py`)
+- 2 novos testes adicionados (total: **101 passando**):
+  - `test_elevation_service_requires_cache` — Verifica via `inspect.signature` que `cache` é parâmetro obrigatório.
+  - `test_geojson_elevation_injection_uses_cache` — Spy em `ElevationService.__init__` garante que o cache não é `None` quando injetado pelo pipeline GeoJSON.
