@@ -893,3 +893,38 @@ A cada `pytest`, se coverage < 80%, o comando falha com `FAIL Required test cove
 - `test_ai_no_api_key_*`: strings inexatas → comparação exata com constante do módulo `ai.py`
 
 ### CodeQL — 0 alertas | 210 testes passando
+
+---
+
+## Sessão 2026-02-21 (tarde-2) — Coverage 81%→86%, Fix Routing Bug audit_routes.py
+
+### Bugs Corrigidos
+
+**1. Routing Order Bug — `audit_routes.py`**
+
+`GET /api/audit/stats` e `GET /api/audit/export/compliance` estavam registrados APÓS
+`GET /audit/{audit_id}`. Como Starlette usa first-match, "stats" era capturado como
+`audit_id="stats"` e falhava com 422 (int inválido). Corrigido: rotas estáticas ANTES
+de rotas dinâmicas parametrizadas.
+
+**2. SIGINT Test Daemon Thread Bug — `test_api_enterprise_audit.py`**
+
+`test_management_shutdown` usava `with patch("os.kill")` que expirava ANTES do daemon thread
+disparar. Thread chamava `os.kill(pid, SIGINT)` 1 segundo depois, interrompendo o próximo
+teste. Corrigido: mockar `threading.Thread` em vez de `os.kill`.
+
+### Coverage — 81% → 86% (268 testes)
+
+Arquivos novos:
+- `tests/test_api_enterprise_audit.py` (28 testes) — `audit_routes.py` e `routes/enterprise.py`
+- `tests/test_utils_geometry.py` (30 testes) — `core/utils.py` e `gis_core/geometry.py`
+- `.coveragerc`: exclude `...` (Protocol stubs, não chamáveis por design)
+
+| Módulo | Antes | Depois |
+|--------|-------|--------|
+| `audit_routes.py` | 37% | ~75% |
+| `routes/enterprise.py` | 43% | ~70% |
+| `gis_core/geometry.py` | 67% | 100% |
+| `core/utils.py` | 78% | ~89% |
+
+### CodeQL — 0 alertas | 268 testes passando | 86% coverage

@@ -58,66 +58,6 @@ async def create_audit_log(request: Request, _: None = Depends(require_token)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@audit_bp.get("/audit/{audit_id}")
-async def get_audit_log(audit_id: int, _: None = Depends(require_token)):
-    """Retorna uma entrada específica do log de auditoria."""
-    conn = get_db_connection()
-    try:
-        row = conn.execute(
-            """
-            SELECT audit_id, event_type, entity_type, entity_id, user_id,
-                   timestamp, data_json, signature, created_at
-            FROM AuditLog WHERE audit_id = ?
-            """,
-            (audit_id,),
-        ).fetchone()
-
-        if not row:
-            raise HTTPException(status_code=404, detail="Log de auditoria não encontrado")
-
-        return {
-            "audit_id": row[0],
-            "event_type": row[1],
-            "entity_type": row[2],
-            "entity_id": row[3],
-            "user_id": row[4],
-            "timestamp": row[5],
-            "data": row[6],
-            "signature": row[7][:16] + "...",  # Truncado por segurança
-            "created_at": row[8],
-        }
-    finally:
-        conn.close()
-
-
-@audit_bp.get("/audit/{audit_id}/verify")
-async def verify_audit_log(audit_id: int, _: None = Depends(require_token)):
-    """Verifica a assinatura de um log para detectar adulteração."""
-    audit = get_audit_logger()
-    is_valid = audit.verify(audit_id)
-
-    return {
-        "audit_id": audit_id,
-        "valid": is_valid,
-        "message": "Assinatura válida" if is_valid else "⚠️ Adulteração detectada!",
-    }
-
-
-@audit_bp.post("/audit/verify-all")
-async def verify_all_logs(request: Request, _: None = Depends(require_token)):
-    """Verifica a integridade de todos os logs de auditoria recentes."""
-    try:
-        body = await request.body()
-        data = json.loads(body) if body else {}
-        limit = int(data.get("limit", 1000))
-        limit = max(1, min(limit, 10000))
-        audit = get_audit_logger()
-        return audit.verify_all(limit)
-    except Exception as e:
-        logger.error("audit_verify_all_failed", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @audit_bp.get("/audit")
 async def list_audit_logs(
     entity_type: Optional[str] = None,
@@ -136,6 +76,10 @@ async def list_audit_logs(
     )
     return {"count": len(logs), "logs": logs}
 
+
+# NOTE: /audit/stats and /audit/export/compliance MUST be registered before
+# /audit/{audit_id} so Starlette's first-match router does not treat "stats"
+# or "export" as the integer {audit_id} param, which would return 422.
 
 @audit_bp.get("/audit/stats")
 async def get_audit_stats(_: None = Depends(require_token)):
@@ -243,3 +187,65 @@ async def export_audit_logs(_: None = Depends(require_token)):
         )
     finally:
         conn.close()
+
+
+@audit_bp.post("/audit/verify-all")
+async def verify_all_logs(request: Request, _: None = Depends(require_token)):
+    """Verifica a integridade de todos os logs de auditoria recentes."""
+    try:
+        body = await request.body()
+        data = json.loads(body) if body else {}
+        limit = int(data.get("limit", 1000))
+        limit = max(1, min(limit, 10000))
+        audit = get_audit_logger()
+        return audit.verify_all(limit)
+    except Exception as e:
+        logger.error("audit_verify_all_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Dynamic routes AFTER all static routes so Starlette first-match works correctly.
+
+@audit_bp.get("/audit/{audit_id}")
+async def get_audit_log(audit_id: int, _: None = Depends(require_token)):
+    """Retorna uma entrada específica do log de auditoria."""
+    conn = get_db_connection()
+    try:
+        row = conn.execute(
+            """
+            SELECT audit_id, event_type, entity_type, entity_id, user_id,
+                   timestamp, data_json, signature, created_at
+            FROM AuditLog WHERE audit_id = ?
+            """,
+            (audit_id,),
+        ).fetchone()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Log de auditoria não encontrado")
+
+        return {
+            "audit_id": row[0],
+            "event_type": row[1],
+            "entity_type": row[2],
+            "entity_id": row[3],
+            "user_id": row[4],
+            "timestamp": row[5],
+            "data": row[6],
+            "signature": row[7][:16] + "...",  # Truncado por segurança
+            "created_at": row[8],
+        }
+    finally:
+        conn.close()
+
+
+@audit_bp.get("/audit/{audit_id}/verify")
+async def verify_audit_log(audit_id: int, _: None = Depends(require_token)):
+    """Verifica a assinatura de um log para detectar adulteração."""
+    audit = get_audit_logger()
+    is_valid = audit.verify(audit_id)
+
+    return {
+        "audit_id": audit_id,
+        "valid": is_valid,
+        "message": "Assinatura válida" if is_valid else "⚠️ Adulteração detectada!",
+    }
