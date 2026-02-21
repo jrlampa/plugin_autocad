@@ -159,3 +159,52 @@ def test_create_prepare_job_geojson_blocks_completes(client, api_mod):
 
     assert last is not None
     assert last["status"] == "completed"
+
+
+# --- Projects endpoint tests ---
+
+def test_get_project_not_found(client):
+    """GET /api/v1/projects/{id} deve retornar 404 para projeto inexistente."""
+    from unittest.mock import patch
+    import backend.routes.deps as deps
+
+    with patch.object(deps.project_service, "get_project", return_value=None):
+        r = client.get(
+            "/api/v1/projects/nao-existe",
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+    assert r.status_code == 404
+    assert "não encontrado" in r.json()["detail"]
+
+
+def test_get_project_requires_auth(client):
+    """GET /api/v1/projects/{id} deve exigir token de autenticação."""
+    r = client.get("/api/v1/projects/qualquer-id")
+    assert r.status_code == 401
+
+
+def test_get_project_success(client):
+    """GET /api/v1/projects/{id} deve retornar o projeto quando encontrado."""
+    from unittest.mock import patch
+    import backend.routes.deps as deps
+
+    fake_project = {
+        "project_id": "proj-001",
+        "project_name": "Rua Referência",
+        "crs_out": "EPSG:31983",
+        "version": 1,
+        "creation_date": "2026-02-21T00:00:00",
+    }
+
+    with patch.object(deps.project_service, "get_project", return_value=fake_project):
+        r = client.get(
+            "/api/v1/projects/proj-001",
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+
+    assert r.status_code == 200
+    body = r.json()
+    assert body["project_id"] == "proj-001"
+    assert body["project_name"] == "Rua Referência"
+    assert body["crs_out"] == "EPSG:31983"
+    assert body["version"] == 1

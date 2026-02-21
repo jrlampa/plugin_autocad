@@ -529,3 +529,36 @@ Adicionados ao final de `tests/test_services.py`:
 ### Infraestrutura de Testes
 - Cobertura total: **118 testes passando** (inalterado — apenas reorganização de arquivos).
 - Novo arquivo: `tests/test_dxf_abnt.py` (11 testes ABNT, 196 linhas).
+
+---
+
+## 🆕 Sessão 2026-02-21 — GET /projects Endpoint + Clean Code + Docker 3.12
+
+### Novo Endpoint — `GET /api/v1/projects/{project_id}` (`routes/projects.py`)
+- **Problema**: `ProjectService.get_project()` existia desde a Fase 1.5.1, mas não tinha exposição HTTP. Para completar o CRUD de projetos, o frontend e o SDK precisam ler metadados de um projeto por ID.
+- **Implementação**: 
+  ```
+  GET /api/v1/projects/{project_id}
+  Headers: X-SisRua-Token (obrigatório — ISO 27001)
+  200 → {project_id, project_name, crs_out, version, creation_date}
+  404 → {"detail": "Projeto '{id}' não encontrado."} (em pt-BR)
+  ```
+- **Delegação**: chama `project_service.get_project(project_id)` do composition root.
+
+### Clean Code — `TROJAN HORSE` Comments Removidos
+- **Arquivo**: `services/geojson.py` linha 105 e `gis_core/osm.py` linha 231.
+- **Problema**: Comentários com nomenclatura interna coloquial (`TROJAN HORSE`) são inapropriados em código de produção enterprise.
+- **Correção**: Substituídos por comentários técnicos precisos descrevendo o mapeamento de ativos urbanos OSM → blocos CAD e a persistência no banco local para enriquecimento BIM-LITE.
+
+### Docker — `python:3.10-slim` → `python:3.12-slim` (`src/backend/Dockerfile`)
+- **Problema**: A imagem base usava Python 3.10, enquanto o ambiente CI (e todas as sessões de desenvolvimento) usa Python 3.12.3. Inconsistência que pode causar bugs sutis de compatibilidade.
+- **Correção**: `FROM python:3.10-slim` → `FROM python:3.12-slim`.
+- **Benefícios**: Patches de segurança de 2024-2025, melhorias de performance (GIL melhorado, parser mais rápido), compatibilidade com type hints modernos usados no projeto.
+
+### Testes — 3 novos (total: **121 passando**)
+Adicionados ao final de `tests/test_api_auth_and_jobs.py`:
+  - `test_get_project_not_found` — GET retorna 404 com mensagem pt-BR para projeto inexistente
+  - `test_get_project_requires_auth` — GET sem token retorna 401 (ISO 27001)
+  - `test_get_project_success` — GET retorna estrutura completa do projeto
+
+### CodeQL — 0 alertas

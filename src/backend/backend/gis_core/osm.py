@@ -228,9 +228,10 @@ def prepare_osm_compute(
         name_tag = getattr(row, "name", None)
 
         block_name = None
-        # TROJAN HORSE: Expandimos a captura de ativos para valorizar o banco local.
-        # Mesmo no Free, o dado estruturado (Poste, Hidrante, Bueiro) vai para o SQLite.
-        
+        # Mapeamento de ativos urbanos OSM para blocos CAD.
+        # Dados estruturados (Poste, Hidrante, Bueiro) são persistidos no banco local
+        # para enriquecimento BIM-LITE e auditoria de infraestrutura urbana.
+
         # Mapeamento de Ativos Urbanos para Blocos CAD
         asset_mapping = {
             "street_light": "POSTE_ILUMINACAO",

@@ -14,6 +14,21 @@ from backend.services.projects import ConflictError, NotFoundError
 router = APIRouter()
 
 
+@router.get("/api/v1/projects/{project_id}", tags=["Projects"])
+async def get_project(
+    project_id: str,
+    _: None = Depends(require_token),
+):
+    """
+    Retorna os metadados de um projeto pelo seu ID.
+    Retorna 404 se o projeto não existir.
+    """
+    project = project_service.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail=f"Projeto '{project_id}' não encontrado.")
+    return project
+
+
 @router.put("/api/v1/projects/{project_id}", tags=["Projects"])
 async def update_project(
     project_id: str,
