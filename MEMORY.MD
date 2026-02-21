@@ -1055,3 +1055,66 @@ Cobre branches restantes abaixo de 90%:
 - **Testes**: 315 → **340 passando**
 - **Cobertura total**: 90.28% → **92.53%**
 - **CodeQL**: 0 alertas
+
+---
+
+## ⚡ Sessão 2026-02-21 (19:49) — ANEEL/PRODIST Compliance + NormaPanel UI + Toast Override
+
+### Baseline
+340 testes passando, 92.53% cobertura.
+
+### Nova Funcionalidade — `gis_core/prodist.py`
+Módulo de conformidade ANEEL/PRODIST criado (230 linhas):
+- `TensaoClasse` enum: BT / MT / AT
+- `buffer_de_seguranca_m(classe)` — NR-10:2016 Tabela 1 (1,0 / 3,0 / 10,0 m)
+- `faixa_servidao_m(classe)` — Resolução ANEEL 156/1997 (0 / 5 / 20 m)
+- `camada_aneel(classe)` → `SISRUA_ANEEL_{BT|MT|AT}` (≤ 31 chars, DXF R14+)
+- `camada_buffer_aneel(classe)` → `SISRUA_ANEEL_BUFFER_{BT|MT|AT}`
+- `ProdistMetadata` frozen dataclass: `to_dxf_header_vars()`, `to_comment_lines()`, `to_fingerprint()`
+- `build_prodist_metadata(concessionaria, classe_tensao, numero_processo)` factory
+- `TOAST_NORMA_OVERRIDE` / `TOAST_NORMA_ABNT_RESTAURADA` — mensagens toast pt-BR
+
+### Atualização — `services/dxf_export.py`
+- Novo parâmetro `prodist_metadata: Optional[ProdistMetadata] = None`
+- Quando fornecido, chama `_inject_prodist_metadata()` (PRODIST fingerprint no DXF)
+- Quando None, usa ABNT como antes (retrocompatível)
+- Log de exportação indica norma ativa: `"norma": "PRODIST"` ou `"ABNT NBR 14166/13133"`
+
+### Novo Modelo — `models.py`
+- `ProdistConfigRequest`: `ativa` (bool), `concessionaria`, `classe_tensao` (BT/MT/AT), `numero_processo`
+- Validator rejeita classe_tensao inválida com ValueError
+
+### Novos Endpoints — `routes/enterprise.py`
+- `GET /api/v1/normas/ativas` — retorna norma ativa + toast se PRODIST
+- `POST /api/v1/normas/config` — configura norma; retorna buffer_seguranca_m e faixa_servidao_m
+- `_norma_config` dict protegido por `threading.Lock` (thread-safe)
+
+### Nova Interface — `components/NormaPanel.jsx`
+- Toggle ABNT | ANEEL/PRODIST
+- Quando PRODIST ativo: campos de concessionária, classe de tensão, buffer informativo (NR-10), nº processo
+- Callback `onToast` aciona toast "Normas da concessionária ativas — ABNT substituída"
+- Integrado em `SettingsPanel.jsx`
+
+### Atualizações Frontend
+- `api.js`: `getNormaAtiva()` e `setNormaConfig()` adicionados
+- `App.jsx`: `normaToast` state + `handleNormaToast` callback (fileToast tem prioridade)
+- `SettingsPanel.jsx`: aceita `onToast` prop, renderiza `<NormaPanel onToast={onToast} />`
+
+### Testes — `tests/test_prodist.py` (44 testes novos)
+| Classe | Testes | Cobertura |
+|--------|--------|-----------|
+| `TestBufferSeguranca` | 6 | NR-10 distâncias + hierarquia |
+| `TestFaixaServidao` | 3 | ANEEL RES 156/1997 |
+| `TestCamadas` | 7 | Nomenclatura DXF + limite 31 chars |
+| `TestProdistMetadata` | 10 | Dataclass, fingerprint, frozen |
+| `TestBuildProdistMetadata` | 3 | Factory |
+| `TestToastMessages` | 3 | Constantes ABNT/PRODIST |
+| `TestDxfExportWithProdist` | 3 | Integração DXF com coords REF_2 |
+| `TestProdistApiEndpoints` | 8 | GET/POST endpoints |
+| `gis_core/prodist.py` | — | **100%** |
+
+### Resultado Final
+- **Testes**: 340 → **384 passando**
+- **Cobertura total**: 92.53% → **92.67%**
+- **`gis_core/prodist.py`**: **100%**
+- **CodeQL**: 0 alertas

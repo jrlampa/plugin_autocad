@@ -46,6 +46,13 @@ export default function App() {
   // ** Global Error State (Resilience) **
   const [globalError, setGlobalError] = useState(null);
 
+  // ** Toast global para norma técnica (ABNT / PRODIST) **
+  const [normaToast, setNormaToast] = useState(null);
+  const handleNormaToast = (message, type = 'warning') => {
+    setNormaToast({ message, type });
+    setTimeout(() => setNormaToast(null), 6000);
+  };
+
   // ** UI State **
   const [coords, setCoords] = useState({ lat: -21.7634, lng: -41.3235 });
   const [inputText, setInputText] = useState('-21.763400, -41.323500');
@@ -227,6 +234,15 @@ export default function App() {
       {fileToast && (
         <Toast message={fileToast.message} type={fileToast.type} onClose={clearFileToast} />
       )}
+      {normaToast && !fileToast && (
+        <Toast
+          message={normaToast.message}
+          type={normaToast.type}
+          onClose={() => setNormaToast(null)}
+          duration={6000}
+        />
+      )}{/* Note: fileToast has priority over normaToast to avoid stacking.
+         normaToast is shown only when no file processing toast is active. */}
 
       {/* OVERLAY DE UPLOAD */}
       {isDraggingFile && (
@@ -306,6 +322,7 @@ export default function App() {
         setEngConfig={setEngConfig}
         uiJob={uiJob}
         api={api}
+        onToast={handleNormaToast}
       />
 
       {/* 4. JOB OVERLAY (Should be visible when settings are closed too? Or handled inside settings?

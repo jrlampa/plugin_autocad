@@ -6,11 +6,12 @@ Princípio 2.5D: elevação como atributo XDATA — NÃO como coordenada Z.
 As polilinhas são desenhadas em 2D (Z=0); a elevação é preservada como
 atributo não-gráfico para uso em relatórios e BIM-LITE.
 
-Conformidade ABNT:
-  - ABNT NBR 14166:1998 — Rede de referência cadastral municipal
-  - ABNT NBR 13133:2021 — Execução de levantamento topográfico
-  Metadados ABNT são injetados no cabeçalho DXF via XDATA no MSPACE
-  e registrados no APPID SISRUA para rastreabilidade BIM-LITE.
+Conformidade:
+  - ABNT NBR 14166:1998 / NBR 13133:2021 (padrão)
+  - ANEEL/PRODIST (quando norma da concessionária está ativa)
+
+Quando ProdistMetadata é fornecido, os metadados ABNT são substituídos
+pelos metadados PRODIST no cabeçalho DXF.
 """
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ from typing import List, Optional
 
 from backend.core.logger import get_logger
 from backend.gis_core.abnt import AbntDrawingMetadata, build_default_metadata
+from backend.gis_core.prodist import ProdistMetadata
 from backend.models import CadFeature
 
 logger = get_logger(__name__)
@@ -35,20 +37,23 @@ def export_features_to_dxf(
     crs_label: str = "SIRGAS 2000 UTM",
     metadata: Optional[AbntDrawingMetadata] = None,
     epsg: int = 31983,
+    prodist_metadata: Optional[ProdistMetadata] = None,
 ) -> Path:
     """
     Converte uma lista de CadFeature em um arquivo DXF R2010.
 
-    Injeta metadados ABNT NBR 14166/13133 no cabeçalho do documento para
-    rastreabilidade e conformidade com normas técnicas brasileiras.
+    Quando `prodist_metadata` é fornecido, os metadados ANEEL/PRODIST são
+    injetados no cabeçalho DXF em substituição aos metadados ABNT.
+    Caso contrário, usa metadados ABNT NBR 14166/13133.
 
     Args:
-        features:    Lista de features CAD (Polyline ou Point).
-        output_path: Caminho de saída. Se None, usa arquivo temporário.
-        crs_label:   Rótulo do CRS para metadados do header (legado).
-        metadata:    Metadados ABNT explícitos. Se None, derivados de `epsg`.
-        epsg:        Código EPSG da projeção (usado apenas quando `metadata`
-                     não é fornecido).
+        features:         Lista de features CAD (Polyline ou Point).
+        output_path:      Caminho de saída. Se None, usa arquivo temporário.
+        crs_label:        Rótulo do CRS para metadados do header (legado).
+        metadata:         Metadados ABNT explícitos. Se None, derivados de `epsg`.
+        epsg:             Código EPSG da projeção (usado apenas quando `metadata`
+                          não é fornecido e `prodist_metadata` é None).
+        prodist_metadata: Metadados PRODIST. Quando presente, substitui ABNT.
 
     Returns:
         Path para o arquivo .dxf gerado.
@@ -65,13 +70,26 @@ def export_features_to_dxf(
 
     msp = doc.modelspace()
 
-    # Registra APPID para XDATA (elevação 2.5D + metadados ABNT)
+    # Registra APPID para XDATA (elevação 2.5D + metadados de norma)
     doc.appids.new(APPID_SISRUA)
 
-    # Injeta metadados ABNT no cabeçalho DXF (NBR 14166 §7.1)
-    if metadata is None:
-        metadata = build_default_metadata(epsg)
-    _inject_abnt_metadata(doc, metadata)
+    # Quando PRODIST está ativo, substitui metadados ABNT pelos da concessionária
+    if prodist_metadata is not None:
+        _inject_prodist_metadata(doc, prodist_metadata)
+        log_norma = prodist_metadata.norma_ativa
+        log_extra: dict = {
+            "concessionaria": prodist_metadata.concessionaria,
+            "classe_tensao": prodist_metadata.classe_tensao.value,
+        }
+    else:
+        if metadata is None:
+            metadata = build_default_metadata(epsg)
+        _inject_abnt_metadata(doc, metadata)
+        log_norma = "ABNT NBR 14166/13133"
+        log_extra = {
+            "crs": metadata.crs_label,
+            "escala": metadata.escala_str(),
+        }
 
     _ensure_layers(doc, features)
 
@@ -91,8 +109,8 @@ def export_features_to_dxf(
         "dxf_exported",
         path=str(output_path),
         features=len(features),
-        crs=metadata.crs_label,
-        escala=metadata.escala_str(),
+        norma=log_norma,
+        **log_extra,
     )
     return output_path
 
@@ -120,6 +138,19 @@ def _inject_abnt_metadata(doc, metadata: AbntDrawingMetadata) -> None:
     # propriedades customizadas completas requerem DXF R2018+ (ACDSRECORD).
     # Para compatibilidade máxima, mantemos apenas o FINGERPRINTGUID acima.
     # As linhas ABNT completas estão disponíveis via metadata.to_comment_lines().
+
+
+def _inject_prodist_metadata(doc, metadata: ProdistMetadata) -> None:
+    """
+    Injeta metadados ANEEL/PRODIST no cabeçalho do documento DXF.
+
+    Substitui os metadados ABNT quando a norma da concessionária está ativa.
+    Usa o mesmo slot $FINGERPRINTGUID para rastreabilidade (R2010+).
+    """
+    try:
+        doc.header["$FINGERPRINTGUID"] = metadata.to_fingerprint()
+    except Exception as exc:
+        logger.warning("prodist_fingerprintguid_failed", error=str(exc))
 
 
 def _ensure_layers(doc, features: List[CadFeature]) -> None:
