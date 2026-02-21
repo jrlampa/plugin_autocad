@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from typing import List, Optional, Literal, Any, Dict
 
 class FrozenBaseModel(BaseModel):
@@ -23,18 +23,18 @@ class ProjectUpdateRequest(FrozenBaseModel):
     crs_out: Optional[str] = Field(None, description="New CRS")
 
 class PrepareOsmRequest(FrozenBaseModel):
-    latitude: float = Field(..., description="Target latitude (EPSG:4326)", json_schema_extra={"example": -21.7634})
-    longitude: float = Field(..., description="Target longitude (EPSG:4326)", json_schema_extra={"example": -41.3235})
-    radius: float = Field(..., description="Search radius in meters", json_schema_extra={"example": 500.0})
+    latitude: float = Field(..., ge=-90.0, le=90.0, description="Target latitude (EPSG:4326)", json_schema_extra={"example": -21.7634})
+    longitude: float = Field(..., ge=-180.0, le=180.0, description="Target longitude (EPSG:4326)", json_schema_extra={"example": -41.3235})
+    radius: float = Field(..., gt=0.0, le=50000.0, description="Search radius in meters (1–50000)", json_schema_extra={"example": 500.0})
 
 class PrepareGeoJsonRequest(FrozenBaseModel):
     geojson: Any = Field(..., description="GeoJSON string or object to process")
 
 class PrepareJobRequest(FrozenBaseModel):
     kind: Literal["osm", "geojson"] = Field(..., description="Type of data preparation job")
-    latitude: Optional[float] = Field(None, description="Required for kind='osm'")
-    longitude: Optional[float] = Field(None, description="Required for kind='osm'")
-    radius: Optional[float] = Field(None, description="Required for kind='osm'")
+    latitude: Optional[float] = Field(None, ge=-90.0, le=90.0, description="Required for kind='osm'")
+    longitude: Optional[float] = Field(None, ge=-180.0, le=180.0, description="Required for kind='osm'")
+    radius: Optional[float] = Field(None, gt=0.0, le=50000.0, description="Required for kind='osm'")
     geojson: Any | None = Field(None, description="Required for kind='geojson'")
 
 class CadFeature(BaseModel):
@@ -77,11 +77,24 @@ class JobStatusResponse(FrozenBaseModel):
     updated_at: float = Field(..., description="Unix timestamp of last job update")
 
 class ElevationQueryRequest(FrozenBaseModel):
-    latitude: float = Field(..., description="Target latitude (EPSG:4326)")
-    longitude: float = Field(..., description="Target longitude (EPSG:4326)")
+    latitude: float = Field(..., ge=-90.0, le=90.0, description="Target latitude (EPSG:4326)")
+    longitude: float = Field(..., ge=-180.0, le=180.0, description="Target longitude (EPSG:4326)")
 
 class ElevationProfileRequest(FrozenBaseModel):
-    path: List[List[float]] = Field(..., description="List of [lat, lon] points for the profile path")
+    path: List[List[float]] = Field(..., min_length=2, description="List of [lat, lon] points for the profile path")
+
+    @field_validator("path")
+    @classmethod
+    def validate_path_coordinates(cls, v: List[List[float]]) -> List[List[float]]:
+        for point in v:
+            if len(point) < 2:
+                raise ValueError("Cada ponto deve ter pelo menos [lat, lon].")
+            lat, lon = point[0], point[1]
+            if not (-90.0 <= lat <= 90.0):
+                raise ValueError(f"Latitude inválida: {lat}. Deve estar entre -90 e 90.")
+            if not (-180.0 <= lon <= 180.0):
+                raise ValueError(f"Longitude inválida: {lon}. Deve estar entre -180 e 180.")
+        return v
 
 class ElevationPointResponse(FrozenBaseModel):
     latitude: float = Field(..., description="Requested latitude")
