@@ -448,3 +448,48 @@ Adicionados ao final de `tests/test_dxf.py`:
 ### Infraestrutura de Testes
 - Cobertura total: **112 testes passando** (~3.6 segundos).
 - Novos testes são todos headless (sem rede, sem filesystem externo), executáveis em CI.
+
+---
+
+## 🐛 Sessão 2026-02-21 — Bug Fixes, Clean Code e DXF API Endpoint
+
+### Bug Corrigido — `services/elevation.py` (null guard para DEM ausente)
+- **Problema**: `get_elevation_profile` e `get_contours` lançavam `AttributeError` (tentativa de `rasterio.open(None)`) quando nenhum DEM estava disponível offline (`tif_path is None`).
+- **Correção em `get_elevation_profile`**: Adicionada guarda após `get_elevation_grid()` — retorna `[None] * len(coordinates)` com log `elevation_profile_no_dem`.
+- **Correção em `get_contours`**: Adicionada guarda antes dos imports pesados (`rasterio`, `numpy`, `skimage`) — retorna `[]` com log `contours_no_dem`. Mover o null check antes dos imports também resolve `ModuleNotFoundError: No module named 'skimage'` em ambientes sem scikit-image (CI/CD).
+- **Impacto**: Pipeline continua funcionando sem DEM local ou conectividade com OpenTopography — features são geradas sem elevação em vez de crashar.
+
+### Clean Code — `gis_core/osm.py` (classes inline → módulo)
+- **Problema**: `MockRow` e `MockNode` eram classes Python definidas **dentro de loops** em `_parse_overpass_to_features`. Isso cria closures desnecessárias, dificulta testes unitários e é um code smell clássico.
+- **Correção**: Extraídas para classes de módulo `_OsmWayRow` e `_OsmNodeRow`:
+  - `__slots__` para eficiência de memória.
+  - Documentação clara de responsabilidade.
+  - Importação de `Point` (shapely) movida para `_OsmNodeRow.__init__` (lazy import).
+  - Import de `Point` removido da função `_parse_overpass_to_features` (agora usa apenas `LineString`).
+- **Impacto**: Testabilidade isolada das estruturas OSM; sem mudança funcional.
+
+### Novo Endpoint — `GET /api/v1/export/dxf/{project_id}` (`enterprise.py`)
+- **Feature**: Endpoint REST que exporta um projeto salvo no SQLite como arquivo DXF R2010.
+- **Parâmetro de query**: `escala` (int, padrão: 1000) — define a escala ABNT cartográfica.
+- **Retorno**: `FileResponse` com `media_type="application/dxf"`.
+- **Conformidade**: Usa `export_project_to_dxf()` que injeta metadados ABNT NBR 14166/13133.
+- **Erros**: 404 para projeto inexistente; 500 com mensagem para falhas internas.
+- **Requer autenticação**: `X-SisRua-Token` (ISO 27001).
+
+### Refatoração — `services/export_service.py`
+- **Bug corrigido**: `str(Path().stat().st_mtime)` → `datetime.now(timezone.utc).isoformat()` (timestamp correto no GeoJSON exportado).
+- **Helpers extraídos**: `_fetch_cad_rows()` e `_check_project_exists()` — reutilizados por GeoJSON, GeoPackage e DXF export.
+- **GeoPackage**: Não tenta mais INSERT em `gpkg_contents`/`gpkg_geometry_columns` se essas tabelas não existirem na cópia do DB (evita `OperationalError` em banco padrão sisRUA).
+- **NotFoundError**: Todos os métodos de export lançam `NotFoundError` quando o projeto não existe (antes apenas GeoPackage verificava, mas de forma incorreta).
+- **Novo método**: `export_project_to_dxf(project_id, escala=1000)` — lê features do SQLite, reconstrói `CadFeature` e chama `export_features_to_dxf()` com metadados ABNT derivados do CRS armazenado.
+
+### Testes — 6 novos (total: **118 passando**)
+Adicionados ao final de `tests/test_services.py`:
+  - `test_elevation_profile_returns_nones_when_no_dem` — null guard verificado sem DEM
+  - `test_elevation_contours_returns_empty_when_no_dem` — null guard verificado sem DEM
+  - `test_export_service_dxf_not_found` — NotFoundError para projeto inexistente
+  - `test_export_service_dxf_creates_valid_file` — DXF gerado, válido R2010+, com 1 polilinha
+  - `test_osm_way_row_module_level` — _OsmWayRow acessível no módulo, atributos corretos
+  - `test_osm_node_row_module_level` — _OsmNodeRow acessível no módulo, coordenadas corretas
+
+### CodeQL — 0 alertas

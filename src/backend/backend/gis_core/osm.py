@@ -21,6 +21,42 @@ from backend.gis_core.geometry import apply_local_offset, snap_to_edge, get_boun
 
 logger = get_logger(__name__)
 
+
+class _OsmWayRow:
+    """Representação de uma via OSM projetada para UTM (uso interno do pipeline)."""
+
+    __slots__ = ("geometry", "highway", "name", "tags")
+
+    def __init__(self, way: dict, projected_geom: Any) -> None:
+        tags = way.get("tags", {})
+        self.geometry = projected_geom
+        self.highway: Optional[str] = tags.get("highway")
+        self.name: Optional[str] = tags.get("name")
+        self.tags: dict = tags
+
+    def _asdict(self) -> dict:
+        return self.tags
+
+
+class _OsmNodeRow:
+    """Representação de um nó OSM projetado para UTM (uso interno do pipeline)."""
+
+    __slots__ = ("geometry", "highway", "power", "amenity", "name", "tags")
+
+    def __init__(self, node: dict, proj_x: float, proj_y: float) -> None:
+        from shapely.geometry import Point  # type: ignore
+
+        tags = node.get("tags", {})
+        self.geometry = Point(proj_x, proj_y)
+        self.highway: Optional[str] = tags.get("highway")
+        self.power: Optional[str] = tags.get("power")
+        self.amenity: Optional[str] = tags.get("amenity")
+        self.name: Optional[str] = tags.get("name")
+        self.tags: dict = tags
+
+    def _asdict(self) -> dict:
+        return self.tags
+
 def _fetch_overpass_data(lat: float, lon: float, radius: float, check_cancel: Callable = None):
     """
     Fetches raw OSM data using the Overpass API without heavy libraries.
@@ -61,13 +97,13 @@ def _parse_overpass_to_features(data: dict, epsg_out: int):
     Parses Overpass JSON into a simplified structure compatible with the rest of the pipeline.
     """
     from pyproj import Transformer
-    from shapely.geometry import Point, LineString
-    
+    from shapely.geometry import LineString
+
     nodes = {n["id"]: n for n in data.get("elements", []) if n["type"] == "node"}
     ways = [w for w in data.get("elements", []) if w["type"] == "way"]
-    
+
     transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_out}", always_xy=True)
-    
+
     parsed_edges = []
     parsed_nodes = []
     
@@ -76,46 +112,23 @@ def _parse_overpass_to_features(data: dict, epsg_out: int):
         way_nodes = [nodes.get(node_id) for node_id in way.get("nodes", [])]
         way_nodes = [n for n in way_nodes if n]
         if len(way_nodes) < 2: continue
-        
+
         coords = [(n["lon"], n["lat"]) for n in way_nodes]
-        geom = LineString(coords)
-        
+
         # Project geometry
         projected_coords = [transformer.transform(lon, lat) for lon, lat in coords]
         projected_geom = LineString(projected_coords)
-        
-        # Create a mock-row object to keep logic consistent
-        class MockRow:
-            def __init__(self, way, geom):
-                self.geometry = geom
-                self.highway = way.get("tags", {}).get("highway")
-                self.name = way.get("tags", {}).get("name")
-                self.tags = way.get("tags", {})
-            def _asdict(self):
-                return self.tags
 
-        parsed_edges.append(MockRow(way, projected_geom))
-        
+        parsed_edges.append(_OsmWayRow(way, projected_geom))
+
     # Process Points
     for node_id, node in nodes.items():
         tags = node.get("tags", {})
-        if not tags: continue # Skim nodes that are just part of ways
-        
+        if not tags: continue  # Skip bare topology nodes that are only part of ways
+
         lon, lat = node["lon"], node["lat"]
         proj_x, proj_y = transformer.transform(lon, lat)
-        
-        class MockNode:
-            def __init__(self, node, x, y):
-                self.geometry = Point(x, y)
-                self.highway = node.get("tags", {}).get("highway")
-                self.power = node.get("tags", {}).get("power")
-                self.amenity = node.get("tags", {}).get("amenity")
-                self.name = node.get("tags", {}).get("name")
-                self.tags = node.get("tags", {})
-            def _asdict(self):
-                return self.tags
-                
-        parsed_nodes.append(MockNode(node, proj_x, proj_y))
+        parsed_nodes.append(_OsmNodeRow(node, proj_x, proj_y))
         
     return parsed_nodes, parsed_edges
 

@@ -45,6 +45,39 @@ async def export_geopackage(
         raise HTTPException(status_code=500, detail=f"Erro ao exportar GeoPackage: {e}")
 
 
+@router.get("/api/v1/export/dxf/{project_id}", tags=["Enterprise"])
+async def export_dxf(
+    project_id: str,
+    escala: int = 1_000,
+    _: None = Depends(require_token),
+):
+    """
+    Exporta projeto como arquivo DXF R2010 com metadados ABNT.
+
+    Princípio 2.5D: elevação preservada como XDATA (não como coordenada Z).
+    Conformidade: ABNT NBR 14166:1998 e NBR 13133:2021.
+
+    Args:
+        project_id: ID do projeto a exportar.
+        escala: Escala cartográfica ABNT (padrão: 1000 = 1:1.000).
+    """
+    from fastapi.responses import FileResponse
+    import backend.api as _api
+    try:
+        path = _api.export_service.export_project_to_dxf(project_id, escala=escala)
+        return FileResponse(
+            path=str(path),
+            media_type="application/dxf",
+            filename=f"sisrua_{project_id}.dxf",
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error("export_dxf_failed", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Erro ao exportar DXF: {e}")
+
+
+
 @router.get("/api/v1/export/geojson/{project_id}", tags=["Enterprise"])
 async def export_geojson(
     project_id: str,
