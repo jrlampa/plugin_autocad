@@ -108,6 +108,32 @@ class WebhookRegistrationRequest(FrozenBaseModel):
     url: str = Field(..., description="Target URL to receive webhook events", json_schema_extra={"example": "https://example.com/webhook"})
     events: Optional[List[str]] = Field(None, description="Optional list of events to subscribe to (default: all)")
 
+    @field_validator("url")
+    @classmethod
+    def validate_url_scheme(cls, v: str) -> str:
+        """Garante que a URL é HTTP/HTTPS e tem hostname para prevenir SSRF."""
+        stripped = v.strip()
+        if not stripped.lower().startswith(("http://", "https://")):
+            raise ValueError("A URL do webhook deve começar com http:// ou https://")
+        from urllib.parse import urlparse
+        parsed = urlparse(stripped)
+        if not parsed.netloc:
+            raise ValueError("A URL do webhook deve conter um hostname válido")
+        return stripped
+
+    @field_validator("events")
+    @classmethod
+    def validate_events(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        """Sanitiza e valida entradas da lista de eventos."""
+        if v is None:
+            return v
+        cleaned = []
+        for evt in v:
+            s = str(evt).strip()[:128]
+            if s:
+                cleaned.append(s)
+        return cleaned if cleaned else None
+
 class InternalEvent(FrozenBaseModel):
     event_type: str = Field(..., description="Type of the internal event", json_schema_extra={"example": "project_saved"})
     payload: Dict[str, Any] = Field(..., description="Event payload data")

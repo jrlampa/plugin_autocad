@@ -12,7 +12,7 @@ from backend.core.utils import (
 from backend.core.circuit_breaker import CircuitBreaker, CircuitState, CircuitBreakerOpenException
 from backend.models import (
     PrepareOsmRequest, ElevationQueryRequest, ElevationProfileRequest,
-    PrepareJobRequest,
+    PrepareJobRequest, WebhookRegistrationRequest,
 )
 
 # --- Rate Limit Tests ---
@@ -190,3 +190,46 @@ def test_circuit_breaker_flow():
     decorated_success = cb(success_func)
     assert decorated_success() == "ok"
     assert cb.state == CircuitState.CLOSED
+
+
+# --- WebhookRegistrationRequest Validation Tests ---
+def test_webhook_valid_https_url():
+    req = WebhookRegistrationRequest(url="https://example.com/webhook")
+    assert req.url == "https://example.com/webhook"
+
+def test_webhook_valid_http_url():
+    req = WebhookRegistrationRequest(url="http://internal.corp/hook")
+    assert req.url == "http://internal.corp/hook"
+
+def test_webhook_invalid_scheme_rejected():
+    with pytest.raises(ValidationError):
+        WebhookRegistrationRequest(url="ftp://evil.com/steal")
+
+def test_webhook_file_scheme_rejected():
+    with pytest.raises(ValidationError):
+        WebhookRegistrationRequest(url="file:///etc/passwd")
+
+def test_webhook_no_scheme_rejected():
+    with pytest.raises(ValidationError):
+        WebhookRegistrationRequest(url="evil.com/steal")
+
+def test_webhook_events_sanitized():
+    req = WebhookRegistrationRequest(
+        url="https://example.com/hook",
+        events=["  project_saved  ", "job_completed", "x" * 200],
+    )
+    assert req.events is not None
+    assert req.events[0] == "project_saved"
+    assert req.events[1] == "job_completed"
+    assert len(req.events[2]) == 128  # Truncado a 128 chars
+
+def test_webhook_events_empty_list_becomes_none():
+    req = WebhookRegistrationRequest(
+        url="https://example.com/hook",
+        events=["   ", ""],
+    )
+    assert req.events is None
+
+def test_webhook_events_none_allowed():
+    req = WebhookRegistrationRequest(url="https://example.com/hook", events=None)
+    assert req.events is None
