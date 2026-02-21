@@ -128,6 +128,20 @@ async def validate_origin(request: Request, call_next):
     client_host = request.client.host if request.client else "unknown"
     is_local = client_host in ("127.0.0.1", "localhost", "::1", "unknown")
 
+    origin = request.headers.get("Origin")
+    referer = request.headers.get("Referer")
+
+    # Validar origem ANTES de verificar autenticação (ISO 27001).
+    # Um token válido não deve sobrescrever a política de origem.
+    if origin:
+        is_localhost_origin = (
+            origin.startswith("http://localhost:")
+            or origin.startswith("http://127.0.0.1:")
+        )
+        if not is_localhost_origin and origin not in ALLOWED_ORIGINS:
+            logger.warning("security_violation_invalid_origin", origin=origin, client=client_host)
+            return Response("Forbidden: Invalid Origin", status_code=403)
+
     token = request.headers.get(AUTH_HEADER_NAME)
     master = _get_master_token()
     has_valid_auth = (token == master) or bool(token and is_valid_session(token))
@@ -139,9 +153,6 @@ async def validate_origin(request: Request, call_next):
     if request.base_url.hostname == "testserver":
         return await call_next(request)
 
-    origin = request.headers.get("Origin")
-    referer = request.headers.get("Referer")
-
     if not origin and not referer and request.url.path.startswith("/api/v1"):
         logger.warning(
             "security_violation_no_origin",
@@ -150,13 +161,6 @@ async def validate_origin(request: Request, call_next):
             has_token=bool(token),
         )
         return Response("Forbidden: Strict Origin Required", status_code=403)
-
-    if origin:
-        if origin.startswith("http://localhost:") or origin.startswith("http://127.0.0.1:"):
-            return await call_next(request)
-        if origin not in ALLOWED_ORIGINS:
-            logger.warning("security_violation_invalid_origin", origin=origin, client=client_host)
-            return Response("Forbidden: Invalid Origin", status_code=403)
 
     return await call_next(request)
 
