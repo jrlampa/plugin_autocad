@@ -16,6 +16,56 @@ class ProjectService:
         self.event_bus = event_bus
         self.audit = get_audit_logger()
 
+    def create_project(self, project_name: str, crs_out: str = "EPSG:31983") -> dict:
+        """
+        Cria um novo projeto no banco de dados.
+
+        Args:
+            project_name: Nome do projeto (obrigatório, max 255 chars).
+            crs_out: CRS de saída (padrão: SIRGAS 2000 Zona 23S).
+
+        Returns:
+            Dicionário com os dados do projeto criado.
+        """
+        import uuid
+        from datetime import datetime, timezone
+
+        project_id = str(uuid.uuid4())
+        creation_date = datetime.now(timezone.utc).isoformat()
+
+        conn = get_db_connection()
+        try:
+            conn.execute(
+                "INSERT INTO Projects (project_id, project_name, crs_out, version, creation_date) VALUES (?, ?, ?, ?, ?)",
+                (project_id, project_name.strip(), crs_out, 1, creation_date),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        project = {
+            "project_id": project_id,
+            "project_name": project_name.strip(),
+            "crs_out": crs_out,
+            "version": 1,
+            "creation_date": creation_date,
+        }
+
+        try:
+            self.audit.log(
+                event_type="CREATE",
+                entity_type="Project",
+                entity_id=project_id,
+                data={"project_name": project_name, "crs_out": crs_out},
+            )
+        except Exception as e:
+            logger.error("audit_log_failed", project_id=project_id, error=str(e))
+
+        if self.event_bus:
+            self.event_bus.publish("project_saved", project)
+
+        return project
+
     def list_projects(self) -> list:
         """Retorna todos os projetos do banco de dados."""
         conn = get_db_connection()
@@ -107,8 +157,7 @@ class ProjectService:
             fields_to_update = {k: v for k, v in updates.items() if k in allowed_fields}
             
             if not fields_to_update:
-                # No actual updates, but we might want to just bump version?
-                # For now, require at least one update or just force bump
+                # No valid fields provided — only bump the version (idempotent touch)
                 pass
 
             # Always increment version

@@ -293,3 +293,80 @@ def test_delete_project_success(client):
         )
     assert r.status_code == 204
     assert r.content == b""
+
+
+# --- Projects CREATE endpoint ---
+
+def test_create_project_requires_auth(client):
+    """POST /api/v1/projects deve exigir token de autenticação."""
+    r = client.post(
+        "/api/v1/projects",
+        json={"project_name": "Rua Nova"},
+    )
+    assert r.status_code == 401
+
+
+def test_create_project_validates_empty_name(client):
+    """POST /api/v1/projects deve rejeitar project_name vazio."""
+    r = client.post(
+        "/api/v1/projects",
+        json={"project_name": ""},
+        headers={"X-SisRua-Token": "test-token-123"},
+    )
+    assert r.status_code == 422
+
+
+def test_create_project_success(client):
+    """POST /api/v1/projects deve retornar 201 com project_id, version=1."""
+    from unittest.mock import patch
+    import backend.routes.deps as deps
+
+    fake_project = {
+        "project_id": "uuid-001",
+        "project_name": "Rua das Flores",
+        "crs_out": "EPSG:31983",
+        "version": 1,
+        "creation_date": "2026-02-21T00:00:00+00:00",
+    }
+
+    with patch.object(deps.project_service, "create_project", return_value=fake_project):
+        r = client.post(
+            "/api/v1/projects",
+            json={"project_name": "Rua das Flores"},
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+
+    assert r.status_code == 201
+    body = r.json()
+    assert body["project_id"] == "uuid-001"
+    assert body["project_name"] == "Rua das Flores"
+    assert body["version"] == 1
+    assert body["crs_out"] == "EPSG:31983"
+
+
+def test_create_project_default_crs(client):
+    """POST /api/v1/projects sem crs_out deve usar EPSG:31983 como padrão."""
+    from unittest.mock import patch, call
+    import backend.routes.deps as deps
+
+    called_with = {}
+
+    def capture(**kwargs):
+        called_with.update(kwargs)
+        return {
+            "project_id": "uuid-002",
+            "project_name": "Avenida Central",
+            "crs_out": kwargs.get("crs_out", "EPSG:31983"),
+            "version": 1,
+            "creation_date": "2026-02-21T00:00:00+00:00",
+        }
+
+    with patch.object(deps.project_service, "create_project", side_effect=capture):
+        r = client.post(
+            "/api/v1/projects",
+            json={"project_name": "Avenida Central"},
+            headers={"X-SisRua-Token": "test-token-123"},
+        )
+
+    assert r.status_code == 201
+    assert called_with.get("crs_out") == "EPSG:31983"

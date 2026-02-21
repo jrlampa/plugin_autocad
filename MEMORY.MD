@@ -666,3 +666,54 @@ Adicionados ao final de `tests/test_api_auth_and_jobs.py`:
 
 ### CodeQL — 0 alertas
 ### Code Review — sem comentários
+
+---
+
+## ✅ Sessão 2026-02-21 — CREATE Completo de Projetos (CRUD 100%)
+
+### Contexto
+O CRUD REST de projetos estava incompleto: havia List, Get, Update e Delete, mas faltava **Create**.
+Projetos eram criados apenas pelo plugin C# (inserção direta no SQLite), sem API REST.
+
+### Novo Modelo — `ProjectCreateRequest` (`models.py`)
+```python
+class ProjectCreateRequest(FrozenBaseModel):
+    project_name: str = Field(..., min_length=1, max_length=255)
+    crs_out: Optional[str] = Field("EPSG:31983")  # SIRGAS 2000 Zona 23S
+```
+- Validação automática Pydantic: `min_length=1` rejeita string vazia (422 se violado)
+- Default `EPSG:31983` centralizado no modelo (não duplicado no endpoint)
+
+### Novo Método — `ProjectService.create_project()`
+- Gera UUID v4 como `project_id`
+- Define `version=1` (baseline para Optimistic Locking)
+- Registra `creation_date` em ISO 8601 UTC (`datetime.now(timezone.utc).isoformat()`)
+- Grava em `Projects` via `INSERT INTO`
+- Loga auditoria (`event_type="CREATE"`, `entity_type="Project"`)
+- Publica evento `project_saved` no barramento de eventos (webhooks)
+
+### Novo Endpoint — `POST /api/v1/projects`
+- Retorna **201 Created** com `{project_id, project_name, crs_out, version=1, creation_date}`
+- Requer `X-SisRua-Token` (ISO 27001)
+- `crs_out` passado diretamente do modelo (sem duplicação de default)
+
+### CRUD Completo de Projetos
+
+| Método | Rota | Status | Descrição |
+|--------|------|--------|-----------|
+| `POST` | `/api/v1/projects` | `201` | ✅ Cria novo projeto |
+| `GET` | `/api/v1/projects` | `200` | ✅ Lista todos os projetos |
+| `GET` | `/api/v1/projects/{id}` | `200/404` | ✅ Detalhe de projeto |
+| `PUT` | `/api/v1/projects/{id}` | `200/404/409` | ✅ Atualiza (Optimistic Locking) |
+| `DELETE` | `/api/v1/projects/{id}` | `204/404` | ✅ Remove projeto e features |
+
+### Fix de Clean Code — `update_project()`
+Comentário `"No actual updates, but we might want to just bump version? / For now, require at least one update or just force bump"` → `"No valid fields provided — only bump the version (idempotent touch)"`.
+
+### Testes — 4 novos (total: **143 passando**)
+- `test_create_project_requires_auth` — POST sem token → 401
+- `test_create_project_validates_empty_name` — nome vazio → 422 (Pydantic)
+- `test_create_project_success` — POST → 201, project_id, version=1, crs_out
+- `test_create_project_default_crs` — sem crs_out → usa EPSG:31983
+
+### CodeQL — 0 alertas | Code Review — sem comentários

@@ -7,11 +7,27 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 
 from backend.core.auth import require_token
-from backend.models import ProjectUpdateRequest
+from backend.models import ProjectCreateRequest, ProjectUpdateRequest
 from backend.routes.deps import project_service
 from backend.services.projects import ConflictError, NotFoundError
 
 router = APIRouter()
+
+
+@router.post("/api/v1/projects", tags=["Projects"], status_code=201)
+async def create_project(
+    req: ProjectCreateRequest,
+    _: None = Depends(require_token),
+):
+    """
+    Cria um novo projeto.
+    Retorna 201 Created com os metadados do projeto gerado (ID, CRS, versão).
+    """
+    project = project_service.create_project(
+        project_name=req.project_name,
+        crs_out=req.crs_out,
+    )
+    return project
 
 
 @router.get("/api/v1/projects", tags=["Projects"])

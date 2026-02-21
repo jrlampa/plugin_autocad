@@ -17,6 +17,10 @@ class DeepHealthResponse(HealthResponse):
     components: Dict[str, ComponentHealth] = Field(..., description="Health status of internal dependencies")
     system_latency_ms: float = Field(..., description="Total time taken to perform health check")
 
+class ProjectCreateRequest(FrozenBaseModel):
+    project_name: str = Field(..., min_length=1, max_length=255, description="Nome do projeto")
+    crs_out: Optional[str] = Field("EPSG:31983", description="CRS de saída (padrão: SIRGAS 2000 Zona 23S)")
+
 class ProjectUpdateRequest(FrozenBaseModel):
     version: int = Field(..., description="Current version of the project for optimistic locking")
     project_name: Optional[str] = Field(None, description="New project name")
