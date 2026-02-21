@@ -5,4 +5,4 @@ Este arquivo existe para garantir que `backend.*` (ex.: `backend.api:app`)
 seja importável de forma consistente quando iniciado via Uvicorn.
 """
 
-__version__ = "1.0.0"
+__version__ = "0.1.0"

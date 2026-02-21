@@ -55,7 +55,7 @@ if SENTRY_DSN:
         traces_sample_rate=0.1,
         profiles_sample_rate=0.1,
         environment=os.environ.get("SENTRY_ENVIRONMENT", "development"),
-        release="sisrua-backend@1.1.0",
+        release="sisrua-backend@0.1.0",
         send_default_pii=False,
     )
 
@@ -117,7 +117,7 @@ async def _lifespan(app: FastAPI):
 # --- App FastAPI ---
 app = FastAPI(
     title="sisRUA: The Urban Data Engine",
-    version="1.1.0",
+    version="0.1.0",
     description="""
 **sisRUA** é um motor profissional de geometria urbana e inteligência GIS.
 
