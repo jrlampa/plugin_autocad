@@ -1218,3 +1218,65 @@ Módulo de conformidade ANEEL/PRODIST criado (230 linhas):
 - **Cobertura total**: 92.53% → **92.67%**
 - **`gis_core/prodist.py`**: **100%**
 - **CodeQL**: 0 alertas
+
+---
+
+## 🧪 Sessão 2026-02-21 (final) — Coverage 92.67%→93.73% + 25 Novos Testes
+
+### Baseline
+478 testes passando, 92.93% coverage (após sessão anterior que consolidou todas as fases).
+
+### Trabalho Realizado
+
+**Arquivo criado**: `tests/test_final_coverage.py` (25 testes)
+
+Cobertura por módulo após essa sessão:
+| Módulo | Antes | Depois | Linhas cobertas |
+|--------|-------|--------|-----------------|
+| `routes/health.py` | 89% | 100% | 34, 53, 64 |
+| `services/cache.py` | 86% | 98% | 33-34, 47, 49, 61-62, 66, 72 |
+| `services/dxf_export.py` | 91% | 94% | 67-69, 88, 99, 232-233, 250-251 |
+| `routes/enterprise.py` | 90% | 94% | 56, 88-89, 224-225, 342-344 |
+| **TOTAL** | **92.93%** | **93.73%** |
+
+### Testes adicionados — `routes/health.py`
+- `test_legacy_health_endpoint` — GET /health (rota legada, linha 34)
+- `test_create_session_wrong_token` — POST /auth/session com token errado → 401 (linha 53)
+- `test_health_detailed_with_auth` — GET /health/detailed com auth → 200 (linha 64)
+
+### Testes adicionados — `services/cache.py`
+- `test_redis_get_hit_returns_value` — Redis hit path (linhas 33-34)
+- `test_redis_get_returns_none_falls_to_file` — Redis miss → filesystem
+- `test_redis_get_exception_falls_to_file` — Redis erro → filesystem fallback
+- `test_file_read_exception_returns_none` — Arquivo corrompido → None (linha 49)
+- `test_file_write_error_logged` — OSError na escrita → log, sem propagar (linhas 61-62)
+- `test_redis_set_called_when_redis_present` — Redis.set chamado em `set()` (linha 66)
+- `test_safe_redis_set_exception_swallowed` — Exceção swallowed (linha 72)
+- `test_redis_read_through_on_file_hit` — Read-through Redis após filesystem hit (linha 47)
+
+### Testes adicionados — `services/dxf_export.py`
+- `test_shapely_import_error_returns_empty` — shapely ImportError → [] (linhas 67-69)
+- `test_buffer_feature_with_one_coord_skipped` — feature < 2 coords ignorada (linha 88)
+- `test_buffer_exterior_less_than_3_skipped` — exterior < 3 pontos ignorado (linha 99)
+- `test_ezdxf_import_error_raises` — ezdxf ImportError → ImportError claro (linhas 155-156)
+- `test_inject_abnt_header_exception_swallowed` — header exception swallowed (linhas 232-233)
+- `test_inject_prodist_header_exception_swallowed` — fingerprint exception swallowed (linhas 250-251)
+- `test_export_with_explicit_abnt_metadata` — caminho com metadata explícita
+
+### Testes adicionados — `routes/enterprise.py`
+- `test_norma_ativas_prodist_sem_toast_adiciona_toast` — GET /normas/ativas com toast vazio (linha 56)
+- `test_set_norma_config_invalid_classe_tensao` — classe_tensao inválida → 422 (linhas 88-89)
+- `test_export_dxf_prodist_invalid_classe_in_config` — fallback para MT (linhas 224-225)
+- `test_export_dxf_prodist_project_not_found` — NotFoundError → 404 (linha 244)
+- `test_export_dxf_prodist_generic_error_500` — RuntimeError → 500 (linhas 245-248)
+- `test_get_local_stats_db_exception_returns_zeros` — DB error → zeros (linhas 324-326)
+- `test_shutdown_self_terminate_body_covered` — closure body coberto (linhas 342-344)
+
+### Bug descoberto e documentado
+- URL correta do endpoint PRODIST DXF: `/api/v1/export/dxf-prodist/{project_id}` (hífen, não barra)
+  A documentação interna estava com a URL errada nos testes antigos.
+
+### Resultado Final
+- **Testes**: 478 → **503 passando**
+- **Cobertura total**: 92.93% → **93.73%**
+- **CodeQL**: 0 alertas
