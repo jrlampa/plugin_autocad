@@ -138,8 +138,8 @@ def prepare_geojson_compute(geo: Any, check_cancel: Callable[[], None] = None) -
                             block_name=norm_optional_str(block_name),
                             block_filepath=norm_optional_str(block_filepath),
                             insertion_point_xy=[x_proj, y_proj],
-                            rotation=props.get("rotation"),
-                            scale=props.get("scale"),
+                            rotation=float(props.get("rotation") or 0.0),
+                            scale=float(props.get("scale") or 1.0),
                             original_geojson_properties=sanitize_jsonable(props)
                         )
                     )

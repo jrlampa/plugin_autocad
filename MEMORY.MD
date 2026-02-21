@@ -1020,3 +1020,38 @@ Cobre paths não testados em `api.py` (**66% → 69%**):
 - **Cobertura total**: 87.59% → **90.28%**
 - **`services/elevation.py`**: 56% → **99%**
 - **CodeQL**: 0 alertas
+
+---
+
+## 🐛 Sessão 2026-02-21 (18:57) — Bug Fix geojson.py + Modularização + Coverage 90.28%→92.53%
+
+### Baseline
+315 testes passando, 90.28% coverage.
+
+### Bug Corrigido — `services/geojson.py` (linhas 141-142)
+- **Problema**: `rotation=props.get("rotation"), scale=props.get("scale")` passavam `None` quando Feature Point não tem essas propriedades. `CadFeature.rotation: float` e `CadFeature.scale: float` (não Optional) — Pydantic v2 lança `ValidationError`. Qualquer feature do tipo Point sem rotation/scale explícito falhava silenciosamente.
+- **Correção**: `rotation=float(props.get("rotation") or 0.0)`, `scale=float(props.get("scale") or 1.0)`
+
+### Modularização — `test_coverage_boost.py` (976 linhas → 3 arquivos <500 linhas)
+- `test_coverage_boost.py` deletado
+- `test_engine_housekeeper_audit.py` (255 linhas): 18 testes (engine_mock, housekeeper, audit)
+- `test_projects_webhooks.py` (327 linhas): 16 testes (ProjectService, WebhookService)
+- `test_cache_ai_export.py` (323 linhas): 20 testes (CacheService, AiService, ExportService)
+
+### Novos Testes — `test_remaining_paths.py` (379 linhas, 25 testes)
+Cobre branches restantes abaixo de 90%:
+| Módulo | Antes | Depois |
+|--------|-------|--------|
+| `core/retry.py` | 83% | **100%** |
+| `routes/prepare.py` | 81% | **100%** |
+| `routes/webhooks.py` | 80% | **100%** |
+| `routes/projects.py` | 80% | **97%** |
+| `services/geojson.py` | 82% | **98%** |
+| `services/health.py` | 80% | **95%** |
+| `services/executor.py` | 81% | **98%** |
+| **TOTAL** | **90.28%** | **92.53%** |
+
+### Resultado Final
+- **Testes**: 315 → **340 passando**
+- **Cobertura total**: 90.28% → **92.53%**
+- **CodeQL**: 0 alertas
