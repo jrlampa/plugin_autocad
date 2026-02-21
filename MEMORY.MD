@@ -928,3 +928,59 @@ Arquivos novos:
 | `core/utils.py` | 78% | ~89% |
 
 ### CodeQL — 0 alertas | 268 testes passando | 86% coverage
+
+---
+
+## Sessão 2026-02-21 (17:18) — Coverage 86%→87.6%, Fix Rate Limiter Cross-Test Pollution
+
+### Baseline
+268 testes passando, 86% coverage.
+
+### Trabalho Realizado
+
+**Arquivo criado**: `tests/test_jobs_tools_coverage.py` (23 testes)
+
+Cobertura por módulo após essa sessão:
+| Módulo | Antes | Depois |
+|--------|-------|--------|
+| `routes/tools.py` | 69% | 100% |
+| `services/jobs.py` | 73% | 94% |
+| `routes/jobs.py` | 77% | 100% |
+| **TOTAL** | 85.82% | **87.59%** |
+
+**Testes adicionados — `services/jobs.py`**:
+- `test_init_job_stale_idempotency_key` — chave stale no idempotency_map (job não existe mais em job_store) → nova chave, is_new=True
+- `test_update_job_on_cancelled_job_is_noop` — update em job cancelado retorna sem alterar estado
+- `test_update_job_nonexistent_job_is_noop` — update em job inexistente retorna sem erro
+- `test_check_cancellation_raises_for_cancelled_job` — lança RuntimeError("CANCELLED")
+- `test_check_cancellation_noop_for_active_job` — não lança para job ativo
+- `test_cancel_job_already_completed_returns_false` — retorna False para completed
+- `test_cancel_job_already_failed_returns_false` — retorna False para failed
+- `test_cancel_job_nonexistent_returns_false` — retorna False para inexistente
+- `test_cleanup_expired_jobs_removes_idempotency_key` — limpeza remove entrada do idempotency_map
+- `test_cleanup_expired_jobs_keeps_recent_jobs` — jobs recentes não são removidos
+- `test_persist_jobs_batch_exception_handled` — exceção de DB swallowed gracefully
+- `test_update_job_publishes_event_on_status_change` — evento publicado em transição de status
+- `test_update_job_no_event_for_same_status` — sem evento para mesmo status
+
+**Testes adicionados — `routes/tools.py`**:
+- `test_query_elevation_value_error_returns_400` — ValueError → 400
+- `test_query_elevation_generic_error_returns_500` — RuntimeError → 500
+- `test_query_profile_value_error_returns_400` — ValueError → 400
+- `test_query_profile_generic_error_returns_500` — RuntimeError → 500
+
+**Testes adicionados — `routes/jobs.py`**:
+- `test_duplicate_prepare_job_deduped` — segundo request idêntico retorna mesmo job_id
+- `test_cancel_nonexistent_job_returns_404` — DELETE para job inexistente → 404
+- `test_cancel_completed_job_returns_ok` — DELETE para job completed → 200
+- `test_get_job_nonexistent_returns_404` — GET para job inexistente → 404
+- `test_create_job_init_raises_value_error_returns_422` — ValueError em init_job → 422
+- `test_create_job_init_raises_runtime_returns_500` — RuntimeError em init_job → 500
+
+**Bug de teste corrigido**: `_limiters` (dict de token buckets) em `core/rate_limit.py` é módulo-level e persiste entre testes. Quando o conjunto completo é executado, os 5 tokens são consumidos pelos testes anteriores e os testes de error path recebiam 429 em vez de 422/500. Corrido: `_make_jobs_client` agora chama `rl_mod._limiters.clear()` antes de cada teste.
+
+### Resultado Final
+- **291 testes passando** (was 268)
+- **87.59% coverage** (was 85.82%)
+- `routes/tools.py`: 100% | `routes/jobs.py`: 100% | `services/jobs.py`: 94%
+- CodeQL: 0 alertas
