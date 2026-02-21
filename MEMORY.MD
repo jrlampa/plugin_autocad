@@ -122,10 +122,17 @@ plugin_autocad/
 
 | Descrição | CRS | Valor |
 |-----------|-----|-------|
-| Coordenada UTM de referência | SIRGAS 2000 UTM 23K | 788547 E, 7634925 N |
-| Lat/Lon equivalente | EPSG:4326 | -22.15018°, -42.92185° |
-| Raios de teste | — | 100 m, 500 m, 1000 m |
-| EPSG esperado para esta região | SIRGAS 2000 | EPSG:31983 (Zona 23S) |
+| Coordenada de campo (REF_1) | SIRGAS 2000 UTM 23K | E=788547, N=7634925 |
+| Lat/Lon de REF_1 (inversa via pyproj) | EPSG:4326 | ≈ -21.365°, -42.218° |
+| Coordenada de projeto (REF_2) | EPSG:4326 | -22.15018°, -42.92185° |
+| UTM equivalente de REF_2 | SIRGAS 2000 UTM 23S | E≈714316, N≈7549084 |
+| EPSG para ambas as coordenadas (Zona 23) | SIRGAS 2000 | EPSG:31983 (Zona 23S) |
+| Raios de teste de REF_1 | — | 100 m |
+| Raios de teste de REF_2 | — | 500 m, 1000 m |
+
+> **Nota**: REF_1 (23K 788547 7634925) e REF_2 (-22.15018°, -42.92185°) são
+> **dois locais geográficos distintos**, ambos na Zona UTM 23 (EPSG:31983).
+> Conversão verificada via `pyproj`: `latlon_to_utm(-22.15018, -42.92185)` → E≈714316, N≈7549084.
 
 ---
 
@@ -152,7 +159,14 @@ plugin_autocad/
 
 ## ⚠️ Decisões Técnicas Importantes
 
-### 2.5D (não 3D)
+### Funções de CRS (crs.py)
+- `utm_zone(longitude)` → zona UTM inteira
+- `sirgas2000_utm_epsg(lat, lon)` → EPSG da projeção SIRGAS 2000 UTM
+- `latlon_to_utm(lat, lon, epsg_out=None)` → `(easting, northing, epsg)` via pyproj
+- `utm_to_latlon(easting, northing, epsg_in)` → `(lat, lon)` via pyproj
+- `transform_coords(coords, epsg_in, epsg_out)` → lista transformada
+
+Estas funções encapsulam pyproj e são o ponto único de conversão CRS no backend.
 - A elevação é armazenada como atributo `elevation` (float) em `CadFeature`, não como coordenada Z.
 - As polilinhas CAD são desenhadas em 2D com `elevation` como propriedade de atributo.
 - Perfis de elevação são gerados separadamente via `/api/v1/tools/elevation/profile`.
