@@ -224,7 +224,7 @@ Estas funções encapsulam pyproj e são o ponto único de conversão CRS no bac
 | DXF headless | ezdxf + pytest | `src/backend/tests/test_dxf.py` |
 | C# | xUnit | `src/plugin/tests/` |
 
-> **Cobertura atual**: 96 testes pytest passando (Python backend).
+> **Cobertura atual**: 315 testes pytest passando (Python backend). Cobertura: **90.28%** (threshold: 80%).
 
 ---
 
@@ -984,3 +984,39 @@ Cobertura por módulo após essa sessão:
 - **87.59% coverage** (was 85.82%)
 - `routes/tools.py`: 100% | `routes/jobs.py`: 100% | `services/jobs.py`: 94%
 - CodeQL: 0 alertas
+
+---
+
+## 🔐 Sessão 2026-02-21 — Coverage Boost (87.59% → 90.28%) + Telemetry Bug Fix
+
+### Bug Corrigido — `api.py` endpoint de telemetria (linha 267)
+- **Problema**: `logger.info("telemetry_received", **payload)` lançava `TypeError: BoundLogger.info() got multiple values for argument 'event'` quando o payload do plugin continha a chave `event` (conflito com o parâmetro posicional do structlog).
+- **Correção**: Alterado para `logger.info("telemetry_received", payload=payload)` — seguro, estruturado, pesquisável.
+- **Impacto**: Qualquer chamada real do plugin com `{"event": "..."}` resultava em HTTP 500 silencioso.
+
+### Novos Testes — `tests/test_elevation_coverage.py` (14 testes)
+Cobre branches anteriormente não exercitados em `services/elevation.py` (**56% → 99%**):
+- Cache-hit path do `get_elevation_grid` (linha 80)
+- `_find_local_coverage`: variável de ambiente `SISRUA_DEM_LIBRARY` (linha 43), TIF compatível (52-58), TIF corrompido ignorado (59-60)
+- `get_elevation_grid`: fallback offline (89-90), limpeza de arquivo parcial (94)
+- `_download_grid`: com API key (112), sem API key + loop de download (115-121)
+- `get_elevation_at_point`: caminho rasterio (133-145), retorno None sem DEM
+- `get_elevation_profile`: sampling via rasterio (167-175)
+- `get_contours`: geração completa de curvas de nível (187-231), retorno antecipado com 1 nível (207-208), sem DEM
+
+**Técnica especial**: `_reset_download_grid_cb()` acessa a instância do CircuitBreaker via closure da função (`__closure__`) e reseta o estado para CLOSED — sem recarregar o módulo (o que quebraria outros testes que mantêm referências à classe).
+
+### Novos Testes — `tests/test_api_coverage.py` (10 testes)
+Cobre paths não testados em `api.py` (**66% → 69%**):
+- Geração automática de token quando `SISRUA_AUTH_TOKEN` não está definido (linhas 43-44)
+- Endpoint `/api/v1/audit/telemetry` (linhas 267-268) — inclui caso com chave `event` no payload
+- Middleware de headers de segurança: `X-Content-Type-Options`, `X-XSS-Protection`, `X-Frame-Options`, CSP, `Referrer-Policy`
+- Trace ID: echo-back e geração automática
+- Validação de origem: origin externo → 403, localhost passthrough, paths públicos ignoram validação
+- Resposta HTML fallback quando não há frontend dist
+
+### Resultado
+- **Testes**: 291 → **315 passando**
+- **Cobertura total**: 87.59% → **90.28%**
+- **`services/elevation.py`**: 56% → **99%**
+- **CodeQL**: 0 alertas
