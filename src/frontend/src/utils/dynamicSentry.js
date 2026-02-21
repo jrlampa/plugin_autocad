@@ -12,7 +12,7 @@ export async function initSentry() {
       Sentry.init({
         dsn,
         environment: import.meta.env.MODE,
-        release: 'sisrua-frontend@0.8.0',
+        release: 'sisrua-frontend@0.1.0',
         integrations: [
           Sentry.browserTracingIntegration(),
           Sentry.replayIntegration({

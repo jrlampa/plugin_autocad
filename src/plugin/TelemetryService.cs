@@ -28,7 +28,7 @@ namespace sisRUA
                     stack_trace = ex.StackTrace,
                     context = context,
                     os = Environment.OSVersion.ToString(),
-                    version = "1.0.0"
+                    version = "0.1.0"
                 };
 
                 var json = JsonSerializer.Serialize(payload);

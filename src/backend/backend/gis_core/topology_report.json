@@ -2,7 +2,7 @@
   "topology_integrity": {
     "status": "VALIDATED",
     "signature": "SIS-F3A9B2C1E5D8",
-    "proprietary_version": "1.1.0",
+    "proprietary_version": "0.1.0",
     "metrics": {
       "healed_nodes": 150,
       "closed_polygons": 42,

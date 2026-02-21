@@ -12,7 +12,7 @@ Pipeline técnico: Campo → GIS → CAD, offline-first, custo zero.
 
 - **Repositório**: `jrlampa/plugin_autocad`
 - **Branch principal de desenvolvimento**: `dev`
-- **Versão atual**: `1.1.0`
+- **Versão atual**: `0.1.0`
 - **Stack**: Python (FastAPI backend) + React/Vite (frontend WebView2) + C# (plugin AutoCAD)
 
 ---
@@ -295,7 +295,7 @@ docker-compose build --no-cache
 
 ---
 
-*Última atualização: 2026-02-21 | Versão do projeto: 1.1.0 | Modularização: SisRuaCommands → partial class | Validação de coordenadas + bug fix get_layer_config + bug fix ElevationService cache em geojson.py (101 testes)*
+*Última atualização: 2026-02-21 | Versão do projeto: 0.1.0 | Versionamento zerado e sincronizado em todo o projeto*
 
 ---
 
