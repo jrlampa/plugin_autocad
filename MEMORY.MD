@@ -296,3 +296,41 @@ docker-compose build --no-cache
 ---
 
 *Última atualização: 2026-02-21 | Versão do projeto: 1.1.0 | Modularização: SisRuaCommands → partial class | Validação de coordenadas + bug fix get_layer_config*
+
+---
+
+## 🔐 Sessão 2026-02-21 — Correções de Segurança e Qualidade
+
+### Autenticação nas Rotas de Auditoria (`audit_routes.py`)
+- **Problema**: Todos os endpoints `/api/audit/*` e `/api/valuation/summary` eram públicos (sem autenticação), violando ISO 27001.
+- **Correção**: Adicionada dependência `require_token` em **todos** os 8 endpoints do router de auditoria:
+  - `POST /api/audit` — criação de log
+  - `GET /api/audit` — listagem
+  - `GET /api/audit/{id}` — leitura específica
+  - `GET /api/audit/{id}/verify` — verificação de assinatura
+  - `POST /api/audit/verify-all` — verificação em lote
+  - `GET /api/audit/stats` — estatísticas
+  - `GET /api/audit/export/compliance` — exportação CSV
+  - `GET /api/valuation/summary` — métricas de valuação
+
+### Sanitização de Entrada (`audit_routes.py`)
+- `POST /api/audit`: campos `event_type`, `entity_type`, `entity_id`, `user_id` agora passam por `_safe_str()` (trunca em 256 chars — proteção DoS).
+- Campo `data` (dict livre) passa por `sanitize_jsonable()` (remove NaN/Inf, garante JSON estrito).
+- Limite `verify-all`: `limit` validado e clampeado entre 1 e 10000.
+- Imports reorganizados no topo do arquivo (clean code).
+
+### Docker Compose — Healthchecks de Produção (`docker-compose.yml`)
+- `backend`: healthcheck via `curl /api/v1/health` (30s interval, 3 retries, 15s start).
+- `redis`: healthcheck via `redis-cli ping` (10s interval).
+- `frontend`: `depends_on: backend: condition: service_healthy` (aguarda backend pronto).
+- Todos os serviços com `restart: unless-stopped`.
+
+### Testes — Cobertura de Segurança (`test_security_iso27001.py`)
+- 7 novos testes adicionados (total: 91 passando):
+  - `test_audit_post_requires_auth` — sem token → 401
+  - `test_audit_get_requires_auth` — sem token → 401
+  - `test_audit_stats_requires_auth` — sem token → 401
+  - `test_audit_export_requires_auth` — sem token → 401
+  - `test_valuation_requires_auth` — sem token → 401
+  - `test_audit_post_with_valid_token` — token válido → 201
+  - `test_audit_sanitizes_oversized_fields` — truncamento verificado
