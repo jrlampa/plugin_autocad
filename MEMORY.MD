@@ -717,3 +717,47 @@ Comentário `"No actual updates, but we might want to just bump version? / For n
 - `test_create_project_default_crs` — sem crs_out → usa EPSG:31983
 
 ### CodeQL — 0 alertas | Code Review — sem comentários
+
+---
+
+## 🐛 Sessão 2026-02-21 — Bug Fixes: audit list_logs, IPC platform guard, topology_report
+
+### Bug 1 — `audit.py` missing `list_logs()` (silently broken RAG)
+**Problema**: `ai.py AiService.generate_response()` chamava `audit.list_logs(limit=5)` para enriquecer o contexto do assistente (RAG de auditoria), mas `AuditLogger` não tinha esse método. A exceção era silenciada por um `except Exception`, fazendo o recurso de RAG de auditoria ser sempre ignorado.
+
+**Solução**: Implementado `AuditLogger.list_logs(limit=20, entity_type=None)`:
+- Query sem filtro: `SELECT ... FROM AuditLog ORDER BY audit_id DESC LIMIT ?`
+- Query com filtro: `WHERE entity_type = ?` para busca segura
+- Retorna lista de dicts: `{audit_id, event_type, entity_type, entity_id, user_id, timestamp, data, created_at}`
+- Tolera `data_json` malformado (retorna `{}` em vez de lançar)
+
+### Bug 2 — `ipc.py` imports Windows-only modules unconditionally (crash on Linux/Docker)
+**Problema**: `ipc.py` importava `win32pipe`, `win32file`, `pywintypes`, `win32security`, `win32api` no nível de módulo, causando `ModuleNotFoundError` no Linux/Docker. Embora `api.py` tivesse `except ImportError` ao importar `IpcServer`, o erro ocorria *antes* dentro do módulo.
+
+**Solução**: Guard condicional:
+```python
+if sys.platform == "win32":
+    try:
+        import win32pipe, win32file, pywintypes
+        import win32security, win32api
+        _WIN32_AVAILABLE = True
+    except ImportError:
+        _WIN32_AVAILABLE = False
+else:
+    _WIN32_AVAILABLE = False
+```
+`IpcServer.start()` retorna early com warning quando `_WIN32_AVAILABLE is False`.
+
+### Bug 3 — `topology_report.json` commitado (artefato gerado com dados falsos)
+**Problema**: `src/backend/backend/gis_core/topology_report.json` estava no `.gitignore` (linha 76) mas ainda rastreado pelo git — conteúdo com métricas hardcoded (`healed_nodes: 150`, etc.).
+**Solução**: `git rm --cached src/backend/backend/gis_core/topology_report.json`
+
+### Testes — 5 novos (total: **148 passando**)
+Adicionados ao final de `tests/test_core.py`:
+- `test_audit_list_logs_returns_list` — retorna lista mesmo vazia
+- `test_audit_list_logs_returns_correct_fields` — campos corretos (audit_id, event_type, data, etc.)
+- `test_audit_list_logs_entity_type_filter` — query usa WHERE quando entity_type é fornecido
+- `test_audit_list_logs_invalid_json_data_handled` — JSON malformado → `{}` sem exception
+- `test_ipc_server_noop_on_non_windows` — `IpcServer.start()` é no-op em Linux
+
+### CodeQL — 0 alertas | Code Review — feedback implementado (docstrings em inglês)

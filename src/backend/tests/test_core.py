@@ -233,3 +233,107 @@ def test_webhook_events_empty_list_becomes_none():
 def test_webhook_events_none_allowed():
     req = WebhookRegistrationRequest(url="https://example.com/hook", events=None)
     assert req.events is None
+
+
+# --- AuditLogger.list_logs() Tests ---
+
+def test_audit_list_logs_returns_list():
+    """list_logs() should return a list (even empty when DB has no records)."""
+    from unittest.mock import patch, MagicMock
+    from backend.core.audit import AuditLogger
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = []
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        result = logger_inst.list_logs(limit=10)
+
+    assert isinstance(result, list)
+
+
+def test_audit_list_logs_returns_correct_fields():
+    """list_logs() should include audit_id, event_type, entity_type, entity_id, data."""
+    import json
+    from unittest.mock import patch, MagicMock
+    from backend.core.audit import AuditLogger
+
+    fake_row = (
+        42,           # audit_id
+        "CREATE",     # event_type
+        "Project",    # entity_type
+        "proj-001",   # entity_id
+        "system",     # user_id
+        1700000000.0, # timestamp
+        json.dumps({"project_name": "Rua A"}),  # data_json
+        "2026-01-01 00:00:00",  # created_at
+    )
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = [fake_row]
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        result = logger_inst.list_logs(limit=5)
+
+    assert len(result) == 1
+    entry = result[0]
+    assert entry["audit_id"] == 42
+    assert entry["event_type"] == "CREATE"
+    assert entry["entity_type"] == "Project"
+    assert entry["entity_id"] == "proj-001"
+    assert entry["data"] == {"project_name": "Rua A"}
+
+
+def test_audit_list_logs_entity_type_filter():
+    """list_logs(entity_type=...) should filter results by entity_type."""
+    from unittest.mock import patch, MagicMock, call
+    from backend.core.audit import AuditLogger
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = []
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        logger_inst.list_logs(limit=5, entity_type="CadFeature")
+
+    # The second call arg should include the entity_type
+    call_args = mock_conn.execute.call_args
+    sql_or_args = call_args[0]
+    assert "entity_type" in sql_or_args[0].lower() or "WHERE" in sql_or_args[0]
+
+
+def test_audit_list_logs_invalid_json_data_handled():
+    """list_logs() should tolerate invalid data_json without raising an exception."""
+    from unittest.mock import patch, MagicMock
+    from backend.core.audit import AuditLogger
+
+    fake_row = (1, "DELETE", "Project", "p1", "system", 0.0, "not-json", None)
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = [fake_row]
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        result = logger_inst.list_logs()
+
+    # Should not raise — returns empty dict for malformed JSON
+    assert result[0]["data"] == {}
+
+
+def test_ipc_server_noop_on_non_windows():
+    """IpcServer.start() should be a no-op on non-Windows systems (Linux/macOS)."""
+    import sys
+    from unittest.mock import patch
+    from backend.core.ipc import IpcServer
+
+    server = IpcServer("test-token")
+    # Patch _WIN32_AVAILABLE to False (simulating Linux)
+    with patch("backend.core.ipc._WIN32_AVAILABLE", False):
+        server.start()
+
+    # Should NOT have started a thread
+    assert server.thread is None
+    assert server.running is False

@@ -2,12 +2,20 @@ import sys
 import time
 import struct
 import threading
-import win32pipe, win32file, pywintypes
-import win32security, win32api
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
 
+# Windows Named Pipe IPC — only available on win32
+if sys.platform == "win32":
+    try:
+        import win32pipe, win32file, pywintypes
+        import win32security, win32api
+        _WIN32_AVAILABLE = True
+    except ImportError:
+        _WIN32_AVAILABLE = False
+else:
+    _WIN32_AVAILABLE = False
 class IpcServer:
     """
     Secure IPC Server using Windows Named Pipes.
@@ -22,6 +30,9 @@ class IpcServer:
         self.thread = None
 
     def start(self):
+        if not _WIN32_AVAILABLE:
+            logger.warning("ipc_unavailable_non_windows", platform=sys.platform)
+            return
         self.running = True
         self.thread = threading.Thread(target=self._server_loop, daemon=True)
         self.thread.start()

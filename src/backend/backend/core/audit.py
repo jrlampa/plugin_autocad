@@ -215,6 +215,62 @@ class AuditLogger:
             }
         finally:
             conn.close()
+    def list_logs(self, limit: int = 20, entity_type: Optional[str] = None) -> list:
+        """
+        Returns the most recent audit log entries.
+
+        Args:
+            limit:       Maximum number of records to return (default: 20).
+            entity_type: Optional filter by entity type (e.g., "Project").
+
+        Returns:
+            List of dicts with the fields of each AuditLog entry.
+        """
+        conn = get_db_connection()
+        try:
+            if entity_type:
+                rows = conn.execute(
+                    """
+                    SELECT audit_id, event_type, entity_type, entity_id,
+                           user_id, timestamp, data_json, created_at
+                    FROM AuditLog
+                    WHERE entity_type = ?
+                    ORDER BY audit_id DESC LIMIT ?
+                    """,
+                    (entity_type, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    """
+                    SELECT audit_id, event_type, entity_type, entity_id,
+                           user_id, timestamp, data_json, created_at
+                    FROM AuditLog
+                    ORDER BY audit_id DESC LIMIT ?
+                    """,
+                    (limit,),
+                ).fetchall()
+
+            result = []
+            for row in rows:
+                try:
+                    data = json.loads(row[6]) if row[6] else {}
+                except (json.JSONDecodeError, TypeError):
+                    data = {}
+                result.append(
+                    {
+                        "audit_id": row[0],
+                        "event_type": row[1],
+                        "entity_type": row[2],
+                        "entity_id": row[3],
+                        "user_id": row[4],
+                        "timestamp": row[5],
+                        "data": data,
+                        "created_at": row[7],
+                    }
+                )
+            return result
+        finally:
+            conn.close()
 
 # Global singleton instance
 _audit_logger = None
