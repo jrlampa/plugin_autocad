@@ -108,7 +108,7 @@ async def add_trace_header(request: Request, call_next):
 
 
 # --- Middleware: Validação de Origem (ISO 27001) ---
-from backend.core.auth import AUTH_HEADER_NAME, _is_valid_session, _get_master_token
+from backend.core.auth import AUTH_HEADER_NAME, is_valid_session, _get_master_token
 
 ALLOWED_ORIGINS = {
     "http://localhost:8000", "http://127.0.0.1:8000",
@@ -130,7 +130,7 @@ async def validate_origin(request: Request, call_next):
 
     token = request.headers.get(AUTH_HEADER_NAME)
     master = _get_master_token()
-    has_valid_auth = (token == master) or bool(token and _is_valid_session(token))
+    has_valid_auth = (token == master) or bool(token and is_valid_session(token))
 
     if is_local or has_valid_auth:
         return await call_next(request)

@@ -22,7 +22,11 @@ project_service = ProjectService(event_bus=event_bus)
 job_executor = JobExecutor(cache_service=cache_service)
 ai_service = AiService()
 
-_db_path = Path(os.environ.get("LOCALAPPDATA", "")) / "sisRUA" / "projects.db"
+_db_path = (
+    Path(os.environ["LOCALAPPDATA"]) / "sisRUA" / "projects.db"
+    if os.environ.get("LOCALAPPDATA")
+    else Path.home() / ".sisrua" / "projects.db"
+)
 export_service = ExportService(db_path=_db_path)
 
 # Wiring: WebhookService escuta eventos do barramento interno

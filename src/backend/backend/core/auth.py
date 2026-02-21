@@ -28,7 +28,7 @@ def _get_master_token() -> str:
     return os.environ.get("SISRUA_AUTH_TOKEN", "")
 
 
-def _is_valid_session(token: str) -> bool:
+def is_valid_session(token: str) -> bool:
     """Verifica se um session token existe e não expirou (sliding window)."""
     if token not in SESSION_TOKENS:
         return False
@@ -54,7 +54,7 @@ def require_token(x_sisrua_token: str | None = Header(default=None, alias=AUTH_H
     if x_sisrua_token == master:
         return
 
-    if _is_valid_session(x_sisrua_token):
+    if is_valid_session(x_sisrua_token):
         return
 
     raise HTTPException(status_code=401, detail="Invalid or Expired Token")

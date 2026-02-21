@@ -27,10 +27,12 @@ from backend.services.dxf_export import (
 # ---------------------------------------------------------------------------
 # Coordenadas de referência (UTM 23S SIRGAS 2000 / EPSG:31983)
 # ---------------------------------------------------------------------------
-# Localização: -22.15018°, -42.92185° (EPSG:4326)
-# UTM calculado: E≈714316, N≈7549084 (EPSG:31983)
-REF_E = 714316.0   # Easting (m)
-REF_N = 7549084.0  # Northing (m)
+# Localização 1: -22.15018°, -42.92185° → UTM: E≈714316, N≈7549084
+# Nota: "23K 788547 7634925" em MEMORY.MD é uma SEGUNDA localização diferente
+# (aprox. -21.364°, -42.217°) usada para testes de raio em campo.
+# Para testes de integração GIS, usa-se a lat/lon -22.15018, -42.92185.
+REF_E = 714316.0   # Easting (m) para -22.15018°, -42.92185°
+REF_N = 7549084.0  # Northing (m) para -22.15018°, -42.92185°
 
 # Segunda coordenada de referência (23K 788547 7634925 conforme MEMORY.MD)
 REF2_E = 788547.0
@@ -364,6 +366,6 @@ def test_dxf_crs_pipeline_integration():
     coords = feat_dict.get("coords_xy", [])
     assert len(coords) >= 2
 
-    # O easting deve ser próximo de 714316 (±200 m de tolerância para a conversão)
+    # O easting deve ser próximo de 714316 m (tolerância ±1 m para conversão CRS)
     x0 = coords[0][0]
-    assert abs(x0 - REF_E) < 200, f"Easting UTM esperado ≈{REF_E}, obteve {x0:.1f}"
+    assert abs(x0 - REF_E) < 1.0, f"Easting UTM esperado ≈{REF_E}, obteve {x0:.1f}"
