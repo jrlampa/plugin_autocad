@@ -493,3 +493,39 @@ Adicionados ao final de `tests/test_services.py`:
   - `test_osm_node_row_module_level` — _OsmNodeRow acessível no módulo, coordenadas corretas
 
 ### CodeQL — 0 alertas
+
+---
+
+## 📦 Sessão 2026-02-21 — Modularização test_dxf.py + Limpeza de Artefatos
+
+### Modularização — `tests/test_dxf.py` (596 → 450 linhas)
+- **Problema**: `test_dxf.py` atingiu 596 linhas, violando a regra de 500 linhas.
+- **Solução**: Extraídos 11 testes ABNT para `tests/test_dxf_abnt.py` (196 linhas):
+  - `test_abnt_module_imports` — importação do módulo
+  - `test_abnt_metadata_defaults` — campos padrão SIRGAS 2000
+  - `test_abnt_escala_str` — notação 1:1.000 / 1:25.000
+  - `test_abnt_tolerancia_por_escala` — tolerâncias NBR 13133:2021
+  - `test_abnt_validate_utm_coordinates_valid` — REF_1 e REF_2 dentro do Brasil
+  - `test_abnt_validate_utm_coordinates_invalid` — coordenadas fora do Brasil
+  - `test_abnt_nearest_escala` — escala ABNT mais próxima
+  - `test_abnt_build_default_metadata_epsg` — derivação de zona do EPSG
+  - `test_abnt_comment_lines_content` — campos obrigatórios NBR 14166
+  - `test_abnt_dxf_header_fingerprintguid` — DXF com metadata ABNT explícito
+  - `test_abnt_dxf_default_metadata_applied` — DXF sem metadata usa default
+- `test_dxf.py` mantém 18 testes de geometria DXF (450 linhas).
+- Ambos os arquivos estão abaixo de 500 linhas.
+- Helpers locais (`_make_road`, constantes REF_E/REF_N/REF2_E/REF2_N) duplicados em `test_dxf_abnt.py` para independência de arquivo (padrão pytest recomendado).
+
+### Limpeza de Artefatos — git rm --cached
+- Removidos do índice git (mas mantidos localmente conforme `.gitignore`):
+  - `src/backend/pytest_v110_output.txt`
+  - `src/frontend/build_out.txt`
+  - `src/frontend/test_out_full.txt`
+  - `src/frontend/vitest_results.txt`
+  - `src/frontend/vitest_results_v2.txt`
+  - `src/frontend/vitest_v110_output.txt`
+- Esses arquivos já estavam no `.gitignore` mas eram rastreados por terem sido commitados antes das regras de ignore.
+
+### Infraestrutura de Testes
+- Cobertura total: **118 testes passando** (inalterado — apenas reorganização de arquivos).
+- Novo arquivo: `tests/test_dxf_abnt.py` (11 testes ABNT, 196 linhas).
