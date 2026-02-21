@@ -382,3 +382,18 @@ docker-compose build --no-cache
 - 2 novos testes adicionados (total: **101 passando**):
   - `test_elevation_service_requires_cache` — Verifica via `inspect.signature` que `cache` é parâmetro obrigatório.
   - `test_geojson_elevation_injection_uses_cache` — Spy em `ElevationService.__init__` garante que o cache não é `None` quando injetado pelo pipeline GeoJSON.
+
+---
+
+## ⚡ Sessão 2026-02-21 — Fix: Retry em Modo de Teste + Estabilidade CI
+
+### Bug Corrigido — `core/retry.py` (atrasos de retry em CI)
+- **Problema**: O decorador `@Retry(max_retries=3, initial_delay=2.0)` aplicado a `_download_grid` no `ElevationService` causava espera de ~14 segundos (2s + 4s + 8s) em CI (sem rede). Os testes `test_create_prepare_job_geojson_completes` e `test_create_prepare_job_geojson_blocks_completes` possuem deadline de polling de 10 segundos, tornando o job impossível de completar antes do prazo → `AssertionError: 'processing' == 'completed'`.
+- **Correção**:
+  - `core/retry.py`: Quando `SISRUA_TESTING=true`, o `sleep_time` é zerado (sem espera entre tentativas).
+  - `tests/conftest.py`: Adicionado `os.environ.setdefault("SISRUA_TESTING", "true")` para garantir que todos os testes rodem em modo de teste.
+- **Impacto**: Todos os 101 testes passam agora em ~3.7 segundos (anteriormente 2 falhavam por timeout). Comportamento em produção inalterado (SISRUA_TESTING não definido → backoff exponencial normal).
+
+### Infraestrutura de Testes
+- Cobertura total: **101 testes passando** (sem alterações).
+- `SISRUA_TESTING=true` é agora definido automaticamente em toda sessão de testes via `conftest.py`.
