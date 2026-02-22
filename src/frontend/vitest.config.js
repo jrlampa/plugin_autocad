@@ -31,8 +31,12 @@ export default defineConfig({
         '**/dist/**',
         '**/e2e/**',
         // Build/config files (not application logic)
+        'eslint.config.*',
+        'vite.config.*',
+        'vitest.config.*',
         'tailwind.config.*',
         'postcss.config.*',
+        'playwright.config.*',
         // Service worker (runs in separate thread — not testable in jsdom)
         'public/sw.js',
         // App bootstrap (requires real DOM mount)

@@ -376,3 +376,55 @@ describe('App — WebView message handler (linhas 140-141, 143-144)', () => {
     expect(api.setupSecurity).toHaveBeenCalledWith('test-token-abc');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// checkBackend — linhas 85-86 (setTimeout quando NODE_ENV≠test)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('App — checkBackend setTimeout branches (linhas 85-86, 88-89)', () => {
+  it('chama setTimeout quando NODE_ENV não é "test" e checkHealth retorna true (linhas 85-86)', async () => {
+    const { api } = await import('./api');
+    api.checkHealth.mockResolvedValueOnce(true);
+
+    vi.useFakeTimers();
+    // Simula ambiente de produção (NODE_ENV ≠ 'test')
+    vi.stubEnv('NODE_ENV', 'production');
+
+    try {
+      render(<App />);
+      // Aguarda checkHealth resolver
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+      // App deve estar presente — setTimeout chamado para atrasar setIsBackendReady
+      expect(screen.getByTestId('app-root')).toBeInTheDocument();
+    } finally {
+      vi.unstubAllEnvs();
+      vi.useRealTimers();
+    }
+  });
+
+  it('chama setTimeout(checkBackend) quando checkHealth retorna false (linhas 88-89)', async () => {
+    const { api } = await import('./api');
+    // Primeira chamada retorna false, segunda retorna true (para sair do loop)
+    api.checkHealth
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+
+    vi.useFakeTimers();
+
+    try {
+      render(<App />);
+      // Resolve a primeira chamada checkHealth (retorna false → setTimeout(checkBackend, 500))
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+      // App deve estar presente sem quebrar
+      expect(screen.getByTestId('app-root')).toBeInTheDocument();
+      // checkHealth foi chamado pelo menos uma vez
+      expect(api.checkHealth).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

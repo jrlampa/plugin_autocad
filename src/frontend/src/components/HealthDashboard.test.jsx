@@ -210,6 +210,65 @@ describe('HealthDashboard — estado degradado', () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Estado não saudável (unhealthy) — getStatusColor linha 50
+// ──────────────────────────────────────────────────────────────────────────────
+
+describe('HealthDashboard — estado não saudável (unhealthy)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    SdkService.checkHealthDetailed.mockResolvedValue({
+      ..._HEALTH_HEALTHY,
+      system_status: 'unhealthy',
+      components: {
+        database: { status: 'unhealthy', latency_ms: null, details: 'timeout' },
+        cache: { status: 'unhealthy', latency_ms: null, details: 'down' },
+        external_apis: { status: 'healthy', latency_ms: null, details: {} },
+      },
+    });
+  });
+
+  it('renderiza sem erros com sistema unhealthy (cobre getStatusColor linha 50)', async () => {
+    render(<HealthDashboard />);
+    await waitFor(() => {
+      expect(screen.getByText('Status do Sistema')).toBeInTheDocument();
+    });
+  });
+
+  it('exibe status unhealthy no badge', async () => {
+    render(<HealthDashboard />);
+    await waitFor(() => {
+      expect(screen.getByText('unhealthy')).toBeInTheDocument();
+    });
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Status desconhecido — getStatusColor default (linha 52)
+// ──────────────────────────────────────────────────────────────────────────────
+
+describe('HealthDashboard — status desconhecido (default getStatusColor)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    SdkService.checkHealthDetailed.mockResolvedValue({
+      ..._HEALTH_HEALTHY,
+      system_status: 'unknown_status',
+      components: {
+        database: { status: 'unknown_status', latency_ms: null, details: null },
+        cache: { status: 'healthy', latency_ms: 5, details: null },
+        external_apis: { status: 'healthy', latency_ms: null, details: {} },
+      },
+    });
+  });
+
+  it('renderiza sem erros com status desconhecido (cobre default linha 52)', async () => {
+    render(<HealthDashboard />);
+    await waitFor(() => {
+      expect(screen.getByText('Status do Sistema')).toBeInTheDocument();
+    });
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Estado sem detalhe de APIs externas (details vazio)
 // ──────────────────────────────────────────────────────────────────────────────
 

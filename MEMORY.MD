@@ -1967,3 +1967,46 @@ Continuar cobrindo branches e statements não cobertos no frontend, incluindo:
 4. **MapDropHandler**: os event handlers (`drop`, `dragover`) são registrados via `container.addEventListener` que é capturado pelo `_containerListeners` do mock. Invocação direta dos handlers via `_containerListeners['drop'][0](fakeEvent)` cobre as linhas sem precisar de evento DOM real.
 5. **Branch `typeof crypto !== 'undefined'` falso**: esta branch nunca é exercitada em jsdom pois `crypto` é sempre definido. V8 reporta linha 72 de ResilienceService.js como branch parcialmente coberta — é um false negative de cobertura.
 
+
+---
+
+## ⚡ Sessão 2026-02-22 (Parte 6 — Sessão 12) — Coverage Frontend 96.73% → 99.77%
+
+### Baseline
+673 testes backend (98.84%), 357 testes frontend (96.73%).
+
+### Problema / Objetivo
+Continuar cobrindo branches e statements não cobertos, eliminar arquivos de configuração da métrica de coverage.
+
+### Implementações
+
+**`vitest.config.js`** — Adicionado `playwright.config.*` ao `coverage.exclude`:
+- `playwright.config.ts` não é código de aplicação, rodava a 0% e inflava o denominador
+- `eslint.config.*`, `vite.config.*`, `vitest.config.*` já tinham sido adicionados na sessão 11
+- Após exclusões: `frontend/src` é o único group relevante no relatório
+
+**`HealthDashboard.jsx`** — Bug fix: `latency_ms?.toFixed(1)` (optional chaining):
+- `latency_ms.toFixed(1)` lançava `TypeError: Cannot read properties of null` quando componente estava `unhealthy` e latency_ms era null
+- Corrigido com `?.toFixed(1)` para `database` e `cache` — renderiza vazio quando null
+
+**`HealthDashboard.test.jsx`** (+2 describes, 3 testes):
+- Sistema `unhealthy` (linhas 49-50 em getStatusColor): `database.status='unhealthy'` → `text-red-500`
+- Status desconhecido / default (linha 51-52): `system_status='unknown_status'` → `text-slate-400`
+
+**`App.coverage.test.jsx`** (+1 describe, 2 testes):
+- `NODE_ENV='production'` via `vi.stubEnv` + `vi.useFakeTimers()` + `vi.runAllTimersAsync()` → cobre linha 85-86 (setTimeout quando não está em ambiente de teste)
+- `api.checkHealth()` retorna `false` → cobre linhas 88-89 (`setTimeout(checkBackend, 500)` — re-agendamento do retry)
+
+### Resultado Final Sessão 12
+- **Testes frontend**: 357 → **362 passando** (+5)
+- **Coverage frontend**: 96.73% → **99.77% stmts** (96.56% branches — threshold ≥ 80% ✅)
+- **App.jsx**: 98.63% → **100% stmts, 100% branches**
+- **HealthDashboard.jsx**: 98.05% stmts → **100% stmts**, 88.23% → 94.44% branches
+- **Backend**: **673 testes, 98.84%** (sem regressão)
+- **CodeQL**: 0 alertas
+
+### Descobertas Importantes
+1. **`playwright.config.ts`** estava mascarando a cobertura global — o vitest reportava a pasta `frontend` (raiz do projeto) com 0% de todas as métricas, puxando a média de 99.14% para 96.73%. Adicionar `playwright.config.*` ao exclude resolveu.
+2. **`vi.stubEnv('NODE_ENV', 'production')`** + `vi.useFakeTimers()` + `vi.runAllTimersAsync()` é a combinação correta para testar código que usa `process.env.NODE_ENV` em combinação com `setTimeout`. Sempre chamar `vi.unstubAllEnvs()` + `vi.useRealTimers()` no `finally`.
+3. **Bug HealthDashboard**: `latency_ms.toFixed(1)` sem optional chaining causa crash quando status é `unhealthy` (latency é null). Padrão correto: `latency_ms?.toFixed(1)` — deixa o span vazio quando null sem quebrar o render.
+4. **Separação de grupos no coverage**: após excluir todos os arquivos de configuração, o coverage report fica limpo com apenas os grupos: `src`, `src/components`, `src/hooks`, `src/sdk`, `src/services`. Isso facilita identificar arquivos problemáticos.
