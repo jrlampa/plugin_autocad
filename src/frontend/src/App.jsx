@@ -266,6 +266,7 @@ export default function App() {
             {globalError.type === 'RATE_LIMIT' ? <Clock size={20} /> : <AlertTriangle size={20} />}
             <span className="text-xs font-bold">{globalError.message}</span>
             <button
+              aria-label="Fechar alerta"
               onClick={() => setGlobalError(null)}
               className="ml-2 hover:bg-black/5 rounded-full p-1"
             >

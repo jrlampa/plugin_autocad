@@ -1708,3 +1708,66 @@ Coverage mínima de 80% não atingida no frontend. As maiores lacunas:
 1. `vi.unmock()` deve ser chamado ANTES de `import` no mesmo arquivo — a ordem importa em ESM.
 2. `axios.interceptors.*.use.mock.calls[0]` captura a callback registrada no load do módulo. Mas `vi.clearAllMocks()` nos `beforeEach` apaga esse histórico → capturar callbacks em variável de módulo antes de qualquer `clearAllMocks()`.
 3. Para testar `SdkService.js` real, mockar `global.fetch` é mais simples do que mockar `SisRuaClient` (TypeScript + path complex).
+
+---
+
+## ⚡ Sessão 2026-02-22 (Parte 2 — Continuação) — Coverage Boost Sessão 8
+
+### Baseline
+656 testes backend (98.77%), 263 testes frontend (81.51%).
+
+### Problema / Objetivo
+Continuar cobrindo linhas não cobertas em frontend e backend, especialmente:
+- `JobOverlay.jsx` (94.59%) — estados `failed`, `processing`, `queued`
+- `AiAssistant.jsx` (86.66%) — `handleSend`, guards de envio
+- `App.jsx` (84.19%) — branch sem webview, globalError banner, modal de marcador
+- `api.py` (86%) — IPC startup, _maybe_mount_frontend, SENTRY_DSN
+- `elevation.py` (99%) — get_contours com TIF real (constant e gradiente)
+- `dxf_export.py` (98%) — ImportError de shapely
+
+### Implementações
+
+**`src/components/JobOverlay.test.jsx`** (15 testes):
+- Estados: completed, failed, processing, queued
+- Validação de progress bar com clamping (min=0%, max=100%)
+- Lógica de mensagem: aparece só em processing/queued, nunca em failed/completed
+- `JobOverlay.jsx` coverage: **94.59% → 100%**
+
+**`src/components/AiAssistant.test.jsx`** (12 testes):
+- Mock local de `aiService` com `vi.mock('../services/aiService')`
+- Testa abrir/fechar, handleSend via botão e Enter, loading indicator "Digitando..."
+- Guards: input vazio, espaços apenas
+- `AiAssistant.jsx` coverage: **86.66% → 100%**
+
+**`src/App.additional.test.jsx`** (8 testes):
+- Mock `useMapLogic` com `isModalOpen=true` para testar modal
+- Branch sem webview → toast "disponível apenas ao rodar dentro do AutoCAD"
+- globalError RATE_LIMIT e CIRCUIT_BREAKER via `window.dispatchEvent`
+- Botão fechar com `aria-label="Fechar alerta"` (acessibilidade + test stability)
+- `App.jsx` coverage: **84.19% → 88.31%**
+
+**`App.jsx` — produção**: adicionado `aria-label="Fechar alerta"` ao botão X do banner de erro
+(acessibilidade + permite selecionar por `getByRole('button', { name: /fechar alerta/i })`)
+
+**`tests/test_coverage_session8.py`** (18 testes):
+- api.py: IPC ImportError e Exception, _maybe_mount_frontend, SENTRY_DSN guard
+- auth.py: missing token → HTTP 500
+- cache.py: CacheService.get() chave inexistente → None
+- dxf_export.py: shapely ImportError → retorna []
+- elevation.py: get_contours com None (→ []), DEM constante (→ []), DEM gradiente real com TIF temporário
+- logger.py: set_trace_id com valor e string vazia
+- osm.py: _parse_overpass_to_features com elementos vazios
+
+### Resultado Final Sessão 8
+- **Testes backend**: 638 → **656 passando** (+18)
+- **Testes frontend**: 228 → **263 passando** (+35)
+- **Coverage backend**: 98.74% → **98.77%**
+- **Coverage frontend**: 80.12% → **81.51%**
+- **AiAssistant.jsx, JobOverlay.jsx**: 0%/86.66% → **100%**
+- **CodeQL**: 0 alertas
+
+### Descobertas Importantes
+1. Para mockar módulos em testes que usam o mock global do setupTests.js: usar `vi.mock('./path/to/module')` no arquivo de teste local — ele sobrescreve o mock global para aquele arquivo.
+2. Para `useMapLogic` mockado via `vi.mock()`, as variáveis de módulo precisam ser mutáveis para permitir alteração entre testes (usar variável `let _mockMapLogic` que é reatribuída em `beforeEach`).
+3. Botões sem `aria-label` são inacessíveis e difíceis de encontrar em testes — adicionar `aria-label` é uma melhoria de acessibilidade que também melhora a testabilidade.
+4. Para testar `get_contours` com TIF real: criar um arquivo TIF temporário com `rasterio.open(..., 'w', ...)` e usar `patch.object(svc, 'get_elevation_grid', return_value=tif_path)`.

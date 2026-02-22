@@ -120,14 +120,24 @@ describe('JobOverlay — progress bar', () => {
     expect(screen.queryByText(/%/)).not.toBeInTheDocument();
   });
 
-  it('garante que o progresso não ultrapassa 100%', () => {
-    render(<JobOverlay uiJob={makeJob({ status: 'completed', progress: 2.0 })} />);
-    // Math.round(2.0 * 100) = 200% → renderiza "200%", mas width fica em min(100, 200)
+  it('garante que o progresso não ultrapassa 100% na barra visual', () => {
+    const { container } = render(<JobOverlay uiJob={makeJob({ status: 'completed', progress: 2.0 })} />);
+    // O texto mostra "200%" mas a largura da barra é limitada a 100%
     expect(screen.getByText('200%')).toBeInTheDocument();
+    const bar = container.querySelector('.h-2.bg-blue-500');
+    if (bar) {
+      // Math.min(100, Math.round(2.0 * 100)) = min(100, 200) = 100
+      expect(bar.style.width).toBe('100%');
+    }
   });
 
-  it('garante que o progresso não fica abaixo de 0%', () => {
-    render(<JobOverlay uiJob={makeJob({ status: 'processing', progress: -0.5 })} />);
+  it('garante que o progresso não fica abaixo de 0% na barra visual', () => {
+    const { container } = render(<JobOverlay uiJob={makeJob({ status: 'processing', progress: -0.5 })} />);
     expect(screen.getByText('-50%')).toBeInTheDocument();
+    const bar = container.querySelector('.h-2.bg-blue-500');
+    if (bar) {
+      // Math.max(0, Math.round(-0.5 * 100)) = max(0, -50) = 0
+      expect(bar.style.width).toBe('0%');
+    }
   });
 });

@@ -199,17 +199,13 @@ describe('App — banner de erro global', () => {
       expect(screen.getByText('Erro de rate limit para fechar')).toBeInTheDocument();
     });
 
-    // Clica no primeiro botão dentro do banner (o X de fechar)
-    const buttons = screen.getAllByRole('button');
-    const closeBannerBtn = buttons.find((b) =>
-      b.closest('[class*="absolute top-4"]') || b.className.includes('rounded-full')
-    );
-    if (closeBannerBtn) {
-      fireEvent.click(closeBannerBtn);
-      await waitFor(() => {
-        expect(screen.queryByText('Erro de rate limit para fechar')).not.toBeInTheDocument();
-      });
-    }
+    // Clica no botão "Fechar alerta" (aria-label adicionado para acessibilidade)
+    const closeBtn = screen.getByRole('button', { name: /fechar alerta/i });
+    fireEvent.click(closeBtn);
+
+    await waitFor(() => {
+      expect(screen.queryByText('Erro de rate limit para fechar')).not.toBeInTheDocument();
+    });
   });
 });
 
