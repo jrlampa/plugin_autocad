@@ -163,4 +163,29 @@ describe('useDrawingCanvas', () => {
     // Não deve duplicar a feature idêntica
     expect(stateAfterSecond.features).toHaveLength(1);
   });
+
+  it('finishDrawing trata prev que não é FeatureCollection (linha 39 — ramo [base])', () => {
+    const setPreview = vi.fn();
+    const { result } = renderHook(() => useDrawingCanvas(setPreview));
+
+    act(() => result.current.toggleDrawing());
+    act(() => result.current.addPoint({ lat: -22.15, lng: -42.92 }));
+    act(() => result.current.addPoint({ lat: -22.16, lng: -42.93 }));
+    act(() => result.current.finishDrawing());
+
+    // Chama o updater com um Feature (não FeatureCollection) como estado anterior
+    const updaterFn = setPreview.mock.calls[0][0];
+    const nonCollection = {
+      type: 'Feature',
+      geometry: { type: 'LineString', coordinates: [[-42, -22]] },
+      properties: {},
+    };
+
+    // Linha 39: base.type !== 'FeatureCollection' → existing = [base]
+    const result2 = updaterFn(nonCollection);
+
+    // A feature existente deve ser tratada como array com o elemento único
+    expect(result2.type).toBe('FeatureCollection');
+    expect(result2.features.length).toBeGreaterThanOrEqual(1);
+  });
 });

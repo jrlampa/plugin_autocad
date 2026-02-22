@@ -6,6 +6,10 @@ vi.mock('axios', () => ({
   default: {
     get: vi.fn(() => Promise.resolve({ data: { status: 'ok' } })),
     post: vi.fn(() => Promise.resolve({ data: {} })),
+    interceptors: {
+      request: { use: vi.fn() },
+      response: { use: vi.fn() },
+    },
   },
 }));
 

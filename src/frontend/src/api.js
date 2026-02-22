@@ -155,4 +155,26 @@ export const api = {
     const response = await axios.post(`${API_BASE}/normas/config`, payload);
     return response.data;
   },
+
+  /**
+   * Ferramentas: Gera curvas de nível para uma área delimitada.
+   * @param {number} minLat - Latitude mínima da área
+   * @param {number} minLon - Longitude mínima da área
+   * @param {number} maxLat - Latitude máxima da área
+   * @param {number} maxLon - Longitude máxima da área
+   * @param {number} interval - Intervalo de contorno em metros (padrão: 10)
+   * @returns {{ contours: Array, interval: number, count: number }}
+   */
+  getElevationContours: async (minLat, minLon, maxLat, maxLon, interval = 10.0) => {
+    return await ResilienceService.executeWithTracing('ELEVATION_CONTOURS', async (context) => {
+      return await ResilienceService.guard('ELEVATION_API', async () => {
+        const response = await axios.post(
+          `${API_BASE}/tools/elevation/contours`,
+          { min_lat: minLat, min_lon: minLon, max_lat: maxLat, max_lon: maxLon, interval },
+          { headers: { 'X-Trace-ID': context.traceId } },
+        );
+        return response.data;
+      });
+    });
+  },
 };

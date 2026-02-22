@@ -1666,3 +1666,391 @@ direta ao handler com MagicMock que bypassa Pydantic.
 - **Testes frontend**: 97 → **135 passando**
 - **Cobertura total**: 97.08% → **97.78%**
 - **Módulos a 100% (novos)**: circuit_breaker.py, database.py, export_service.py, geojson.py, enterprise.py, ai_routes.py, projects.py
+
+---
+
+## ⚡ Sessão 2026-02-22 — Endpoint de Curvas de Nível + Cobertura
+
+### Baseline
+608 testes passando, 98.62% cobertura.
+
+### Novo Endpoint — `POST /api/v1/tools/elevation/contours`
+- Expõe `ElevationService.get_contours()` (que já existia) via API REST.
+- Parâmetros: bounding box (`min_lat`, `min_lon`, `max_lat`, `max_lon`) + `interval` (metros, padrão 10.0).
+- Validação via `ElevationContoursRequest` (Pydantic): bounds consistentes (`max > min`), interval `> 0 e ≤ 1000`.
+- Resposta: `ElevationContoursResponse` com lista de `ContourLine` (elevação + geometria em EPSG:4326), `interval` e `count`.
+- Auth obrigatório (`X-SisRua-Token`).
+- Útil para visualização de terreno, drenagem pluvial e análise de declividade (ABNT NBR 14166:1998).
+
+### Novos Modelos (`models.py`)
+- `ElevationContoursRequest`: bounding box + interval com validação `@model_validator`.
+- `ContourLine`: elevação + geometria como lista de [lat, lon].
+- `ElevationContoursResponse`: lista de `ContourLine` + interval + count.
+
+### Frontend — `api.js`
+- Adicionado `getElevationContours(minLat, minLon, maxLat, maxLon, interval)` ao objeto `api`.
+- Usa `ResilienceService.executeWithTracing` + `guard('ELEVATION_API')` para resiliência.
+
+### Testes — `tests/test_coverage_session7.py` (30 testes)
+| Classe | Testes | Cobertura |
+|--------|--------|-----------|
+| `TestElevationContoursRequest` | 8 | Modelos + validação de bounds |
+| `TestContourLineModel` | 2 | ContourLine e ElevationContoursResponse |
+| `TestElevationContoursEndpoint` | 11 | API 200/400/422/500 + REF_2 (100m/500m/1km) |
+| `TestApiLifespanEdgePaths` | 4 | api.py housekeeper/cleanup error handlers |
+| `TestModelCoveragePaths` | 4 | models.py paths não cobertos (95, 125, 131) |
+
+### Resultado Final
+- **Testes backend**: 608 → **638 passando**
+- **Testes frontend**: 135 → **135 passando** (sem regressão)
+- **Cobertura total**: 98.62% → **98.74%**
+- **CodeQL**: 0 alertas
+
+---
+
+## ⚡ Sessão 2026-02-22 (Continuação) — Coverage Frontend ≥ 80%
+
+### Baseline
+638 testes backend (98.74%), 135 testes frontend (55.81%).
+
+### Problema
+Coverage mínima de 80% não atingida no frontend. As maiores lacunas:
+- `api.js` — 0% (180 linhas)
+- `HealthDashboard.jsx` — 0% (161 linhas)
+- `SdkService.js` — 0% (266 linhas)
+
+### Solução
+
+**`setupTests.js`** — Adicionado `interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } }` ao mock global do axios. Necessário para que o módulo real `api.js` possa se importar sem lançar TypeError.
+
+**`src/api.test.js`** (48 testes):
+- `vi.unmock('./api')` antes de importar → módulo REAL
+- Callbacks dos interceptors capturadas de `axios.interceptors.*.use.mock.calls[0]` ANTES de `clearAllMocks()`
+- Testa 401 (clear tokens), 429 (RATE_LIMIT event), 503 (CIRCUIT_BREAKER event)
+- `api.js` coverage: **0% → 100%**
+
+**`src/components/HealthDashboard.test.jsx`** (15 testes):
+- Usa o mock global de `SdkService` (setupTests.js) — componente é testado sem tocar na API real
+- Testa: loading, error, retry button, healthy, degraded, External APIs
+- `HealthDashboard.jsx` coverage: **0% → 98.05%**
+- **Descoberta importante**: `vi.useFakeTimers()` dentro de um `describe` vaza para o próximo `describe` quando não restaurado em `afterEach`. Solução: usar `afterEach(() => vi.useRealTimers())` global no topo do arquivo de teste.
+
+**`src/services/SdkService.real.test.js`** (30 testes):
+- `vi.unmock('./SdkService')` → módulo REAL
+- Mocka `global.fetch` para todas as chamadas HTTP do `SisRuaClient`
+- Testa: checkHealth, authCheck, createPrepareJob (100m/500m/1km REF_2), queryElevation, queryElevationProfile, chatWithAI, prepareOSM (IPC + fallback), prepareGeoJSON, registerWebhook, emitEvent, audit, updateProject, getJob, cancelJob
+- `SdkService.js` coverage: **0% → 100%**
+
+### Resultado Final
+- **Testes frontend**: 135 → **228 passando** (+93)
+- **Testes backend**: **638 passando** (sem regressão)
+- **Coverage frontend**: 55.81% → **80.12%** (threshold ≥ 80% ✅)
+- **Coverage backend**: **98.74%** (sem regressão)
+- **CodeQL**: 0 alertas
+
+### Descobertas Importantes
+1. `vi.unmock()` deve ser chamado ANTES de `import` no mesmo arquivo — a ordem importa em ESM.
+2. `axios.interceptors.*.use.mock.calls[0]` captura a callback registrada no load do módulo. Mas `vi.clearAllMocks()` nos `beforeEach` apaga esse histórico → capturar callbacks em variável de módulo antes de qualquer `clearAllMocks()`.
+3. Para testar `SdkService.js` real, mockar `global.fetch` é mais simples do que mockar `SisRuaClient` (TypeScript + path complex).
+
+---
+
+## ⚡ Sessão 2026-02-22 (Parte 2 — Continuação) — Coverage Boost Sessão 8
+
+### Baseline
+656 testes backend (98.77%), 263 testes frontend (81.51%).
+
+### Problema / Objetivo
+Continuar cobrindo linhas não cobertas em frontend e backend, especialmente:
+- `JobOverlay.jsx` (94.59%) — estados `failed`, `processing`, `queued`
+- `AiAssistant.jsx` (86.66%) — `handleSend`, guards de envio
+- `App.jsx` (84.19%) — branch sem webview, globalError banner, modal de marcador
+- `api.py` (86%) — IPC startup, _maybe_mount_frontend, SENTRY_DSN
+- `elevation.py` (99%) — get_contours com TIF real (constant e gradiente)
+- `dxf_export.py` (98%) — ImportError de shapely
+
+### Implementações
+
+**`src/components/JobOverlay.test.jsx`** (15 testes):
+- Estados: completed, failed, processing, queued
+- Validação de progress bar com clamping (min=0%, max=100%)
+- Lógica de mensagem: aparece só em processing/queued, nunca em failed/completed
+- `JobOverlay.jsx` coverage: **94.59% → 100%**
+
+**`src/components/AiAssistant.test.jsx`** (12 testes):
+- Mock local de `aiService` com `vi.mock('../services/aiService')`
+- Testa abrir/fechar, handleSend via botão e Enter, loading indicator "Digitando..."
+- Guards: input vazio, espaços apenas
+- `AiAssistant.jsx` coverage: **86.66% → 100%**
+
+**`src/App.additional.test.jsx`** (8 testes):
+- Mock `useMapLogic` com `isModalOpen=true` para testar modal
+- Branch sem webview → toast "disponível apenas ao rodar dentro do AutoCAD"
+- globalError RATE_LIMIT e CIRCUIT_BREAKER via `window.dispatchEvent`
+- Botão fechar com `aria-label="Fechar alerta"` (acessibilidade + test stability)
+- `App.jsx` coverage: **84.19% → 88.31%**
+
+**`App.jsx` — produção**: adicionado `aria-label="Fechar alerta"` ao botão X do banner de erro
+(acessibilidade + permite selecionar por `getByRole('button', { name: /fechar alerta/i })`)
+
+**`tests/test_coverage_session8.py`** (18 testes):
+- api.py: IPC ImportError e Exception, _maybe_mount_frontend, SENTRY_DSN guard
+- auth.py: missing token → HTTP 500
+- cache.py: CacheService.get() chave inexistente → None
+- dxf_export.py: shapely ImportError → retorna []
+- elevation.py: get_contours com None (→ []), DEM constante (→ []), DEM gradiente real com TIF temporário
+- logger.py: set_trace_id com valor e string vazia
+- osm.py: _parse_overpass_to_features com elementos vazios
+
+### Resultado Final Sessão 8
+- **Testes backend**: 638 → **656 passando** (+18)
+- **Testes frontend**: 228 → **263 passando** (+35)
+- **Coverage backend**: 98.74% → **98.77%**
+- **Coverage frontend**: 80.12% → **81.51%**
+- **AiAssistant.jsx, JobOverlay.jsx**: 0%/86.66% → **100%**
+- **CodeQL**: 0 alertas
+
+### Descobertas Importantes
+1. Para mockar módulos em testes que usam o mock global do setupTests.js: usar `vi.mock('./path/to/module')` no arquivo de teste local — ele sobrescreve o mock global para aquele arquivo.
+2. Para `useMapLogic` mockado via `vi.mock()`, as variáveis de módulo precisam ser mutáveis para permitir alteração entre testes (usar variável `let _mockMapLogic` que é reatribuída em `beforeEach`).
+3. Botões sem `aria-label` são inacessíveis e difíceis de encontrar em testes — adicionar `aria-label` é uma melhoria de acessibilidade que também melhora a testabilidade.
+4. Para testar `get_contours` com TIF real: criar um arquivo TIF temporário com `rasterio.open(..., 'w', ...)` e usar `patch.object(svc, 'get_elevation_grid', return_value=tif_path)`.
+
+---
+
+## ⚡ Sessão 2026-02-22 (Parte 3 — Continuação) — Coverage Boost Sessão 9
+
+### Baseline
+673 testes backend (98.84%), 303 testes frontend (82.63%).
+
+### Problema / Objetivo
+Continuar cobrindo linhas não cobertas. Prioridades:
+- `SettingsPanel.jsx` (96.2%) — loading guard (linha 49), slider (103), engConfig selects (155-158)
+- `MapView.jsx` (76.78%) — tileerror handler (93-101), MapClickHandler drag (53, 55-56)
+- `useFileProcessing.js` (92.56%) — GeoJSON inválido (52-53), non-JSON webview (59-61)
+- `geocode.py` (99%) — linha 183 (_sanitize_query retorna vazio)
+- `cache.py` (98%) — linha 49 (arquivo corrompido)
+- `elevation.py` (99%) — linha 145 (DEM constante → levels < 2)
+
+### Implementações
+
+**`useFileProcessing.test.js`** (+3 testes):
+- `FILE_DROPPED_GEOJSON` com estrutura inválida (sem features/geometry) → toast erro (linha 52)
+- `FILE_DROPPED_GEOJSON` com JSON malformado → catch interno (linhas 53-54)
+- Mensagem WebView não-JSON → outer catch silencioso (linhas 59-61)
+- `useFileProcessing.js`: **92.56% → 100%**
+
+**`SettingsPanel.test.jsx`** (23 novos testes):
+- Mock `NormaPanel` com `vi.mock('./NormaPanel', ...)` para evitar dependências de api
+- `loading=true` → `onClick={() => !loading && setShowSettings(!showSettings)}` → setShowSettings NÃO chamado
+- Slider `onChange` → `parseInt(e.target.value, 10)` → setRadius + setRadiusInput
+- Select perfil/CRS → `setEngConfig({...engConfig, profile_name/crs_out: e.target.value})`
+- `SettingsPanel.jsx`: **96.2% → 100%**
+
+**`MapView.test.jsx`** (14 novos testes):
+- Técnica chave: mock `TileLayer` captura `eventHandlers.tileerror` em variável `_tileerrorHandler`
+- Técnica chave: mock `useMap` captura handlers de `map.on(event, handler)` em `_mapEventHandlers`
+- `vi.useFakeTimers()` para testar o `setTimeout(() => isDragging = false, 50)` no dragend
+- `MapView.jsx`: **76.78% → 91.96%**
+
+**`test_coverage_session9.py`** (17 testes):
+- `geocode.py`: `geocode('<>')`  → `_sanitize_query` → string vazia → None (linha 183)
+- `cache.py`: arquivo de cache corrompido → `json.loads` lança → `except Exception: pass` → None (linha 49)
+- `osm.py`: `_parse_overpass_to_features({elements: []})` → loops sem iterações
+- `elevation.py`: DEM constante com TIF real → `z_min == z_max` → `len(levels) == 1 < 2` → `return []` (linha 145)
+
+### Resultado Final Sessão 9
+- **Testes backend**: 656 → **673 passando** (+17)
+- **Testes frontend**: 263 → **303 passando** (+40)
+- **Coverage backend**: 98.77% → **98.84%**
+- **Coverage frontend**: 81.52% → **82.63%**
+- **SettingsPanel.jsx, useFileProcessing.js**: 96.2%/92.56% → **100%**
+- **MapView.jsx**: 76.78% → **91.96%**
+- **CodeQL**: 0 alertas
+
+### Descobertas Importantes
+1. Para testar handlers de eventos Leaflet (map.on), o mock de `useMap` deve capturar os handlers em `_mapEventHandlers[event] = [...]`. Após o render, os handlers podem ser invocados diretamente nos testes.
+2. `vi.useFakeTimers()` + `vi.advanceTimersByTime(50)` é essencial para testar `setTimeout` em hooks React.
+3. Para mockar sub-componentes com dependências externas em testes de pai, usar `vi.mock('./SubComponent', () => ({ default: () => <div>Mock</div> }))` no nível do arquivo de teste.
+4. `geocode.py`: função pública se chama `geocode()` (não `smart_geocode()`). Endpoint é GET não POST.
+5. `cache.py`: `CacheService._sanitize_key(key)` é necessário para calcular o nome do arquivo de cache correspondente ao criar fixtures de teste corrompidas.
+
+---
+
+## ⚡ Sessão 2026-02-22 (Parte 4 — Continuação) — Coverage Boost Sessão 10
+
+### Baseline
+673 testes backend (98.84%), 303 testes frontend (82.63%).
+
+### Problema / Objetivo
+Continuar cobrindo linhas não cobertas com o menor número de mudanças:
+- `SettingsPanel.jsx` linha 103 (inputLoading spinner)
+- `App.jsx` linhas 173, 176-182, 377, 140-141, 143-144
+- `useMapLogic.js` linhas 37-38 (cancelMarker)
+- `useFileProcessing.js` linhas 39-40, 42-43 (KML inválido, KML que lança)
+- `sdk/client.ts` linhas 134-135 (rootGet)
+
+### Implementações
+
+**`SettingsPanel.test.jsx`** (+1 teste):
+- `inputLoading=true` → `.animate-spin` div renderizada (linha 103)
+
+**`App.coverage.test.jsx`** (novo, 9 testes):
+- `handleGeocode` sucesso: `api.smartGeocode.mockResolvedValueOnce({lat, lng})` → verifica chamada API
+- `handleMapClick` isDrawing=true: mock `MapCanvas` captura `handleMapClick`; mock `useDrawingCanvas` com `isDrawing=true` → verifica `addPoint` chamado (linhas 176-177)
+- Modal `desc` onChange: `setMetaInput` chamado com `{desc: ...}` (linha 377)  
+- WebView non-JSON → `catch(e)` → `console.error` (linhas 140-141)
+- WebView data não-string → `else` → `console.warn` (linhas 143-144)
+
+**`useMapLogic.test.js`** (+1 teste):
+- `cancelMarker`: `handleSymbolDrop` → modal aberto → `cancelMarker` → modal fechado, `markers=[]` (linhas 37-38)
+- `useMapLogic.js`: **95.74% → 100%**
+
+**`useFileProcessing.test.js`** (+2 testes + `vi.mock('@mapbox/togeojson', ...)`):
+- `vi.mock('@mapbox/togeojson', ...)` com variáveis mutáveis `_kmlMockReturn` / `_kmlMockThrow`
+- KML → `kml()` retorna sem features → `showError('KMZ/KML inválido...')` (linha 39)
+- KML → `kml()` lança Error → `catch(err)` → `showError('Erro ao processar KML...')` (linha 42)
+
+**`sdk/client.test.ts`** (novo, 26 testes):
+- Todos os 19 métodos de API, incluindo `rootGet()` (linhas 134-135) e `verifyAllLogsApiAuditVerifyAllPost` (linha 124)
+- Construtor, `request()` (token, Content-Type, resposta não-ok)
+- `sdk/client.ts`: **97.80% → 100%**
+
+### Resultado Final Sessão 10
+- **Testes frontend**: 303 → **342 passando** (+39)
+- **Coverage frontend**: 82.63% → **84.10%**
+- **App.jsx**: 88.35% → **97.60%**
+- **useMapLogic.js**: 95.74% → **100%**
+- **sdk/client.ts**: 97.80% → **100%**
+- **useFileProcessing.js**: 96.69% → ~**100%** (linhas KML cobertas)
+- **CodeQL**: 0 alertas
+
+### Técnicas-chave desta sessão
+1. **Mock de MapCanvas** para capturar `handleMapClick`: `vi.mock('./components/MapCanvas', () => ({ default: ({ handleMapClick }) => { _capturedOnMapClick = handleMapClick; return <div />; } }))` — permite invocar `handleMapClick` diretamente sem passar pelo evento de mapa.
+2. **Mock de `useDrawingCanvas`** com variável mutável `_mockIsDrawing`: permite controlar `isDrawing` por teste sem precisar acionar o toggle real.
+3. **`vi.mock('@mapbox/togeojson', ...)`** com `_kmlMockReturn` / `_kmlMockThrow`: controla o retorno/exceção do `kml()` por teste, mesmo quando importado dinamicamente (`await import('@mapbox/togeojson')`).
+4. **WebView message handler**: configurar `window.chrome.webview` com `addEventListener` capturando listeners, depois `_emit()` via `listeners[event].forEach(cb => cb({data}))` — cobre os caminhos error (non-JSON) e warning (non-string).
+5. **`sdk/client.test.ts`** em TypeScript: Vitest suporta TypeScript nativamente — mesmas técnicas de mock global.fetch com `makeFetchOk` / `makeFetchError`.
+
+---
+
+## ⚡ Sessão 2026-02-22 (Parte 5 — Sessão 11) — Coverage Frontend 84.10% → 96.73%
+
+### Baseline
+673 testes backend (98.84%), 342 testes frontend (84.10%).
+
+### Problema / Objetivo
+Continuar cobrindo branches e statements não cobertos no frontend, incluindo:
+- `ErrorBoundary.jsx` linhas 64-65 (localStorage catch), 87-89 (clipboard reject)
+- `SdkTest.jsx` linhas 15-17 (checkHealth error path)
+- `MapView.jsx` linhas 21-27, 29-30 (MapDropHandler drop/dragover)
+- `App.jsx` linhas 125-127 (INIT_AUTH_TOKEN WebView message)
+- `useMapLogic.js` linha 22 (confirmMarker com currentDrop null)
+- `useDrawingCanvas.js` linha 39 (finishDrawing com non-FeatureCollection)
+- `useFileProcessing.js` linha 89 (handleGlobalDrop com geometry)
+- `ResilienceService.js` linha 72 (crypto.randomUUID fallback)
+- `NormaPanel.jsx` linhas 37, 39, 48 (branches de fallback)
+
+### Implementações
+
+**`vitest.config.js`** — Adicionado `coverage.exclude` para arquivos não testáveis:
+- Build configs (tailwind.config.*, postcss.config.js) — não são lógica de aplicação
+- Service Worker (`public/sw.js`) — roda em thread separada, não testável em jsdom
+- Bootstrap da app (`src/main.jsx`) — requer real DOM mount
+- Sentry (`src/sentry.js`, `src/utils/dynamicSentry.js`) — requer rede/DSN real
+- Type declarations (`src/sdk/types.ts`) — sem statements em runtime
+
+**`ErrorBoundary.test.jsx`** (+2 testes):
+- `Storage.prototype.getItem` lança → `catch {}` vazio exercitado (linhas 64-65)
+- `navigator.clipboard.writeText` rejeita → `.catch()` → `alert(...)` chamado (linhas 87-89)
+- Ambos os `Object.defineProperty(navigator.clipboard)` agora usam `configurable: true` para consistência
+
+**`SdkTest.test.jsx`** (novo arquivo, 2 testes):
+- `checkHealth()` retorna ok → componente retorna `null`
+- `checkHealth()` lança → status='ERROR', detalhes exibidos (linhas 15-17)
+
+**`MapView.test.jsx`** (+4 testes):
+- `drop` event com `symbolType='POSTE'` → `onSymbolDrop` chamado (linhas 21-27)
+- `drop` event sem symbolType → `onSymbolDrop` NÃO chamado
+- `dragover` event com `types=['symbolType']` → `preventDefault` chamado (linha 29-30)
+- `dragover` event sem symbolType → `preventDefault` NÃO chamado
+
+**`App.coverage.test.jsx`** (+1 teste):
+- WebView emite `INIT_AUTH_TOKEN` com token → `api.setupSecurity(token)` chamado (linhas 125-127)
+
+**`useMapLogic.test.js`** (+1 teste):
+- `confirmMarker()` com `currentDrop=null` → guard `if (!currentDrop) return` (linha 22)
+
+**`useDrawingCanvas.test.js`** (+1 teste):
+- `finishDrawing` com `prev` sendo Feature (não FeatureCollection) → `existing = [base]` (linha 39)
+
+**`useFileProcessing.test.js`** (+1 teste):
+- `handleGlobalDrop` com JSON Feature (tem `geometry`, sem `features`) → `previewGeoJson` definido (linha 89)
+
+**`ResilienceService.test.js`** (+1 teste):
+- `delete crypto.randomUUID` → `Math.random().toString(36)...` usado como fallback (linha 72)
+- Nota: branch `typeof crypto === 'undefined'` é estruturalmente não-cobrível em jsdom (crypto é sempre definido)
+
+**`NormaPanel.test.jsx`** (+2 testes):
+- API retorna sem `ativa`/`classe_tensao` → fallbacks `'ABNT'`/`'MT'` ativados (linhas 37, 39)
+- API retorna `classe_tensao='INVALIDA'` → `CLASSES_TENSAO.find()` retorna `undefined` → `found || null` (linha 48)
+
+### Resultado Final Sessão 11
+- **Testes frontend**: 342 → **357 passando** (+15)
+- **Coverage frontend**: 84.10% → **96.73%** (threshold ≥ 80% ✅)
+- **MapView.jsx**: 91.96% → **100%**
+- **SdkTest.jsx**: 86.95% → **100%**
+- **ErrorBoundary.jsx**: 95.09% → **100% stmts/lines** (branches parcialmente limitados por jsdom)
+- **Backend**: **673 testes, 98.84%** (sem regressão)
+- **CodeQL**: 0 alertas
+
+### Descobertas Importantes
+1. **Coverage exclusions em vitest.config.js**: arquivos de configuração de build, service worker, bootstraps e type-only files devem ser excluídos do coverage — eles nunca são executáveis em jsdom e mascaram a cobertura real da aplicação.
+2. **`navigator.clipboard` em jsdom**: precisa de `configurable: true` em `Object.defineProperty` para ser redefinido entre testes. Usar sempre `configurable: true` quando há múltiplos testes que redefinam a mesma propriedade.
+3. **SdkTest.jsx**: usa o mock global de `SdkService` do setupTests.js. Para testar o path de erro, usar `SdkService.checkHealth.mockRejectedValueOnce(...)` + `waitFor` para aguardar o efeito assíncrono.
+4. **MapDropHandler**: os event handlers (`drop`, `dragover`) são registrados via `container.addEventListener` que é capturado pelo `_containerListeners` do mock. Invocação direta dos handlers via `_containerListeners['drop'][0](fakeEvent)` cobre as linhas sem precisar de evento DOM real.
+5. **Branch `typeof crypto !== 'undefined'` falso**: esta branch nunca é exercitada em jsdom pois `crypto` é sempre definido. V8 reporta linha 72 de ResilienceService.js como branch parcialmente coberta — é um false negative de cobertura.
+
+
+---
+
+## ⚡ Sessão 2026-02-22 (Parte 6 — Sessão 12) — Coverage Frontend 96.73% → 99.77%
+
+### Baseline
+673 testes backend (98.84%), 357 testes frontend (96.73%).
+
+### Problema / Objetivo
+Continuar cobrindo branches e statements não cobertos, eliminar arquivos de configuração da métrica de coverage.
+
+### Implementações
+
+**`vitest.config.js`** — Adicionado `playwright.config.*` ao `coverage.exclude`:
+- `playwright.config.ts` não é código de aplicação, rodava a 0% e inflava o denominador
+- `eslint.config.*`, `vite.config.*`, `vitest.config.*` já tinham sido adicionados na sessão 11
+- Após exclusões: `frontend/src` é o único group relevante no relatório
+
+**`HealthDashboard.jsx`** — Bug fix: `latency_ms?.toFixed(1)` (optional chaining):
+- `latency_ms.toFixed(1)` lançava `TypeError: Cannot read properties of null` quando componente estava `unhealthy` e latency_ms era null
+- Corrigido com `?.toFixed(1)` para `database` e `cache` — renderiza vazio quando null
+
+**`HealthDashboard.test.jsx`** (+2 describes, 3 testes):
+- Sistema `unhealthy` (linhas 49-50 em getStatusColor): `database.status='unhealthy'` → `text-red-500`
+- Status desconhecido / default (linha 51-52): `system_status='unknown_status'` → `text-slate-400`
+
+**`App.coverage.test.jsx`** (+1 describe, 2 testes):
+- `NODE_ENV='production'` via `vi.stubEnv` + `vi.useFakeTimers()` + `vi.runAllTimersAsync()` → cobre linha 85-86 (setTimeout quando não está em ambiente de teste)
+- `api.checkHealth()` retorna `false` → cobre linhas 88-89 (`setTimeout(checkBackend, 500)` — re-agendamento do retry)
+
+### Resultado Final Sessão 12
+- **Testes frontend**: 357 → **362 passando** (+5)
+- **Coverage frontend**: 96.73% → **99.77% stmts** (96.56% branches — threshold ≥ 80% ✅)
+- **App.jsx**: 98.63% → **100% stmts, 100% branches**
+- **HealthDashboard.jsx**: 98.05% stmts → **100% stmts**, 88.23% → 94.44% branches
+- **Backend**: **673 testes, 98.84%** (sem regressão)
+- **CodeQL**: 0 alertas
+
+### Descobertas Importantes
+1. **`playwright.config.ts`** estava mascarando a cobertura global — o vitest reportava a pasta `frontend` (raiz do projeto) com 0% de todas as métricas, puxando a média de 99.14% para 96.73%. Adicionar `playwright.config.*` ao exclude resolveu.
+2. **`vi.stubEnv('NODE_ENV', 'production')`** + `vi.useFakeTimers()` + `vi.runAllTimersAsync()` é a combinação correta para testar código que usa `process.env.NODE_ENV` em combinação com `setTimeout`. Sempre chamar `vi.unstubAllEnvs()` + `vi.useRealTimers()` no `finally`.
+3. **Bug HealthDashboard**: `latency_ms.toFixed(1)` sem optional chaining causa crash quando status é `unhealthy` (latency é null). Padrão correto: `latency_ms?.toFixed(1)` — deixa o span vazio quando null sem quebrar o render.
+4. **Separação de grupos no coverage**: após excluir todos os arquivos de configuração, o coverage report fica limpo com apenas os grupos: `src`, `src/components`, `src/hooks`, `src/sdk`, `src/services`. Isso facilita identificar arquivos problemáticos.

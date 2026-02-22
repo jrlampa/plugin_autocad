@@ -115,7 +115,7 @@ export default function HealthDashboard({ onClose }) {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-slate-400">
-              {health?.components?.database.latency_ms.toFixed(1)}ms
+              {health?.components?.database.latency_ms?.toFixed(1)}ms
             </span>
             <StatusIcon status={health?.components?.database.status} />
           </div>
@@ -129,7 +129,7 @@ export default function HealthDashboard({ onClose }) {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-slate-400">
-              {health?.components?.cache.latency_ms.toFixed(1)}ms
+              {health?.components?.cache.latency_ms?.toFixed(1)}ms
             </span>
             <StatusIcon status={health?.components?.cache.status} />
           </div>

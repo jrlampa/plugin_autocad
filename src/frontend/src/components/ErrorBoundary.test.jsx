@@ -92,6 +92,7 @@ describe('ErrorBoundary', () => {
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: writeTextMock },
       writable: true,
+      configurable: true,
     });
 
     render(
@@ -116,5 +117,54 @@ describe('ErrorBoundary', () => {
       const errors = JSON.parse(stored);
       expect(Array.isArray(errors)).toBe(true);
     }
+  });
+
+  it('silencia erros de localStorage em componentDidCatch (linhas 64-65)', () => {
+    // Faz localStorage.getItem lançar para exercitar o catch vazio
+    const originalGet = Object.getOwnPropertyDescriptor(Storage.prototype, 'getItem');
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementationOnce(() => {
+      throw new Error('storage unavailable');
+    });
+
+    render(
+      <ErrorBoundary>
+        <BrokenChild shouldThrow={true} />
+      </ErrorBoundary>
+    );
+
+    // Componente não deve quebrar mesmo com localStorage lançando
+    expect(screen.getByText(/Algo deu errado/i)).toBeInTheDocument();
+
+    if (originalGet) Object.defineProperty(Storage.prototype, 'getItem', originalGet);
+  });
+
+  it('lida com falha de clipboard ao copiar relatório de erro (linhas 87-89)', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const originalAlert = window.alert;
+    const alertMock = vi.fn();
+    window.alert = alertMock;
+
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockRejectedValue(new Error('Clipboard not available')) },
+      writable: true,
+      configurable: true,
+    });
+
+    render(
+      <ErrorBoundary>
+        <BrokenChild shouldThrow={true} />
+      </ErrorBoundary>
+    );
+
+    fireEvent.click(screen.getByText(/Copiar Relatório/i));
+
+    // Aguarda microtasks (Promise rejection handling)
+    await new Promise((r) => setTimeout(r, 50));
+
+    // O catch chama console.log e alert (linhas 87-89)
+    expect(alertMock).toHaveBeenCalledWith('Erro ao copiar. Verifique o console.');
+
+    window.alert = originalAlert;
+    consoleSpy.mockRestore();
   });
 });
