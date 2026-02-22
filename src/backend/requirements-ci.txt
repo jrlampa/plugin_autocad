@@ -11,4 +11,5 @@ groq
 structlog
 sentry-sdk[fastapi]
 ezdxf
+scikit-image
 

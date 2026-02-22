@@ -310,6 +310,48 @@ Testes adicionados:
 
 ---
 
+## ⚡ Sessão 2026-02-21 (22:12) — Fix skimage + Coverage boost V3: lifecycle/ipc/buffer/cache
+
+### Baseline
+478 testes passando, 90.75% cobertura (2 testes falhando por scikit-image ausente do CI).
+
+### Bug Corrigido — `scikit-image` ausente em `requirements-ci.txt`
+- **Problema**: `test_elevation_coverage.py` importava `skimage.measure` via `elevation.py`,
+  mas `scikit-image` constava apenas em `requirements.txt`, não em `requirements-ci.txt`.
+  Resultado: 2 testes falhavam (`test_get_contours_with_dem`, `test_get_contours_single_level_returns_empty`).
+- **Correção**: Adicionado `scikit-image` a `requirements-ci.txt`.
+
+### Novo Arquivo — `tests/test_lifecycle_ipc_coverage.py` (15 testes)
+Cobre os módulos com menor cobertura:
+
+| Módulo | Antes | Depois |
+|--------|-------|--------|
+| `core/lifecycle.py` | 51% | **97%** |
+| `core/ipc.py` | 35% | **62%** |
+
+Testes adicionados:
+- **`TestActiveJobRegistry`** (9): add/remove, wait_for_completion (vazio, thread ok, timeout, múltiplas threads), SHUTDOWN_EVENT, job_registry singleton
+- **`TestIpcServer`** (6): start() no-op no Linux, stop() sets running=False, stop() silencia OSError, start() com win32 mockado, PIPE_NAME, BUFFER_SIZE
+
+### Novo Arquivo — `tests/test_buffer_cache_coverage.py` (12 testes)
+Cobre os módulos:
+
+| Módulo | Antes | Depois |
+|--------|-------|--------|
+| `core/buffer.py` | 83% | **97%** |
+| `services/cache.py` | 83% | **92%** |
+
+Testes adicionados:
+- **`TestPersistenceBuffer`** (5): flush por batch_size, stop() com flush final, sentinel break, exceção no callback, flush por tempo
+- **`TestCacheServiceRedis`** (7): Redis get hit, Redis miss→fallback filesystem, Redis set, _safe_redis_set, exceção silenciada, file write error, file read error
+
+### Resultado Final
+- **Testes**: 478 → **505 passando** (0 falhando)
+- **Cobertura total**: 90.75% → **92.42%**
+- **CodeQL**: 0 alertas
+
+---
+
 ## 🧪 Infraestrutura de Testes
 
 | Tipo | Ferramenta | Localização |
@@ -322,9 +364,11 @@ Testes adicionados:
 | DXF headless (PRODIST buffers) | ezdxf + pytest | `src/backend/tests/test_dxf_prodist_buffers.py` |
 | Geocode | pytest + mock | `src/backend/tests/test_geocode.py` |
 | Coverage boost V2 | pytest + mock | `src/backend/tests/test_coverage_boost_v2.py` |
+| Lifecycle + IPC | pytest + mock | `src/backend/tests/test_lifecycle_ipc_coverage.py` |
+| Buffer + Cache (Redis) | pytest + mock | `src/backend/tests/test_buffer_cache_coverage.py` |
 | C# | xUnit | `src/plugin/tests/` |
 
-> **Cobertura atual**: 478 testes pytest passando (Python backend). Cobertura: **93%** (threshold: 80%).
+> **Cobertura atual**: 505 testes pytest passando (Python backend). Cobertura: **92.42%** (threshold: 80%).
 
 ---
 
@@ -395,7 +439,7 @@ docker-compose build --no-cache
 
 ---
 
-*Última atualização: 2026-02-21 | Versão do projeto: 0.1.0 | Versionamento zerado e sincronizado em todo o projeto*
+*Última atualização: 2026-02-21 (22:12) | Versão do projeto: 0.1.0 | 505 testes | Cobertura: 92.42%*
 
 ---
 
