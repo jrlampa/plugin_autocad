@@ -1525,3 +1525,100 @@ Cobertura por módulo após essa sessão:
 - **Testes frontend**: 53 → **97 passando**  
 - **Cobertura total**: 97.16% → **97.92%**
 - **Módulos a 100%**: ai.py, buffer.py, bus.py, rate_limit.py, retry.py, crs.py, geometry.py, engine_mock.py, prodist.py, topology.py, jobs.py, projects.py, webhooks.py, executor.py, abnt.py, health.py, utils.py, interfaces.py, deps.py, prepare.py, tools.py
+
+---
+
+## 🧪 Sessão 2026-02-22 (Sessão 6) — Coverage 97.08%→97.78%, +32 backend, +38 frontend tests
+
+### Baseline
+574 testes backend, 97 testes frontend, 97.08% cobertura.
+
+### Trabalho Realizado
+
+#### 1. Testes Backend (32 novos) — `tests/test_coverage_session6.py`
+
+**`services/geocode.py`** (99%) — linha 183 descoberta como early return do sanitize:
+- `test_utm_easting_fora_do_intervalo_retorna_none` — easting > 999_000 → None
+- `test_utm_easting_muito_pequeno_retorna_none` — easting < 100_000 → None
+- `test_utm_latlon_resultante_invalido_retorna_none` — coords out of range → None
+- `test_utm_exception_em_conversao_retorna_none` — utm_to_latlon levanta → None
+- `test_geocode_cai_em_nominatim_quando_nao_e_latlon_nem_utm` — cai em Nominatim (mock)
+- `test_geocode_query_vazia_retorna_none` — '' → None sem chamar Nominatim
+- `test_geocode_query_sanitizada_para_vazia_retorna_none` — só chars perigosos → sanitize→'' → None (linha 183)
+
+**`services/geojson.py`** (98% → **100%**):
+- `test_emit_feature_com_menos_de_2_coords_retorna_cedo` — 1 coord → return early (linha 64)
+- `test_emit_feature_com_coords_validas_cria_feature` — ≥2 coords → feature criada (linha 65)
+- `test_tipo_geojson_desconhecido_levanta_400` — GeometryCollection com first_lonlat mockado → 400 (linha 159)
+
+**`core/audit.py`** (98%) — linhas 47-48 (chmod failure):
+- `test_chmod_falha_e_excecao_e_capturada` — os.chmod levanta → warning logado
+- `test_chmod_bem_sucedido_nao_emite_warning` — chmod ok → sem warning
+
+**`core/circuit_breaker.py`** (96% → **100%**):
+- `test_falha_em_half_open_reabre_o_circuito` — HALF_OPEN + failure → OPEN
+- `test_sucesso_em_half_open_fecha_o_circuito` — HALF_OPEN + success → CLOSED
+- `test_falhas_suficientes_em_closed_abrem_circuito` — threshold failures → OPEN
+
+**`core/database.py`** (96% → **100%**):
+- `test_excecao_em_init_schema_e_capturada_e_conexao_retornada` — init_schema falha → conn retornada
+- `test_excecao_em_init_geopackage_e_capturada` — init_geopackage falha → conn retornada
+
+**`services/export_service.py`** (97% → **100%**):
+- `test_epsg_invalido_usa_srs_id_4326` — EPSG:INVALIDO → srs_id=4326
+- `test_gpkg_contents_e_geometry_columns_inseridos` — tabelas GPKG presentes → INSERT OR REPLACE
+
+**`routes/enterprise.py`** (97% → **100%**):
+- `test_classe_tensao_invalida_retorna_422` — via Pydantic validator
+- `test_export_dxf_prodist_sem_norma_ativa_retorna_409` — ABNT ativa → 409
+- `test_export_dxf_prodist_excecao_interna_retorna_500` — RuntimeError → 500
+- `test_set_norma_config_classe_tensao_invalida_via_handler_direto` — bypass Pydantic → ValueError → 422 (linhas 88-89)
+- `test_export_dxf_prodist_sucesso_mock` — mock retorna path real → FileResponse 200 (linha 239)
+- `test_export_dxf_prodist_not_found_retorna_404` — NotFoundError mockado → 404 (linha 245)
+
+**`routes/ai_routes.py`** (96% → **100%**):
+- `test_generate_response_exception_retorna_ai_unavailable` — RuntimeError → "AI unavailable." (linhas 40-41)
+- `test_chat_ai_com_resposta_bem_sucedida` — sucesso → ChatResponse (linha 38)
+
+**`routes/projects.py`** (97% → **100%**):
+- `test_update_projeto_com_versao_errada_retorna_409` — ConflictError mockado → 409 (linha 75-76)
+- `test_update_projeto_inexistente_retorna_404` — NotFoundError → 404
+- `test_update_projeto_com_sucesso_retorna_200` — update ok → 200 (linha 74)
+
+#### 2. Testes Frontend (38 novos) — novos componentes
+
+- `Toast.test.jsx` (9 testes): render, tipos de estilo, timer auto-close, botão fechar
+- `LoadingScreen.test.jsx` (6 testes): render, textos pt-BR, spinner, versão
+- `ErrorBoundary.test.jsx` (8 testes): render normal, tela de erro, botões, localStorage
+- `Sidebar.test.jsx` (8 testes): ferramentas, toggle, finish, generate, disabled
+- `MapCanvas.test.jsx` (5 testes): render, Suspense/MapView, props passados
+
+**Descoberta importante**: `@testing-library/user-event` com `vi.useFakeTimers()` causa timeout
+→ substituído por `fireEvent` para todos os clicks nos testes de componentes.
+
+**Descoberta importante**: Linha 183 de `geocode.py` é `return None` do bloco `if not clean`
+(sanitize retorna vazio), NÃO chamada ao Nominatim (linha 196).
+
+**Descoberta importante**: Linhas 88-89 de `enterprise.py` são dead code em produção
+porque Pydantic valida `classe_tensao` antes de chegar ao handler. Coberto via chamada
+direta ao handler com MagicMock que bypassa Pydantic.
+
+#### 3. Cobertura por Módulo
+
+| Módulo | Antes | Depois |
+|--------|-------|--------|
+| `services/geocode.py` | 97% | 99% |
+| `services/geojson.py` | 98% | **100%** |
+| `core/audit.py` | 98% | 98% (chmod só no LOCALAPPDATA real) |
+| `core/circuit_breaker.py` | 96% | **100%** |
+| `core/database.py` | 96% | **100%** |
+| `services/export_service.py` | 97% | **100%** |
+| `routes/enterprise.py` | 97% | **100%** |
+| `routes/ai_routes.py` | 96% | **100%** |
+| `routes/projects.py` | 97% | **100%** |
+
+### Resultado Final Sessão 6
+- **Testes backend**: 574 → **606 passando**
+- **Testes frontend**: 97 → **135 passando**
+- **Cobertura total**: 97.08% → **97.78%**
+- **Módulos a 100% (novos)**: circuit_breaker.py, database.py, export_service.py, geojson.py, enterprise.py, ai_routes.py, projects.py
