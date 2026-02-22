@@ -1622,3 +1622,42 @@ direta ao handler com MagicMock que bypassa Pydantic.
 - **Testes frontend**: 97 → **135 passando**
 - **Cobertura total**: 97.08% → **97.78%**
 - **Módulos a 100% (novos)**: circuit_breaker.py, database.py, export_service.py, geojson.py, enterprise.py, ai_routes.py, projects.py
+
+---
+
+## ⚡ Sessão 2026-02-22 — Endpoint de Curvas de Nível + Cobertura
+
+### Baseline
+608 testes passando, 98.62% cobertura.
+
+### Novo Endpoint — `POST /api/v1/tools/elevation/contours`
+- Expõe `ElevationService.get_contours()` (que já existia) via API REST.
+- Parâmetros: bounding box (`min_lat`, `min_lon`, `max_lat`, `max_lon`) + `interval` (metros, padrão 10.0).
+- Validação via `ElevationContoursRequest` (Pydantic): bounds consistentes (`max > min`), interval `> 0 e ≤ 1000`.
+- Resposta: `ElevationContoursResponse` com lista de `ContourLine` (elevação + geometria em EPSG:4326), `interval` e `count`.
+- Auth obrigatório (`X-SisRua-Token`).
+- Útil para visualização de terreno, drenagem pluvial e análise de declividade (ABNT NBR 14166:1998).
+
+### Novos Modelos (`models.py`)
+- `ElevationContoursRequest`: bounding box + interval com validação `@model_validator`.
+- `ContourLine`: elevação + geometria como lista de [lat, lon].
+- `ElevationContoursResponse`: lista de `ContourLine` + interval + count.
+
+### Frontend — `api.js`
+- Adicionado `getElevationContours(minLat, minLon, maxLat, maxLon, interval)` ao objeto `api`.
+- Usa `ResilienceService.executeWithTracing` + `guard('ELEVATION_API')` para resiliência.
+
+### Testes — `tests/test_coverage_session7.py` (30 testes)
+| Classe | Testes | Cobertura |
+|--------|--------|-----------|
+| `TestElevationContoursRequest` | 8 | Modelos + validação de bounds |
+| `TestContourLineModel` | 2 | ContourLine e ElevationContoursResponse |
+| `TestElevationContoursEndpoint` | 11 | API 200/400/422/500 + REF_2 (100m/500m/1km) |
+| `TestApiLifespanEdgePaths` | 4 | api.py housekeeper/cleanup error handlers |
+| `TestModelCoveragePaths` | 4 | models.py paths não cobertos (95, 125, 131) |
+
+### Resultado Final
+- **Testes backend**: 608 → **638 passando**
+- **Testes frontend**: 135 → **135 passando** (sem regressão)
+- **Cobertura total**: 98.62% → **98.74%**
+- **CodeQL**: 0 alertas

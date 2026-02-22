@@ -108,6 +108,31 @@ class ElevationPointResponse(FrozenBaseModel):
 class ElevationProfileResponse(FrozenBaseModel):
     elevations: List[float] = Field(..., description="List of elevations in meters along the path")
 
+class ElevationContoursRequest(FrozenBaseModel):
+    """Bounding box e intervalo para geração de curvas de nível."""
+    min_lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude mínima da área (EPSG:4326)")
+    min_lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude mínima da área")
+    max_lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude máxima da área")
+    max_lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude máxima da área")
+    interval: float = Field(10.0, gt=0.0, le=1000.0, description="Intervalo de contorno em metros")
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> "ElevationContoursRequest":
+        if self.max_lat <= self.min_lat:
+            raise ValueError("max_lat deve ser maior que min_lat")
+        if self.max_lon <= self.min_lon:
+            raise ValueError("max_lon deve ser maior que min_lon")
+        return self
+
+class ContourLine(FrozenBaseModel):
+    elevation: float = Field(..., description="Elevação da curva de nível em metros")
+    geometry: List[List[float]] = Field(..., description="Lista de pares [lat, lon] formando a curva")
+
+class ElevationContoursResponse(FrozenBaseModel):
+    contours: List[ContourLine] = Field(..., description="Lista de curvas de nível")
+    interval: float = Field(..., description="Intervalo de contorno utilizado em metros")
+    count: int = Field(..., description="Total de curvas de nível geradas")
+
 class WebhookRegistrationRequest(FrozenBaseModel):
     url: str = Field(..., description="Target URL to receive webhook events", json_schema_extra={"example": "https://example.com/webhook"})
     events: Optional[List[str]] = Field(None, description="Optional list of events to subscribe to (default: all)")
