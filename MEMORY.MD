@@ -1280,3 +1280,84 @@ Cobertura por módulo após essa sessão:
 - **Testes**: 478 → **503 passando**
 - **Cobertura total**: 92.93% → **93.73%**
 - **CodeQL**: 0 alertas
+
+---
+
+## 🧪 Sessão 2026-02-21 (Sessão 3) — Coverage 93.77%→94.90%, +60 Testes, PWA Offline
+
+### Baseline
+503 testes passando, 93.77% coverage (após sessão anterior).
+
+### Trabalho Realizado
+
+#### 1. Testes Frontend (32 novos) — Hooks e Componentes Antes Sem Cobertura
+
+**`src/hooks/useFileProcessing.test.js`** (14 testes)
+- Estado inicial, drag & drop GeoJSON válido/inválido
+- Mensagens WebView: FILE_DROPPED_GEOJSON, FILE_DROPPED_KML
+- Importação para AutoCAD (com e sem WebView disponível)
+- Toast de erro em casos de arquivo inválido
+
+**`src/hooks/useDrawingCanvas.test.js`** (10 testes)
+- toggleDrawing liga/desliga modo de desenho + limpa pontos
+- addPoint acumula coordenadas [lng, lat] corretamente
+- finishDrawing cria FeatureCollection, adiciona a existente, guarda contra duplicatas
+- Mínimo de 2 pontos para encerrar
+
+**`src/components/NormaPanel.test.jsx`** (13 testes)
+- Renderização com ABNT ativo por padrão
+- Ativação/desativação PRODIST com mock de API
+- Toast warning/success/error nos casos corretos
+- Buffer de segurança NR-10:2016 por classe de tensão (BT/MT/AT)
+
+#### 2. Testes Backend (28 novos) — `tests/test_coverage_session3.py`
+
+**`core/buffer.py`** (82% → 96%): PersistenceBuffer stop/join, flush por tamanho e por tempo, exceção no callback swallowed
+
+**`services/housekeeper.py`** (91% → 96%): arquivo antigo excluído, exceção em delete, dry_run, recursivo, run_daily_cleanup
+
+**`services/projects.py`** (92% → 100%): audit exception em create/delete/update, event_bus.publish em create/delete/update
+
+**`services/jobs.py`** (94% → 100%): cancel_job em andamento, já completado, inexistente
+
+**`core/bus.py`** (87% → 97%): idempotency_key com cache (dedup), publish sem handler, handler exception swallowed
+
+**`gis_core/osm.py`** (85% → 88%): fetch exception + cache fallback, fetch exception sem cache → 503, highway como lista, check_cancel em loop
+
+#### 3. PWA Offline (Fase 4 — App Campo)
+
+**`src/frontend/public/manifest.json`**: PWA manifest completo (pt-BR, offline, shortcuts)
+
+**`src/frontend/public/sw.js`**: Service Worker com:
+- Cache-First para assets estáticos
+- Network-First com fallback para API `/api/*`
+- Stale-While-Revalidate para tiles OSM
+
+**`src/frontend/index.html`**: 
+- `lang` corrigido para `pt-BR`
+- `<title>` corrigido para `sisRUA`
+- `<meta description>` adicionada
+- `<link rel="manifest">` adicionada
+
+**`src/frontend/src/main.jsx`**: Registro do Service Worker (`navigator.serviceWorker.register`)
+
+**`src/frontend/.gitignore`**: `bundle-stats.html` adicionado
+
+#### 4. Cobertura por Módulo
+
+| Módulo | Antes | Depois |
+|--------|-------|--------|
+| `core/buffer.py` | 82% | 96% |
+| `services/housekeeper.py` | 91% | 96% |
+| `services/projects.py` | 92% | **100%** |
+| `services/jobs.py` | 94% | **100%** |
+| `core/bus.py` | 87% | 97% |
+| `gis_core/osm.py` | 85% | 88% |
+
+### Resultado Final
+- **Testes backend**: 503 → **531 passando**
+- **Testes frontend**: 7 → **39 passando**
+- **Cobertura total**: 93.77% → **94.90%**
+- **`services/projects.py`**: **100%**
+- **`services/jobs.py`**: **100%**
+- **PWA manifest + SW**: Fase 4 App Campo offline habilitada
