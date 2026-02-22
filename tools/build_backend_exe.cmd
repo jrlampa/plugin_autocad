@@ -170,16 +170,18 @@ if not exist "%DIST_TMP%" mkdir "%DIST_TMP%"
   --clean ^
   --onefile ^
   --name sisrua_backend ^
-  --collect-all rasterio ^
-  --collect-all matplotlib ^
-  --collect-all fiona ^
-  --copy-metadata osmnx ^
   --copy-metadata pyproj ^
   --collect-data pyproj ^
   --distpath "%DIST_TMP%" ^
   --workpath "%BUILD_ROOT%\\pyinstaller-work" ^
   --specpath "%BUILD_ROOT%\\pyinstaller-spec" ^
   --add-data "%ROOT%\\src\\frontend\\dist;frontend/dist" ^
+  --exclude-module matplotlib ^
+  --exclude-module osmnx ^
+  --exclude-module pandas ^
+  --exclude-module geopandas ^
+  --exclude-module fiona ^
+  --exclude-module PIL ^
   --exclude-module PyQt5 ^
   --exclude-module PyQt5.QtCore ^
   --exclude-module PyQt5.QtGui ^

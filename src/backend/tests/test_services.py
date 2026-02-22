@@ -79,3 +79,61 @@ def test_elevation_service_caching():
     
     assert z == 123.45
     assert not mock_cache.set.called # Should not set if hit cache
+
+
+def test_elevation_service_requires_cache():
+    """ElevationService.__init__ deve exigir o parâmetro cache (não pode ser instanciado sem)."""
+    import inspect
+    sig = inspect.signature(ElevationService.__init__)
+    params = sig.parameters
+    assert "cache" in params, "ElevationService deve ter parâmetro 'cache'"
+    # cache não tem valor default → é obrigatório
+    assert params["cache"].default is inspect.Parameter.empty, "cache deve ser obrigatório"
+
+
+def test_geojson_elevation_injection_uses_cache():
+    """
+    Verifica que prepare_geojson_compute instancia ElevationService com cache
+    ao injetar elevação — garante que o bug 'ElevationService()' sem cache está corrigido.
+    """
+    import tempfile
+    from pathlib import Path
+    from unittest.mock import patch
+
+    geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {"highway": "residential", "name": "Rua Teste"},
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [
+                        [-42.92185, -22.15018],
+                        [-42.92085, -22.15018],
+                    ],
+                },
+            }
+        ],
+    }
+
+    captured_args = []
+
+    original_init = ElevationService.__init__
+
+    def spy_init(self, cache, cache_dir=None):
+        captured_args.append(cache)
+        self.base_url = ""
+        self.api_key = None
+        self.cache = cache
+        self.cache_dir = Path(tempfile.mkdtemp())
+
+    with patch.object(ElevationService, "__init__", spy_init), \
+         patch.object(ElevationService, "get_elevation_profile", return_value=[850.0]):
+        from backend.services.geojson import prepare_geojson_compute
+        result = prepare_geojson_compute(geojson)
+
+    assert result is not None
+    # Garante que ElevationService foi instanciado com um cache (não None)
+    assert len(captured_args) > 0, "ElevationService não foi instanciado durante injeção de elevação"
+    assert captured_args[0] is not None, "ElevationService instanciado sem cache (bug regressão)"

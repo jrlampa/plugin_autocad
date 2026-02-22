@@ -1,12 +1,12 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from typing import List, Optional, Literal, Any, Dict
 
 class FrozenBaseModel(BaseModel):
     model_config = ConfigDict(frozen=True)
 
 class HealthResponse(FrozenBaseModel):
-    status: str = Field(..., description="Operational status of the API", example="ok")
+    status: str = Field(..., description="Operational status of the API", json_schema_extra={"example": "ok"})
 
 class ComponentHealth(FrozenBaseModel):
     status: Literal["up", "down", "degraded"] = Field(..., description="Status of the specific component")
@@ -23,45 +23,45 @@ class ProjectUpdateRequest(FrozenBaseModel):
     crs_out: Optional[str] = Field(None, description="New CRS")
 
 class PrepareOsmRequest(FrozenBaseModel):
-    latitude: float = Field(..., description="Target latitude (EPSG:4326)", example=-21.7634)
-    longitude: float = Field(..., description="Target longitude (EPSG:4326)", example=-41.3235)
-    radius: float = Field(..., description="Search radius in meters", example=500.0)
+    latitude: float = Field(..., ge=-90.0, le=90.0, description="Target latitude (EPSG:4326)", json_schema_extra={"example": -21.7634})
+    longitude: float = Field(..., ge=-180.0, le=180.0, description="Target longitude (EPSG:4326)", json_schema_extra={"example": -41.3235})
+    radius: float = Field(..., gt=0.0, le=50000.0, description="Search radius in meters (1–50000)", json_schema_extra={"example": 500.0})
 
 class PrepareGeoJsonRequest(FrozenBaseModel):
     geojson: Any = Field(..., description="GeoJSON string or object to process")
 
 class PrepareJobRequest(FrozenBaseModel):
     kind: Literal["osm", "geojson"] = Field(..., description="Type of data preparation job")
-    latitude: Optional[float] = Field(None, description="Required for kind='osm'")
-    longitude: Optional[float] = Field(None, description="Required for kind='osm'")
-    radius: Optional[float] = Field(None, description="Required for kind='osm'")
+    latitude: Optional[float] = Field(None, ge=-90.0, le=90.0, description="Required for kind='osm'")
+    longitude: Optional[float] = Field(None, ge=-180.0, le=180.0, description="Required for kind='osm'")
+    radius: Optional[float] = Field(None, gt=0.0, le=50000.0, description="Required for kind='osm'")
     geojson: Any | None = Field(None, description="Required for kind='geojson'")
 
-class CadFeature(FrozenBaseModel):
+class CadFeature(BaseModel):
     feature_type: Literal["Polyline", "Point"] = Field("Polyline", description="CAD entity type")
-    layer: Optional[str] = Field(None, description="Target AutoCAD layer name")
+    layer: str = Field("0", description="Target AutoCAD layer name")
     name: Optional[str] = Field(None, description="Display name for the feature")
     highway: Optional[str] = Field(None, description="OSM highway tag value")
     width_m: Optional[float] = Field(None, description="Estimated width in meters")
 
     # For Polyline features
-    coords_xy: Optional[List[List[float]]] = Field(None, description="Coordinates in projected CRS (SIRGAS 2000)")
+    coords_xy: Optional[List[List[float]]] = Field(default_factory=list, description="Coordinates in projected CRS (SIRGAS 2000)")
 
     # For Point features (blocks)
-    insertion_point_xy: Optional[List[float]] = Field(None, description="Insertion point in projected CRS")
+    insertion_point_xy: Optional[List[float]] = Field(default_factory=list, description="Insertion point in projected CRS")
     block_name: Optional[str] = Field(None, description="Name of the AutoCAD block")
     block_filepath: Optional[str] = Field(None, description="Path to the block definition file")
-    rotation: Optional[float] = Field(None, description="Rotation in radians")
-    scale: Optional[float] = Field(None, description="Scale factor")
+    rotation: float = Field(0.0, description="Rotation in radians")
+    scale: float = Field(1.0, description="Scale factor")
 
     # Phase 2 fields
     color: Optional[str] = Field(None, description="ACI color code or RGB string")
     elevation: Optional[float] = Field(None, description="Elevation (Z value) in meters")
     slope: Optional[float] = Field(None, description="Calculated slope percentage")
-    original_geojson_properties: Optional[Dict[str, Any]] = Field(None, description="Original GeoJSON properties for portability")
+    original_geojson_properties: Dict[str, Any] = Field(default_factory=dict, description="Original GeoJSON properties for portability")
 
 class PrepareResponse(FrozenBaseModel):
-    crs_out: Optional[str] = Field(None, description="Projected Coordinate Reference System", example="EPSG:31983")
+    crs_out: Optional[str] = Field(None, description="Projected Coordinate Reference System", json_schema_extra={"example": "EPSG:31983"})
     features: List[CadFeature] = Field(..., description="List of CAD-ready features")
     cache_hit: Optional[bool] = Field(None, description="Indicates if the result was served from cache")
 
@@ -77,11 +77,24 @@ class JobStatusResponse(FrozenBaseModel):
     updated_at: float = Field(..., description="Unix timestamp of last job update")
 
 class ElevationQueryRequest(FrozenBaseModel):
-    latitude: float = Field(..., description="Target latitude (EPSG:4326)")
-    longitude: float = Field(..., description="Target longitude (EPSG:4326)")
+    latitude: float = Field(..., ge=-90.0, le=90.0, description="Target latitude (EPSG:4326)")
+    longitude: float = Field(..., ge=-180.0, le=180.0, description="Target longitude (EPSG:4326)")
 
 class ElevationProfileRequest(FrozenBaseModel):
-    path: List[List[float]] = Field(..., description="List of [lat, lon] points for the profile path")
+    path: List[List[float]] = Field(..., min_length=2, description="List of [lat, lon] points for the profile path")
+
+    @field_validator("path")
+    @classmethod
+    def validate_path_coordinates(cls, v: List[List[float]]) -> List[List[float]]:
+        for point in v:
+            if len(point) < 2:
+                raise ValueError("Cada ponto deve ter pelo menos [lat, lon].")
+            lat, lon = point[0], point[1]
+            if not (-90.0 <= lat <= 90.0):
+                raise ValueError(f"Latitude inválida: {lat}. Deve estar entre -90 e 90.")
+            if not (-180.0 <= lon <= 180.0):
+                raise ValueError(f"Longitude inválida: {lon}. Deve estar entre -180 e 180.")
+        return v
 
 class ElevationPointResponse(FrozenBaseModel):
     latitude: float = Field(..., description="Requested latitude")
@@ -92,9 +105,35 @@ class ElevationProfileResponse(FrozenBaseModel):
     elevations: List[float] = Field(..., description="List of elevations in meters along the path")
 
 class WebhookRegistrationRequest(FrozenBaseModel):
-    url: str = Field(..., description="Target URL to receive webhook events", example="https://example.com/webhook")
+    url: str = Field(..., description="Target URL to receive webhook events", json_schema_extra={"example": "https://example.com/webhook"})
     events: Optional[List[str]] = Field(None, description="Optional list of events to subscribe to (default: all)")
 
+    @field_validator("url")
+    @classmethod
+    def validate_url_scheme(cls, v: str) -> str:
+        """Garante que a URL é HTTP/HTTPS e tem hostname para prevenir SSRF."""
+        stripped = v.strip()
+        if not stripped.lower().startswith(("http://", "https://")):
+            raise ValueError("A URL do webhook deve começar com http:// ou https://")
+        from urllib.parse import urlparse
+        parsed = urlparse(stripped)
+        if not parsed.netloc:
+            raise ValueError("A URL do webhook deve conter um hostname válido")
+        return stripped
+
+    @field_validator("events")
+    @classmethod
+    def validate_events(cls, v: Optional[List[str]]) -> Optional[List[str]]:
+        """Sanitiza e valida entradas da lista de eventos."""
+        if v is None:
+            return v
+        cleaned = []
+        for evt in v:
+            s = str(evt).strip()[:128]
+            if s:
+                cleaned.append(s)
+        return cleaned if cleaned else None
+
 class InternalEvent(FrozenBaseModel):
-    event_type: str = Field(..., description="Type of the internal event", example="project_saved")
+    event_type: str = Field(..., description="Type of the internal event", json_schema_extra={"example": "project_saved"})
     payload: Dict[str, Any] = Field(..., description="Event payload data")

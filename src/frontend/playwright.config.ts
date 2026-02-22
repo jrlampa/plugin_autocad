@@ -15,7 +15,7 @@ export default defineConfig({
     ['junit', { outputFile: '../../qa/out/e2e/playwright-junit.xml' }],
   ],
   use: {
-    baseURL: 'http://localhost:8000',
+    baseURL: 'http://localhost:4173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },

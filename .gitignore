@@ -49,10 +49,20 @@ qa/out/
 .vscode/
 .idea/
 
+# ===== Runtime artifacts (banco e segredos gerados em execução) =====
+*.db
+*.audit_secret
+.audit_secret
+src/backend/sisRUA/
+
 # ===== Notas locais (não versionar) =====
 passo-a-passo.md
 backup/
 history/
+
+# ===== DXF temporários (gerados em testes) =====
+*.dxf.tmp
+/tmp/*.dxf
 
 # ===== Local Build / Temp =====
 local_build/
@@ -62,4 +72,14 @@ bundle-template/sisRUA.bundle/Contents/backend/sisrua_backend.exe
 
 # ===== Local SDKs (BIG FILES) =====
 dll_autocad_*/
+
+# ===== Test Artifacts (Transient) =====
+test_out.txt
+test_concurrency.db
+PRINT_ERROS/
+test-results/
+playwright-report/
+logs/
+*_output.txt
+*_output_*.txt
 

@@ -2,7 +2,7 @@ name: QA (tests + artifacts)
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "dev", "v1.1", "release/*"]
   pull_request: {}
   workflow_dispatch: {}
 
@@ -37,7 +37,7 @@ jobs:
           mkdir -p qa/out/coverage
           mkdir -p "$LOCALAPPDATA"
           cd src/backend
-          python -m pytest --cov=backend --cov-report=xml:../../qa/out/coverage/backend-coverage.xml --junitxml=../../qa/out/test-reports/pytest-junit.xml
+          python -m pytest tests --cov=backend --cov-report=xml:../../qa/out/coverage/backend-coverage.xml --junitxml=../../qa/out/test-reports/pytest-junit.xml
       - name: Upload backend artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -67,6 +67,11 @@ jobs:
         run: |
           mkdir -p ../../qa/out/test-reports
           npm test -- --run --coverage
+
+      - name: Build Frontend
+        working-directory: src/frontend
+        run: npm run build
+
       - name: Install Playwright browsers
         if: ${{ hashFiles('src/frontend/playwright.config.*') != '' }}
         working-directory: src/frontend
@@ -107,16 +112,18 @@ jobs:
         with:
           name: qa-frontend
           path: qa/out
+      # sisRUA CI/CD: QA & SonarCloud Analysis
+      # SonarCloud 'Automatic Analysis' disabled manually by user - triggering final CI verification.
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: sonarsource/sonarqube-scan-action@v6
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Needed to get PR information, if any
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.organization=sisrua
-            -Dsonar.projectKey=sisrua_plugin
+            -Dsonar.organization=jrlampa
+            -Dsonar.projectKey=jrlampa_plugin_autocad
             -Dsonar.python.coverage.reportPaths=qa/out/coverage/backend-coverage.xml
             -Dsonar.javascript.lcov.reportPaths=qa/out/coverage/frontend/lcov.info
             -Dsonar.sources=src/backend/backend,src/frontend/src,src/plugin
-            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/tests/**,**/__pycache__/**
+            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/tests/**,**/__pycache__/**,**/legacy_v0_tests/**

@@ -9,7 +9,10 @@ from backend.core.utils import (
     sanitize_jsonable, 
     get_layer_name
 )
+from backend.core.logger import get_logger
 from backend.gis_core.crs import sirgas2000_utm_epsg
+
+logger = get_logger(__name__)
 
 def first_lonlat(obj) -> Tuple[float, float]:
     if not obj:
@@ -178,19 +181,17 @@ def prepare_geojson_compute(geo: Any, check_cancel: Callable[[], None] = None) -
             if check_cancel: check_cancel()
             lonlat_points = list(reverse_transformer.itransform(query_points_xy))
             latlon_query = [(p[1], p[0]) for p in lonlat_points]
-            
-            # Batch query
-            # Instantiate simplified service if not passed? 
-            # In osm.py we instantiated a global one. Let's do same here for now.
+
             from backend.services.elevation import ElevationService
-            elevations = ElevationService().get_elevation_profile(latlon_query)
-            
+            from backend.services.cache import cache_service as _cache_svc
+            elevations = ElevationService(cache=_cache_svc).get_elevation_profile(latlon_query)
+
             for idx, elev in zip(feature_indices, elevations):
                 if elev is not None:
                      features[idx].elevation = elev
 
     except Exception as e:
-        print(f"Error injecting elevation data for GeoJSON: {e}")
+        logger.warning("elevation_injection_failed_geojson", error=str(e))
         pass
     
     if check_cancel: check_cancel()

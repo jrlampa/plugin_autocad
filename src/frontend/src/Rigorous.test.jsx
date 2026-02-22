@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 import App from './App';
 import React from 'react';
@@ -52,16 +52,18 @@ vi.mock('./api', () => ({
 vi.mock('./services/SdkService', () => ({
   SdkService: {
     checkHealth: vi.fn(() => Promise.resolve({ status: 'ok' })),
-    checkHealthDetailed: vi.fn(() => Promise.resolve({
-      status: 'healthy',
-      system_status: 'healthy',
-      components: {
-        database: { status: 'healthy', latency_ms: 10 },
-        cache: { status: 'healthy', latency_ms: 5 },
-        external_apis: { status: 'healthy', details: {} },
-      },
-      system_latency_ms: 15,
-    })),
+    checkHealthDetailed: vi.fn(() =>
+      Promise.resolve({
+        status: 'healthy',
+        system_status: 'healthy',
+        components: {
+          database: { status: 'healthy', latency_ms: 10 },
+          cache: { status: 'healthy', latency_ms: 5 },
+          external_apis: { status: 'healthy', details: {} },
+        },
+        system_latency_ms: 15,
+      })
+    ),
   },
 }));
 
@@ -107,18 +109,26 @@ describe('App Integration (Rigorous)', () => {
 
   it('deve enviar mensagem GENERATE_OSM ao clicar no botão gerar', async () => {
     render(<App />);
+    // ISO 27001 / UX Handshake (APP_READY) must be sent when component mounts and backend is ready
+    await waitFor(() => {
+      expect(postMessageMock).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'APP_READY' })
+      );
+    });
+
     // Wait for the app to finish loading (backend ready)
     const btn = await screen.findByTestId('btn-generate-osm', {}, { timeout: 5000 });
     fireEvent.click(btn);
 
-    // ISO 27001 / UX Handshake (APP_READY) should have been sent first
-    expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'APP_READY' }));
-
     // Now check for GENERATE_OSM
-    expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'GENERATE_OSM' }));
+    await waitFor(() => {
+      expect(postMessageMock).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'GENERATE_OSM' })
+      );
+    });
 
     // Get the specific call for GENERATE_OSM
-    const osmCall = postMessageMock.mock.calls.find(call => call[0].action === 'GENERATE_OSM');
+    const osmCall = postMessageMock.mock.calls.find((call) => call[0].action === 'GENERATE_OSM');
     const sentMsg = osmCall[0];
 
     expect(sentMsg.action).toBe('GENERATE_OSM');
@@ -176,9 +186,13 @@ describe('App Integration (Rigorous)', () => {
     fireEvent.click(btnImport);
 
     // ISO 27001 / UX Handshake (APP_READY) was sent, then IMPORT_GEOJSON
-    expect(postMessageMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'IMPORT_GEOJSON' }));
+    expect(postMessageMock).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'IMPORT_GEOJSON' })
+    );
 
-    const importCall = postMessageMock.mock.calls.find(call => call[0].action === 'IMPORT_GEOJSON');
+    const importCall = postMessageMock.mock.calls.find(
+      (call) => call[0].action === 'IMPORT_GEOJSON'
+    );
     const sentMsg = importCall[0];
 
     expect(sentMsg.action).toBe('IMPORT_GEOJSON');

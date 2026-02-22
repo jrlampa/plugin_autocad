@@ -26,7 +26,7 @@ REM  - (opcional) build do backend EXE
 REM  - bundle em release\
 REM ======================================================
 
-set ROOT=%~dp0
+for %%i in ("%~dp0.") do set ROOT=%%~fi\
 set CONFIG=Release
 set PLUGIN_CSPROJ=%ROOT%src\plugin\sisRUA.csproj
 

@@ -53,3 +53,20 @@ vi.mock('./api', () => ({
     smartGeocode: vi.fn(),
   },
 }));
+
+// Mock do SdkService para evitar fetch failed no SdkTest component
+vi.mock('./services/SdkService', () => ({
+  SdkService: {
+    checkHealth: vi.fn(() => Promise.resolve({ status: 'ok' })),
+    checkHealthDetailed: vi.fn(() =>
+      Promise.resolve({
+        status: 'healthy',
+        components: {
+          database: { status: 'healthy', latency_ms: 10 },
+          cache: { status: 'healthy', latency_ms: 5 },
+          external_apis: { status: 'healthy', details: {} },
+        },
+      })
+    ),
+  },
+}));
