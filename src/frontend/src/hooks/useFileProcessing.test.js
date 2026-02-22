@@ -272,4 +272,55 @@ describe('useFileProcessing', () => {
     });
     expect(webview.postMessage).not.toHaveBeenCalled();
   });
+
+  // ── Branches adicionais para cobertura total ──
+
+  it('mensagem FILE_DROPPED_GEOJSON com estrutura inválida (sem features/geometry) cria toast de erro (linha 52)', async () => {
+    // Cobre linha 52-53: parsed.type existe mas parsed.features e parsed.geometry são ambos undefined
+    const invalidStructure = JSON.stringify({ type: 'FeatureCollection' }); // sem features
+    const { result } = renderHook(() => useFileProcessing());
+
+    await act(async () => {
+      webview._emit('message', {
+        data: JSON.stringify({
+          action: 'FILE_DROPPED_GEOJSON',
+          data: { content: invalidStructure },
+        }),
+      });
+    });
+
+    expect(result.current.toastMessage?.type).toBe('error');
+    expect(result.current.toastMessage?.message).toMatch(/inválido/i);
+  });
+
+  it('mensagem FILE_DROPPED_GEOJSON com JSON mal-formado cria toast de erro (linha 53-54)', async () => {
+    // Cobre catch interno: JSON.parse do content lança SyntaxError
+    const { result } = renderHook(() => useFileProcessing());
+
+    await act(async () => {
+      webview._emit('message', {
+        data: JSON.stringify({
+          action: 'FILE_DROPPED_GEOJSON',
+          data: { content: 'INVALID_JSON_CONTENT' },
+        }),
+      });
+    });
+
+    expect(result.current.toastMessage?.type).toBe('error');
+    expect(result.current.toastMessage?.message).toMatch(/GeoJSON|Erro/i);
+  });
+
+  it('mensagem não-JSON é ignorada silenciosamente (linha 59-61 — outer catch)', async () => {
+    // Cobre o catch {} externo: quando event.data não é JSON válido
+    const { result } = renderHook(() => useFileProcessing());
+
+    await act(async () => {
+      // Envia uma string que não é JSON
+      webview._emit('message', { data: 'NOT_A_JSON_STRING' });
+    });
+
+    // Não deve definir toast de erro nem alterar previewGeoJson (silencioso)
+    expect(result.current.toastMessage).toBeNull();
+    expect(result.current.previewGeoJson).toBeNull();
+  });
 });
