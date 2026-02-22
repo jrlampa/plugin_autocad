@@ -45,7 +45,7 @@ const VALID_GEOJSON = JSON.stringify({
   features: [
     {
       type: 'Feature',
-      geometry: { type: 'Point', coordinates: [-22.15018, -42.92185] },
+      geometry: { type: 'Point', coordinates: [-42.92185, -22.15018] },
       properties: { name: 'REF_2' },
     },
   ],

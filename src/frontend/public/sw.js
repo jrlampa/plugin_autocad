@@ -58,11 +58,14 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Ignora requisições não-GET e Chrome extensions
-  if (request.method !== 'GET' || url.protocol === 'chrome-extension:') return;
+  // Ignora requisições não-GET e Chrome extensions — passa para o browser
+  if (request.method !== 'GET' || url.protocol === 'chrome-extension:') {
+    return;
+  }
 
   // Tiles OSM → Stale-While-Revalidate
-  if (url.hostname.includes('tile.openstreetmap.org') || url.hostname.includes('tiles.')) {
+  const OSM_TILE_HOSTS = ['tile.openstreetmap.org', 'a.tile.openstreetmap.org', 'b.tile.openstreetmap.org', 'c.tile.openstreetmap.org'];
+  if (OSM_TILE_HOSTS.includes(url.hostname)) {
     event.respondWith(staleWhileRevalidate(request, TILE_CACHE));
     return;
   }
@@ -73,7 +76,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Assets estáticos → Cache-First
+  // Assets estáticos e navegação → Cache-First
   event.respondWith(cacheFirst(request, CACHE_VERSION));
 });
 
