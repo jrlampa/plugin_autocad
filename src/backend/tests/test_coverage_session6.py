@@ -455,11 +455,20 @@ class TestEnterpriseRouteCoverage:
 
     def test_export_dxf_prodist_projeto_nao_encontrado_retorna_404(self):
         """Linha 239: projeto inexistente em export_dxf_prodist → 404."""
+        import backend.api as api_mod
+        from backend.services.projects import NotFoundError as ProjNotFound
+
         c, _ = _make_enterprise_client()
         self._ativar_prodist(c)
         try:
-            r = c.get("/api/v1/export/dxf-prodist/projeto-que-nao-existe")
-            assert r.status_code in (404, 500)
+            # Mock to raise NotFoundError so we always get 404
+            with patch.object(
+                api_mod.export_service,
+                "export_project_to_dxf",
+                side_effect=ProjNotFound("Projeto não encontrado"),
+            ):
+                r = c.get("/api/v1/export/dxf-prodist/projeto-que-nao-existe")
+            assert r.status_code == 404
         finally:
             self._desativar_prodist(c)
 
@@ -491,21 +500,45 @@ class TestEnterpriseRouteCoverage:
 
     def test_export_geopackage_projeto_nao_encontrado_retorna_404(self):
         """export_geopackage com projeto inexistente → 404."""
+        import backend.api as api_mod
+        from backend.services.projects import NotFoundError as ProjNotFound
+
         c, _ = _make_enterprise_client()
-        r = c.get("/api/v1/export/geopackage/projeto-inexistente-abc")
-        assert r.status_code in (404, 500)
+        with patch.object(
+            api_mod.export_service,
+            "export_project_to_geopackage",
+            side_effect=ProjNotFound("Projeto não encontrado"),
+        ):
+            r = c.get("/api/v1/export/geopackage/projeto-inexistente-abc")
+        assert r.status_code == 404
 
     def test_export_geojson_projeto_nao_encontrado_retorna_404(self):
         """export_geojson com projeto inexistente → 404."""
+        import backend.api as api_mod
+        from backend.services.projects import NotFoundError as ProjNotFound
+
         c, _ = _make_enterprise_client()
-        r = c.get("/api/v1/export/geojson/projeto-inexistente-xyz")
-        assert r.status_code in (404, 500)
+        with patch.object(
+            api_mod.export_service,
+            "export_project_to_geojson",
+            side_effect=ProjNotFound("Projeto não encontrado"),
+        ):
+            r = c.get("/api/v1/export/geojson/projeto-inexistente-xyz")
+        assert r.status_code == 404
 
     def test_export_dxf_projeto_nao_encontrado_retorna_404(self):
         """export_dxf com projeto inexistente → 404."""
+        import backend.api as api_mod
+        from backend.services.projects import NotFoundError as ProjNotFound
+
         c, _ = _make_enterprise_client()
-        r = c.get("/api/v1/export/dxf/projeto-inexistente-dxf")
-        assert r.status_code in (404, 500)
+        with patch.object(
+            api_mod.export_service,
+            "export_project_to_dxf",
+            side_effect=ProjNotFound("Projeto não encontrado"),
+        ):
+            r = c.get("/api/v1/export/dxf/projeto-inexistente-dxf")
+        assert r.status_code == 404
 
 
 # ══════════════════════════════════════════════════════════════════════
