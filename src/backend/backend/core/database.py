@@ -70,6 +70,83 @@ def init_geopackage(conn: sqlite3.Connection):
     except Exception as e:
         logger.error("gpkg_init_failed", error=str(e))
 
+def init_schema(conn: sqlite3.Connection):
+    """
+    Creates the core application tables if they do not already exist.
+
+    Called on every connection so that fresh deployments (Docker, CI, dev) work
+    without manually running seed.py.  All statements are idempotent
+    (CREATE TABLE IF NOT EXISTS / CREATE INDEX IF NOT EXISTS).
+    """
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS Projects (
+                project_id   TEXT PRIMARY KEY,
+                project_name TEXT NOT NULL,
+                creation_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                crs_out      TEXT,
+                version      INTEGER DEFAULT 1
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS CadFeatures (
+                feature_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id   TEXT NOT NULL,
+                feature_type TEXT NOT NULL,
+                layer        TEXT,
+                name         TEXT,
+                highway      TEXT,
+                width_m      REAL,
+                color        TEXT,
+                elevation    REAL,
+                slope        REAL,
+                original_geojson_properties TEXT,
+                coords_xy    TEXT,
+                insertion_point_xy TEXT,
+                block_name   TEXT,
+                rotation     REAL DEFAULT 0.0,
+                scale        REAL DEFAULT 1.0,
+                FOREIGN KEY (project_id) REFERENCES Projects(project_id)
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS AuditLog (
+                audit_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type  TEXT NOT NULL,
+                entity_type TEXT NOT NULL,
+                entity_id   TEXT,
+                user_id     TEXT,
+                timestamp   REAL NOT NULL,
+                data_json   TEXT,
+                signature   TEXT NOT NULL,
+                created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Indexes (idempotent)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cadfeatures_project_id ON CadFeatures(project_id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_cadfeatures_feature_type ON CadFeatures(feature_type)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_projects_creation_date_desc ON Projects(creation_date DESC)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_auditlog_entity ON AuditLog(entity_type, entity_id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_auditlog_timestamp ON AuditLog(timestamp DESC)"
+        )
+
+        conn.commit()
+    except Exception as e:
+        logger.error("schema_init_failed", error=str(e))
+
+
 def get_db_connection(db_path: Path = None) -> sqlite3.Connection:
     """
     Returns a configured SQLite connection with WAL mode and GeoPackage metadata.
@@ -94,6 +171,9 @@ def get_db_connection(db_path: Path = None) -> sqlite3.Connection:
         
         # Initialize GPKG metadata
         init_geopackage(conn)
+
+        # Initialize application schema (idempotent)
+        init_schema(conn)
         
     except Exception as e:
         logger.error("db_config_failed", error=str(e))

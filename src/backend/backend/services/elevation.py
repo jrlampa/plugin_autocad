@@ -160,15 +160,18 @@ class ElevationService:
         min_lon, max_lon = min(lons), max(lons)
         
         tif_path = self.get_elevation_grid(min_lat, min_lon, max_lat, max_lon)
-        
+        if tif_path is None:
+            logger.warning("elevation_profile_no_dem", coordinates_count=len(coordinates))
+            return [None] * len(coordinates)
+
         points = [(lon, lat) for lat, lon in coordinates]
         elevations = []
-        
+
         with rasterio.open(tif_path) as src:
             sampled = src.sample(points)
             for val in sampled:
                 elevations.append(float(val[0]))
-                
+
         return elevations
 
     def get_contours(self, min_lat, min_lon, max_lat, max_lon, interval=10.0):
@@ -176,12 +179,15 @@ class ElevationService:
         Generates contour lines (iso-elevation) for the given bounding box.
         Returns a list of dicts: {'elevation': float, 'geometry': LineString(lat, lon)}
         """
+        tif_path = self.get_elevation_grid(min_lat, min_lon, max_lat, max_lon)
+        if tif_path is None:
+            logger.warning("contours_no_dem", bounds=(min_lat, min_lon, max_lat, max_lon))
+            return []
+
         import rasterio
         import numpy as np
         from skimage import measure
 
-        tif_path = self.get_elevation_grid(min_lat, min_lon, max_lat, max_lon)
-        
         with rasterio.open(tif_path) as src:
             # Read data for the requested window
             window = rasterio.windows.from_bounds(min_lon, min_lat, max_lon, max_lat, transform=src.transform)

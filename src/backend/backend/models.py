@@ -17,6 +17,10 @@ class DeepHealthResponse(HealthResponse):
     components: Dict[str, ComponentHealth] = Field(..., description="Health status of internal dependencies")
     system_latency_ms: float = Field(..., description="Total time taken to perform health check")
 
+class ProjectCreateRequest(FrozenBaseModel):
+    project_name: str = Field(..., min_length=1, max_length=255, description="Nome do projeto")
+    crs_out: Optional[str] = Field("EPSG:31983", description="CRS de saída (padrão: SIRGAS 2000 Zona 23S)")
+
 class ProjectUpdateRequest(FrozenBaseModel):
     version: int = Field(..., description="Current version of the project for optimistic locking")
     project_name: Optional[str] = Field(None, description="New project name")
@@ -104,6 +108,31 @@ class ElevationPointResponse(FrozenBaseModel):
 class ElevationProfileResponse(FrozenBaseModel):
     elevations: List[float] = Field(..., description="List of elevations in meters along the path")
 
+class ElevationContoursRequest(FrozenBaseModel):
+    """Bounding box e intervalo para geração de curvas de nível."""
+    min_lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude mínima da área (EPSG:4326)")
+    min_lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude mínima da área")
+    max_lat: float = Field(..., ge=-90.0, le=90.0, description="Latitude máxima da área")
+    max_lon: float = Field(..., ge=-180.0, le=180.0, description="Longitude máxima da área")
+    interval: float = Field(10.0, gt=0.0, le=1000.0, description="Intervalo de contorno em metros")
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> "ElevationContoursRequest":
+        if self.max_lat <= self.min_lat:
+            raise ValueError("max_lat deve ser maior que min_lat")
+        if self.max_lon <= self.min_lon:
+            raise ValueError("max_lon deve ser maior que min_lon")
+        return self
+
+class ContourLine(FrozenBaseModel):
+    elevation: float = Field(..., description="Elevação da curva de nível em metros")
+    geometry: List[List[float]] = Field(..., description="Lista de pares [lat, lon] formando a curva")
+
+class ElevationContoursResponse(FrozenBaseModel):
+    contours: List[ContourLine] = Field(..., description="Lista de curvas de nível")
+    interval: float = Field(..., description="Intervalo de contorno utilizado em metros")
+    count: int = Field(..., description="Total de curvas de nível geradas")
+
 class WebhookRegistrationRequest(FrozenBaseModel):
     url: str = Field(..., description="Target URL to receive webhook events", json_schema_extra={"example": "https://example.com/webhook"})
     events: Optional[List[str]] = Field(None, description="Optional list of events to subscribe to (default: all)")
@@ -137,3 +166,30 @@ class WebhookRegistrationRequest(FrozenBaseModel):
 class InternalEvent(FrozenBaseModel):
     event_type: str = Field(..., description="Type of the internal event", json_schema_extra={"example": "project_saved"})
     payload: Dict[str, Any] = Field(..., description="Event payload data")
+
+class ProdistConfigRequest(FrozenBaseModel):
+    """Configuração de norma ANEEL/PRODIST para o projeto atual."""
+    ativa: bool = Field(..., description="True para ativar PRODIST, False para ABNT")
+    concessionaria: str = Field(
+        "Não informada",
+        max_length=128,
+        description="Nome da distribuidora de energia (ex.: 'Light S.A.')",
+    )
+    classe_tensao: str = Field(
+        "MT",
+        description="Classe de tensão: BT (baixa), MT (média) ou AT (alta)",
+    )
+    numero_processo: str = Field(
+        "",
+        max_length=64,
+        description="Nº do processo ANEEL (opcional)",
+    )
+
+    @field_validator("classe_tensao")
+    @classmethod
+    def validate_classe_tensao(cls, v: str) -> str:
+        allowed = {"BT", "MT", "AT"}
+        upper = v.strip().upper()
+        if upper not in allowed:
+            raise ValueError(f"classe_tensao deve ser BT, MT ou AT. Recebido: {v!r}")
+        return upper

@@ -233,3 +233,253 @@ def test_webhook_events_empty_list_becomes_none():
 def test_webhook_events_none_allowed():
     req = WebhookRegistrationRequest(url="https://example.com/hook", events=None)
     assert req.events is None
+
+
+# --- AuditLogger.list_logs() Tests ---
+
+def test_audit_list_logs_returns_list():
+    """list_logs() should return a list (even empty when DB has no records)."""
+    from unittest.mock import patch, MagicMock
+    from backend.core.audit import AuditLogger
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = []
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        result = logger_inst.list_logs(limit=10)
+
+    assert isinstance(result, list)
+
+
+def test_audit_list_logs_returns_correct_fields():
+    """list_logs() should include audit_id, event_type, entity_type, entity_id, data."""
+    import json
+    from unittest.mock import patch, MagicMock
+    from backend.core.audit import AuditLogger
+
+    fake_row = (
+        42,           # audit_id
+        "CREATE",     # event_type
+        "Project",    # entity_type
+        "proj-001",   # entity_id
+        "system",     # user_id
+        1700000000.0, # timestamp
+        json.dumps({"project_name": "Rua A"}),  # data_json
+        "2026-01-01 00:00:00",  # created_at
+    )
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = [fake_row]
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        result = logger_inst.list_logs(limit=5)
+
+    assert len(result) == 1
+    entry = result[0]
+    assert entry["audit_id"] == 42
+    assert entry["event_type"] == "CREATE"
+    assert entry["entity_type"] == "Project"
+    assert entry["entity_id"] == "proj-001"
+    assert entry["data"] == {"project_name": "Rua A"}
+
+
+def test_audit_list_logs_entity_type_filter():
+    """list_logs(entity_type=...) should pass entity_type as SQL parameter."""
+    from unittest.mock import patch, MagicMock
+    from backend.core.audit import AuditLogger
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = []
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        logger_inst.list_logs(entity_type="CadFeature", limit=5)
+
+    # entity_type should appear twice in params (column = ? OR ? IS NULL)
+    call_args = mock_conn.execute.call_args
+    sql_params = call_args[0][1]
+    assert sql_params.count("CadFeature") == 2
+
+
+def test_audit_list_logs_entity_id_filter():
+    """list_logs(entity_id=...) should pass entity_id as SQL parameter."""
+    from unittest.mock import patch, MagicMock
+    from backend.core.audit import AuditLogger
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = []
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        logger_inst.list_logs(entity_id="proj-999")
+
+    call_args = mock_conn.execute.call_args
+    sql_params = call_args[0][1]
+    assert sql_params.count("proj-999") == 2
+
+
+def test_audit_list_logs_event_type_filter():
+    """list_logs(event_type=...) should pass event_type as SQL parameter."""
+    from unittest.mock import patch, MagicMock
+    from backend.core.audit import AuditLogger
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = []
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        logger_inst.list_logs(event_type="DELETE")
+
+    call_args = mock_conn.execute.call_args
+    sql_params = call_args[0][1]
+    assert sql_params.count("DELETE") == 2
+
+
+def test_audit_list_logs_combined_filters():
+    """list_logs() with all three filters should pass all values as parameters."""
+    from unittest.mock import patch, MagicMock
+    from backend.core.audit import AuditLogger
+
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = []
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        logger_inst.list_logs(entity_type="Project", event_type="CREATE", limit=10)
+
+    call_args = mock_conn.execute.call_args
+    sql_params = call_args[0][1]
+    assert sql_params.count("Project") == 2
+    assert sql_params.count("CREATE") == 2
+    assert 10 in sql_params
+
+
+def test_audit_list_logs_invalid_json_data_handled():
+    """list_logs() should tolerate invalid data_json without raising an exception."""
+    from unittest.mock import patch, MagicMock
+    from backend.core.audit import AuditLogger
+
+    fake_row = (1, "DELETE", "Project", "p1", "system", 0.0, "not-json", None)
+    mock_conn = MagicMock()
+    mock_conn.execute.return_value.fetchall.return_value = [fake_row]
+
+    with patch("backend.core.audit.get_db_connection", return_value=mock_conn):
+        logger_inst = AuditLogger.__new__(AuditLogger)
+        logger_inst._secret = b"x" * 32
+        result = logger_inst.list_logs()
+
+    # Should not raise — returns empty dict for malformed JSON
+    assert result[0]["data"] == {}
+
+
+def test_ipc_server_noop_on_non_windows():
+    """IpcServer.start() should be a no-op on non-Windows systems (Linux/macOS)."""
+    import sys
+    from unittest.mock import patch
+    from backend.core.ipc import IpcServer
+
+    server = IpcServer("test-token")
+    # Patch _WIN32_AVAILABLE to False (simulating Linux)
+    with patch("backend.core.ipc._WIN32_AVAILABLE", False):
+        server.start()
+
+    # Should NOT have started a thread
+    assert server.thread is None
+    assert server.running is False
+
+
+# --- database.py: init_schema() Tests ---
+
+def test_fresh_db_has_projects_table(tmp_path):
+    """A new connection should automatically create the Projects table."""
+    from backend.core.database import get_db_connection
+    import os
+    db_path = tmp_path / "test.db"
+    os.environ["SISRUA_TESTING"] = "true"
+    conn = get_db_connection(db_path=db_path)
+    try:
+        tables = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        assert "Projects" in tables
+    finally:
+        conn.close()
+
+
+def test_fresh_db_has_auditlog_table(tmp_path):
+    """A new connection should automatically create the AuditLog table."""
+    from backend.core.database import get_db_connection
+    import os
+    db_path = tmp_path / "test_audit.db"
+    os.environ["SISRUA_TESTING"] = "true"
+    conn = get_db_connection(db_path=db_path)
+    try:
+        tables = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        assert "AuditLog" in tables
+    finally:
+        conn.close()
+
+
+def test_fresh_db_has_cadfeatures_table(tmp_path):
+    """A new connection should automatically create the CadFeatures table."""
+    from backend.core.database import get_db_connection
+    import os
+    db_path = tmp_path / "test_cad.db"
+    os.environ["SISRUA_TESTING"] = "true"
+    conn = get_db_connection(db_path=db_path)
+    try:
+        tables = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        assert "CadFeatures" in tables
+    finally:
+        conn.close()
+
+
+def test_fresh_db_audit_insert_works(tmp_path):
+    """INSERT into AuditLog must succeed on a fresh DB without prior seed."""
+    from backend.core.database import get_db_connection
+    import os
+    import time
+    db_path = tmp_path / "test_insert.db"
+    os.environ["SISRUA_TESTING"] = "true"
+    conn = get_db_connection(db_path=db_path)
+    try:
+        conn.execute(
+            "INSERT INTO AuditLog (event_type, entity_type, entity_id, user_id, timestamp, data_json, signature) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("CREATE", "Project", "p-1", "system", time.time(), '{"test": 1}', "sig123"),
+        )
+        conn.commit()
+        count = conn.execute("SELECT COUNT(*) FROM AuditLog").fetchone()[0]
+        assert count == 1
+    finally:
+        conn.close()
+
+
+def test_fresh_db_project_insert_works(tmp_path):
+    """INSERT into Projects must succeed on a fresh DB without prior seed."""
+    from backend.core.database import get_db_connection
+    import os
+    db_path = tmp_path / "test_proj.db"
+    os.environ["SISRUA_TESTING"] = "true"
+    conn = get_db_connection(db_path=db_path)
+    try:
+        conn.execute(
+            "INSERT INTO Projects (project_id, project_name, crs_out, version) VALUES (?, ?, ?, ?)",
+            ("uuid-test", "My Project", "EPSG:31983", 1),
+        )
+        conn.commit()
+        row = conn.execute("SELECT project_name FROM Projects WHERE project_id = ?", ("uuid-test",)).fetchone()
+        assert row[0] == "My Project"
+    finally:
+        conn.close()

@@ -64,6 +64,17 @@ history/
 *.dxf.tmp
 /tmp/*.dxf
 
+# ===== Artefatos de texto gerados (snapshots de build/test) =====
+all_files.txt
+desktop.ini
+build_out.txt
+test_out_full.txt
+pytest_v110_output.txt
+vitest_results.txt
+vitest_results_v2.txt
+vitest_v110_output.txt
+src/backend/backend/gis_core/topology_report.json
+
 # ===== Local Build / Temp =====
 local_build/
 

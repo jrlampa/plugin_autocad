@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Settings, Globe, LayoutTemplate, Download, FileJson } from 'lucide-react';
 import JobOverlay from './JobOverlay';
+import NormaPanel from './NormaPanel';
 
 export default function SettingsPanel({
   showSettings,
@@ -23,6 +24,7 @@ export default function SettingsPanel({
   setEngConfig,
   uiJob,
   api,
+  onToast,
 }) {
   return (
     <div className="absolute top-6 right-6 z-[1000] w-[400px] animate-enter">
@@ -200,25 +202,37 @@ export default function SettingsPanel({
                 <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 ml-1">
                   <Download size={12} /> Interoperabilidade GIS
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     onClick={() => uiJob?.project_id && api.exportGeoJSON(uiJob.project_id)}
                     disabled={!uiJob?.project_id}
-                    className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                    className="px-3 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5 disabled:opacity-40"
                   >
-                    <FileJson size={14} className="text-amber-500" />
+                    <FileJson size={13} className="text-amber-500" />
                     GEOJSON
                   </button>
                   <button
                     onClick={() => uiJob?.project_id && api.exportGeoPackage(uiJob.project_id)}
                     disabled={!uiJob?.project_id}
-                    className="px-4 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+                    className="px-3 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5 disabled:opacity-40"
                   >
-                    <Globe size={14} className="text-blue-500" />
+                    <Globe size={13} className="text-blue-500" />
                     GEOPACKAGE
+                  </button>
+                  <button
+                    data-testid="btn-export-dxf"
+                    onClick={() => uiJob?.project_id && api.exportDxf(uiJob.project_id)}
+                    disabled={!uiJob?.project_id}
+                    className="px-3 py-3 bg-white border border-slate-200 rounded-2xl text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5 disabled:opacity-40"
+                  >
+                    <Download size={13} className="text-violet-500" />
+                    DXF
                   </button>
                 </div>
               </div>
+
+              {/* NORMA TÉCNICA (ABNT / ANEEL PRODIST) */}
+              <NormaPanel onToast={onToast} />
 
               <div className="pt-8 border-t border-slate-200/50">
                 <button

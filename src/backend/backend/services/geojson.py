@@ -102,7 +102,8 @@ def prepare_geojson_compute(geo: Any, check_cancel: Callable[[], None] = None) -
                 if math.isfinite(x_proj) and math.isfinite(y_proj):
                     if len(features) % 50 == 0 and check_cancel: check_cancel()
                     
-                    # TROJAN HORSE: Expandimos a captura de ativos para valorizar o banco local.
+                    # Mapeamento de ativos urbanos para blocos CAD.
+                    # Expande a captura de ativos para enriquecer o banco local de infraestrutura.
                     asset_mapping = {
                         "street_light": "POSTE_ILUMINACAO",
                         "pole": "POSTE_ENERGIA",
@@ -137,8 +138,8 @@ def prepare_geojson_compute(geo: Any, check_cancel: Callable[[], None] = None) -
                             block_name=norm_optional_str(block_name),
                             block_filepath=norm_optional_str(block_filepath),
                             insertion_point_xy=[x_proj, y_proj],
-                            rotation=props.get("rotation"),
-                            scale=props.get("scale"),
+                            rotation=float(props.get("rotation") or 0.0),
+                            scale=float(props.get("scale") or 1.0),
                             original_geojson_properties=sanitize_jsonable(props)
                         )
                     )

@@ -1,113 +1,197 @@
+"""
+backend/services/geocode.py
+Serviço de geocodificação inteligente — custo zero.
+
+Estratégia (em ordem de prioridade):
+  1. Coordenadas decimais diretas  (ex.: -22.15018, -42.92185)
+  2. Coordenadas UTM SIRGAS 2000   (ex.: 23K 788547 7634925)
+  3. Geocodificação por endereço    (Nominatim / OSM — gratuito)
+
+Responsabilidade única: parseamento e geocodificação de queries de texto.
+Segurança: query sanitizada antes do envio à API externa (max 200 chars).
+"""
+from __future__ import annotations
+
 import re
-import math
-import requests
-import logging
-from typing import Optional, Dict, Any, Tuple
-from fastapi import HTTPException
-from backend.gis_core.crs import sirgas2000_utm_epsg
-from pyproj import Transformer
+from typing import Optional
 
-logger = logging.getLogger(__name__)
+from backend.core.logger import get_logger
 
-def parse_utm(query: str) -> Optional[Tuple[float, float, str]]:
+logger = get_logger(__name__)
+
+# Limites de sanitização
+_MAX_QUERY_LEN = 200
+
+# Regex: lat/lon decimal  (ex.: "-22.15018, -42.92185" | "-22.15018 -42.92185")
+_RE_LATLON = re.compile(
+    r"^\s*(?P<lat>-?\d{1,3}(?:\.\d+)?)\s*[,;\s]\s*(?P<lon>-?\d{1,3}(?:\.\d+)?)\s*$"
+)
+
+# Regex: UTM compacto  (ex.: "23K 788547 7634925" | "788547, 7634925")
+# Aceita zona opcional (ex.: "23K") + Easting + Northing
+_RE_UTM = re.compile(
+    r"^\s*(?:(?P<zone>\d{1,2}[A-Za-z])\s+)?"
+    r"(?P<easting>\d{5,7}(?:\.\d+)?)\s*[,\s]\s*"
+    r"(?P<northing>\d{6,7}(?:\.\d+)?)\s*$"
+)
+
+# Nominatim endpoint público (OSM) — gratuito, sem chave de API
+_NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+
+
+def _sanitize_query(text: str) -> str:
+    """Remove caracteres perigosos e trunca o query para segurança."""
+    # Remove tags HTML/script, caracteres de controle e injeção CRLF
+    clean = re.sub(r"[<>\"'`;\\\r\n\x00]", "", text)
+    return clean.strip()[:_MAX_QUERY_LEN]
+
+
+def _try_parse_latlon(text: str) -> Optional[dict]:
+    """Tenta interpretar o texto como lat/lon decimal."""
+    m = _RE_LATLON.match(text)
+    if not m:
+        return None
+    lat = float(m.group("lat"))
+    lon = float(m.group("lon"))
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+        return None
+    logger.debug("geocode_latlon_parsed", lat=lat, lon=lon)
+    return {"latitude": lat, "longitude": lon, "source": "latlon_direct"}
+
+
+def _try_parse_utm(text: str) -> Optional[dict]:
     """
-    Tries to parse UTM coordinates from string.
-    Supported formats: 
-    - "K 216330 7528658" (Zone Letter E N)
-    - "23K 216330 7528658" (Zone Letter E N)
-    - "216330, 7528658" (E, N) - Assumes defaults for Brazil if zone missing
+    Tenta interpretar o texto como coordenadas UTM SIRGAS 2000.
+    Aceita opcionalmente a designação de zona (ex.: "23K").
+    Valida que o northing parece Sul (> 6_000_000 m, representativo do Brasil).
     """
-    # Pattern for "ZoneLetter Easting Northing" or just "Easting Northing"
-    # Example: K 216330 7528658
-    utm_match = re.search(r'(?:([0-9]{1,2})?\s*([C-X]))?\s*([0-9]{6}(?:\.[0-9]+)?)\s*[,/|\s]\s*([0-9]{7}(?:\.[0-9]+)?)', query, re.IGNORECASE)
-    
-    if not utm_match:
+    m = _RE_UTM.match(text)
+    if not m:
         return None
 
-    zone_num_str, zone_letter, easting_str, northing_str = utm_match.groups()
-    easting = float(easting_str)
-    northing = float(northing_str)
-    
-    # Defaults for Brazil if not specified
-    # K is roughly latitude -24 to -16 (Rio/SP/Espírito Santo area)
-    zone_num = int(zone_num_str) if zone_num_str else 23 # Default to Zone 23 (Rio/MG area)
-    
-    is_northern = False
-    if zone_letter:
-        # N and above are northern hemisphere
-        # C-M are southern, N-X are northern
-        if zone_letter.upper() >= 'N':
-            is_northern = True
-            
-    # EPSG for SIRGAS 2000 UTM
-    # South: 31960 + zone
-    # North: 31960 (actually SIRGAS 2000 / UTM zone N is different, usually 31900 range)
-    # But for Brazil (mostly South), we use 31960 + zone.
-    if not is_northern:
-        epsg = 31960 + zone_num
+    easting = float(m.group("easting"))
+    northing = float(m.group("northing"))
+
+    # Heurística: easting válido para UTM (100_000 – 999_000 m)
+    if not (100_000 <= easting <= 999_000):
+        return None
+    # Heurística: northing para Brasil Sul (6_500_000 – 9_999_999 m)
+    if not (6_000_000 <= northing <= 10_000_000):
+        return None
+
+    zone_str = m.group("zone")
+    # Detecta zona automaticamente ou usa a informada
+    if zone_str:
+        zone_num = int(re.match(r"\d+", zone_str).group())
     else:
-        # Placeholder for North zones if needed, for now stick to South
-        epsg = 31960 + zone_num 
+        # Fallback: zona 23 (mais comum no Brasil)
+        zone_num = 23
+
+    epsg = 31960 + zone_num  # SIRGAS 2000 / UTM zone
 
     try:
-        transformer = Transformer.from_crs(f"EPSG:{epsg}", "EPSG:4326", always_xy=True)
-        lon, lat = transformer.transform(easting, northing)
-        
-        if math.isfinite(lat) and math.isfinite(lon):
-            return lat, lon, f"UTM {zone_num}{zone_letter or ''} {easting:.0f}E {northing:.0f}N"
-    except Exception as e:
-        logger.error("utm_transform_failed", error=str(e), query=query)
-        
-    return None
+        from backend.gis_core.crs import utm_to_latlon
 
-def parse_lat_lon(query: str) -> Optional[Tuple[float, float, str]]:
-    """Tries to parse DD coordinates (e.g. -21.123, -41.456)"""
-    ll_match = re.search(r'(-?[0-9]{1,2}\.[0-9]+)\s*[,/|\s]\s*(-?[0-9]{1,3}\.[0-9]+)', query)
-    if ll_match:
-        lat = float(ll_match.group(1))
-        lon = float(ll_match.group(2))
-        if -90 <= lat <= 90 and -180 <= lon <= 180:
-            return lat, lon, f"{lat:.6f}, {lon:.6f}"
-    return None
+        lat, lon = utm_to_latlon(easting, northing, epsg)
+        if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+            return None
+        logger.debug("geocode_utm_parsed", easting=easting, northing=northing, epsg=epsg)
+        return {"latitude": lat, "longitude": lon, "source": "utm_direct", "epsg": epsg}
+    except Exception as exc:
+        logger.warning("geocode_utm_parse_failed", error=str(exc))
+        return None
 
-def smart_geocode(query: str) -> Dict[str, Any]:
+
+def _nominatim_geocode(query: str) -> Optional[dict]:
     """
-    Orchestrates coordinate parsing and Nominatim lookup.
+    Geocodifica um endereço usando Nominatim (OSM) — gratuito, sem chave de API.
+    Prioriza resultados no Brasil (countrycodes=br).
+
+    Conformidade com Nominatim Usage Policy:
+    - User-Agent identificado (obrigatório pela política OSM)
+    - Uso moderado: esta função é protegida pelo rate limiter da API
+      (/api/v1/tools/geocode requer autenticação, limitado a 5 req/min/IP)
+    - Não executa crawling em massa; respostas são cacheadas via frontend
     """
-    # 1. Try Lat/Lon
-    res = parse_lat_lon(query)
-    if res:
-        return {"latitude": res[0], "longitude": res[1], "display_name": res[2]}
-        
-    # 2. Try UTM
-    res = parse_utm(query)
-    if res:
-        return {"latitude": res[0], "longitude": res[1], "display_name": res[2]}
-        
-    # 3. Fallback to Nominatim
+    import requests
+
+    params = {
+        "q": query,
+        "format": "json",
+        "limit": 1,
+        "countrycodes": "br",
+        "accept-language": "pt-BR",
+    }
+    # User-Agent obrigatório conforme Nominatim Usage Policy
+    # Versão derivada do pacote para evitar string hardcoded
     try:
-        url = "https://nominatim.openstreetmap.org/search"
-        params = {
-            "q": query,
-            "format": "json",
-            "limit": 1,
-            "addressdetails": 1
-        }
-        headers = {
-            "User-Agent": "sisRUA-AutoCAD-Plugin/1.1 (jonatas.lampa@im3.com.br)"
-        }
-        response = requests.get(url, params=params, headers=headers, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        
+        from importlib.metadata import version as _pkg_version
+        _ver = _pkg_version("sisrua-backend")
+    except Exception:
+        _ver = "0.1.0"
+    headers = {
+        "User-Agent": f"sisRUA-GIS/{_ver} (https://github.com/jrlampa/plugin_autocad)"
+    }
+
+    try:
+        resp = requests.get(_NOMINATIM_URL, params=params, headers=headers, timeout=8)
+        resp.raise_for_status()
+        data = resp.json()
+        if not data:
+            # Segunda tentativa sem filtro de país
+            params.pop("countrycodes", None)
+            resp = requests.get(_NOMINATIM_URL, params=params, headers=headers, timeout=8)
+            resp.raise_for_status()
+            data = resp.json()
         if data:
             item = data[0]
+            lat = float(item["lat"])
+            lon = float(item["lon"])
+            display_name = item.get("display_name", "")
+            logger.info("geocode_nominatim_hit", query=query, display_name=display_name)
             return {
-                "latitude": float(item["lat"]),
-                "longitude": float(item["lon"]),
-                "display_name": item["display_name"]
+                "latitude": lat,
+                "longitude": lon,
+                "display_name": display_name,
+                "source": "nominatim",
             }
-    except Exception as e:
-        logger.error("nominatim_failed", error=str(e), query=query)
-        
-    raise HTTPException(status_code=404, detail=f"Localização não encontrada para: {query}")
+    except Exception as exc:
+        logger.warning("geocode_nominatim_failed", query=query, error=str(exc))
+    return None
+
+
+def geocode(query: str) -> Optional[dict]:
+    """
+    Geocodifica um texto de entrada (endereço, lat/lon ou UTM).
+
+    Prioridade:
+      1. lat/lon decimal    — sem rede externa
+      2. UTM SIRGAS 2000    — sem rede externa
+      3. Nominatim/OSM      — requer rede (gratuito)
+
+    Args:
+        query: Texto de entrada (max 200 chars após sanitização).
+
+    Returns:
+        Dict com ``latitude``, ``longitude`` e ``source``, ou None se não encontrado.
+    """
+    if not query or not query.strip():
+        return None
+
+    clean = _sanitize_query(query)
+    if not clean:
+        return None
+
+    # 1. lat/lon
+    result = _try_parse_latlon(clean)
+    if result:
+        return result
+
+    # 2. UTM
+    result = _try_parse_utm(clean)
+    if result:
+        return result
+
+    # 3. Nominatim
+    result = _nominatim_geocode(clean)
+    return result

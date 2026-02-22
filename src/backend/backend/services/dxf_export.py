@@ -5,6 +5,15 @@ Serviço de exportação DXF (headless, usando ezdxf).
 Princípio 2.5D: elevação como atributo XDATA — NÃO como coordenada Z.
 As polilinhas são desenhadas em 2D (Z=0); a elevação é preservada como
 atributo não-gráfico para uso em relatórios e BIM-LITE.
+
+Conformidade:
+  - ABNT NBR 14166:1998 / NBR 13133:2021 (padrão)
+  - ANEEL/PRODIST (quando norma da concessionária está ativa)
+
+Quando ProdistMetadata é fornecido, os metadados ABNT são substituídos
+pelos metadados PRODIST no cabeçalho DXF. Além disso, faixas de segurança
+(buffers) são geradas geometricamente para cada rede elétrica classificada
+conforme NR-10:2016 e PRODIST Módulo 3 §3.4.
 """
 from __future__ import annotations
 
@@ -13,6 +22,8 @@ from pathlib import Path
 from typing import List, Optional
 
 from backend.core.logger import get_logger
+from backend.gis_core.abnt import AbntDrawingMetadata, build_default_metadata
+from backend.gis_core.prodist import ProdistMetadata, TensaoClasse, camada_buffer_aneel
 from backend.models import CadFeature
 
 logger = get_logger(__name__)
@@ -21,19 +32,119 @@ logger = get_logger(__name__)
 APPID_SISRUA = "SISRUA"
 XDATA_ELEVATION_KEY = 1000  # Group code para string em XDATA
 
+# Mapeamento camada → classe de tensão para geração automática de buffers PRODIST
+_LAYER_CLASSE_MAP: dict[str, TensaoClasse] = {
+    "SISRUA_ANEEL_BT": TensaoClasse.BT,
+    "SISRUA_ANEEL_MT": TensaoClasse.MT,
+    "SISRUA_ANEEL_AT": TensaoClasse.AT,
+}
+
+
+def generate_prodist_buffer_features(
+    features: List[CadFeature],
+    prodist_metadata: ProdistMetadata,
+) -> List[CadFeature]:
+    """
+    Gera faixas de segurança (buffers) ANEEL/PRODIST como features CAD.
+
+    Para cada polilinha em camadas SISRUA_ANEEL_*, computa um polígono
+    buffer usando shapely conforme as distâncias definidas em NR-10:2016
+    (Tabela 1) e PRODIST Módulo 3 §3.4. O resultado é uma lista de
+    CadFeature do tipo Polyline na camada SISRUA_ANEEL_BUFFER_*.
+
+    Princípio 2.5D: os polígonos de buffer são 2D (Z=0); a elevação da
+    feature original é propagada como atributo `elevation` via XDATA.
+
+    Args:
+        features:         Lista de features CAD de origem.
+        prodist_metadata: Metadados PRODIST com distâncias de buffer.
+
+    Returns:
+        Lista de CadFeature representando os polígonos de buffer.
+    """
+    try:
+        from shapely.geometry import LineString
+    except ImportError:
+        logger.warning("shapely_not_available_buffers_skipped")
+        return []
+
+    buffer_features: List[CadFeature] = []
+
+    for feat in features:
+        if feat.feature_type != "Polyline":
+            continue
+
+        layer = feat.layer or "0"
+
+        # Detecta classe de tensão pelo layer ou usa a do metadado PRODIST
+        classe = _LAYER_CLASSE_MAP.get(layer, prodist_metadata.classe_tensao)
+
+        from backend.gis_core.prodist import buffer_de_seguranca_m
+        dist_m = buffer_de_seguranca_m(classe)
+        buffer_layer = camada_buffer_aneel(classe)
+
+        coords = feat.coords_xy
+        if not coords or len(coords) < 2:
+            continue
+
+        try:
+            line = LineString([(float(x), float(y)) for x, y in coords])
+            # cap_style=2 → flat caps (BufferCapStyle.flat)
+            # join_style=2 → mitre joins (BufferJoinStyle.mitre)
+            # Flat caps e mitre joins produzem faixas retangulares que
+            # representam fielmente a faixa de servidão conforme PRODIST.
+            buffered = line.buffer(dist_m, cap_style=2, join_style=2)
+            exterior = list(buffered.exterior.coords)
+            if len(exterior) < 3:
+                continue
+
+            buffer_features.append(
+                CadFeature(
+                    feature_type="Polyline",
+                    layer=buffer_layer,
+                    name=f"Buffer PRODIST {classe.value}",
+                    coords_xy=[[float(x), float(y)] for x, y in exterior],
+                    elevation=feat.elevation,
+                )
+            )
+        except Exception as exc:
+            logger.warning("prodist_buffer_failed", layer=layer, error=str(exc))
+
+    logger.info(
+        "prodist_buffers_generated",
+        input_features=len(features),
+        buffer_features=len(buffer_features),
+    )
+    return buffer_features
+
 
 def export_features_to_dxf(
     features: List[CadFeature],
     output_path: Optional[Path] = None,
     crs_label: str = "SIRGAS 2000 UTM",
+    metadata: Optional[AbntDrawingMetadata] = None,
+    epsg: int = 31983,
+    prodist_metadata: Optional[ProdistMetadata] = None,
+    include_prodist_buffers: bool = False,
 ) -> Path:
     """
     Converte uma lista de CadFeature em um arquivo DXF R2010.
 
+    Quando `prodist_metadata` é fornecido, os metadados ANEEL/PRODIST são
+    injetados no cabeçalho DXF em substituição aos metadados ABNT.
+    Caso contrário, usa metadados ABNT NBR 14166/13133.
+
     Args:
-        features: Lista de features CAD (Polyline ou Point).
-        output_path: Caminho de saída. Se None, usa arquivo temporário.
-        crs_label: Rótulo do CRS para metadados do header.
+        features:               Lista de features CAD (Polyline ou Point).
+        output_path:            Caminho de saída. Se None, usa arquivo temporário.
+        crs_label:              Rótulo do CRS para metadados do header (legado).
+        metadata:               Metadados ABNT explícitos. Se None, derivados de `epsg`.
+        epsg:                   Código EPSG da projeção (usado apenas quando `metadata`
+                                não é fornecido e `prodist_metadata` é None).
+        prodist_metadata:       Metadados PRODIST. Quando presente, substitui ABNT.
+        include_prodist_buffers: Quando True e `prodist_metadata` não é None,
+                                gera faixas de segurança geométricas (NR-10:2016)
+                                nas camadas SISRUA_ANEEL_BUFFER_*.
 
     Returns:
         Path para o arquivo .dxf gerado.
@@ -50,12 +161,37 @@ def export_features_to_dxf(
 
     msp = doc.modelspace()
 
-    # Registra APPID para XDATA de elevação (2.5D)
+    # Registra APPID para XDATA (elevação 2.5D + metadados de norma)
     doc.appids.new(APPID_SISRUA)
+
+    # Quando PRODIST está ativo, substitui metadados ABNT pelos da concessionária
+    if prodist_metadata is not None:
+        _inject_prodist_metadata(doc, prodist_metadata)
+        log_norma = prodist_metadata.norma_ativa
+        log_extra: dict = {
+            "concessionaria": prodist_metadata.concessionaria,
+            "classe_tensao": prodist_metadata.classe_tensao.value,
+        }
+    else:
+        if metadata is None:
+            metadata = build_default_metadata(epsg)
+        _inject_abnt_metadata(doc, metadata)
+        log_norma = "ABNT NBR 14166/13133"
+        log_extra = {
+            "crs": metadata.crs_label,
+            "escala": metadata.escala_str(),
+        }
 
     _ensure_layers(doc, features)
 
-    for feat in features:
+    # Gera buffers PRODIST quando solicitado (faixas de segurança NR-10:2016)
+    all_features = list(features)
+    if prodist_metadata is not None and include_prodist_buffers:
+        buffer_feats = generate_prodist_buffer_features(features, prodist_metadata)
+        all_features.extend(buffer_feats)
+        _ensure_layers(doc, buffer_feats)
+
+    for feat in all_features:
         if feat.feature_type == "Polyline":
             _add_polyline(msp, feat)
         elif feat.feature_type == "Point":
@@ -67,8 +203,52 @@ def export_features_to_dxf(
         tmp.close()
 
     doc.saveas(str(output_path))
-    logger.info("dxf_exported", path=str(output_path), features=len(features))
+    logger.info(
+        "dxf_exported",
+        path=str(output_path),
+        features=len(all_features),
+        norma=log_norma,
+        **log_extra,
+    )
     return output_path
+
+
+def _inject_abnt_metadata(doc, metadata: AbntDrawingMetadata) -> None:
+    """
+    Injeta metadados ABNT no cabeçalho do documento DXF.
+
+    Estratégia: grava o identificador sisRUA em $FINGERPRINTGUID (variável
+    suportada em R2010+) para rastreabilidade de levantamento conforme
+    ABNT NBR 14166:1998 §7.1 — Identificação do levantamento.
+
+    Falhas de gravação são registradas em log de aviso (não interrompem
+    a exportação — o DXF geométrico permanece válido mesmo sem metadados).
+    """
+    # Grava identificador de rastreabilidade em $FINGERPRINTGUID (R2010+)
+    try:
+        doc.header["$FINGERPRINTGUID"] = (
+            f"sisrua|{metadata.datum}|{metadata.zona_utm}|{metadata.escala_str()}"
+        )
+    except Exception as exc:
+        logger.warning("abnt_fingerprintguid_failed", error=str(exc))
+
+    # XDATA no objeto APPID não é suportado diretamente em R2010;
+    # propriedades customizadas completas requerem DXF R2018+ (ACDSRECORD).
+    # Para compatibilidade máxima, mantemos apenas o FINGERPRINTGUID acima.
+    # As linhas ABNT completas estão disponíveis via metadata.to_comment_lines().
+
+
+def _inject_prodist_metadata(doc, metadata: ProdistMetadata) -> None:
+    """
+    Injeta metadados ANEEL/PRODIST no cabeçalho do documento DXF.
+
+    Substitui os metadados ABNT quando a norma da concessionária está ativa.
+    Usa o mesmo slot $FINGERPRINTGUID para rastreabilidade (R2010+).
+    """
+    try:
+        doc.header["$FINGERPRINTGUID"] = metadata.to_fingerprint()
+    except Exception as exc:
+        logger.warning("prodist_fingerprintguid_failed", error=str(exc))
 
 
 def _ensure_layers(doc, features: List[CadFeature]) -> None:

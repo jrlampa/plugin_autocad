@@ -6,6 +6,10 @@ vi.mock('axios', () => ({
   default: {
     get: vi.fn(() => Promise.resolve({ data: { status: 'ok' } })),
     post: vi.fn(() => Promise.resolve({ data: {} })),
+    interceptors: {
+      request: { use: vi.fn() },
+      response: { use: vi.fn() },
+    },
   },
 }));
 
@@ -68,5 +72,23 @@ vi.mock('./services/SdkService', () => ({
         },
       })
     ),
+    authCheck: vi.fn(() => Promise.resolve({ status: 'ok' })),
+    updateProject: vi.fn(() => Promise.resolve({ project_id: 'p1', version: 2 })),
+    createPrepareJob: vi.fn(() => Promise.resolve({ job_id: 'job-001', status: 'queued' })),
+    getJob: vi.fn(() => Promise.resolve({ job_id: 'job-001', status: 'completed' })),
+    cancelJob: vi.fn(() => Promise.resolve({ cancelled: true })),
+    queryElevation: vi.fn(() => Promise.resolve({ elevation_m: 850.0 })),
+    queryElevationProfile: vi.fn(() => Promise.resolve({ elevations: [] })),
+    chatWithAI: vi.fn(() => Promise.resolve({ response: 'OK' })),
+    prepareOSM: vi.fn(() => Promise.resolve({ features: [] })),
+    prepareGeoJSON: vi.fn(() => Promise.resolve({ features: [] })),
+    registerWebhook: vi.fn(() => Promise.resolve({ webhook_id: 'wh-1' })),
+    emitEvent: vi.fn(() => Promise.resolve({ delivered: 1 })),
+    createAuditLog: vi.fn(() => Promise.resolve({ audit_id: 1 })),
+    listAuditLogs: vi.fn(() => Promise.resolve([])),
+    getAuditLog: vi.fn(() => Promise.resolve({ audit_id: 1 })),
+    verifyAuditLog: vi.fn(() => Promise.resolve({ valid: true })),
+    verifyAllAuditLogs: vi.fn(() => Promise.resolve({ total: 0, valid: 0, invalid: 0 })),
+    getAuditStats: vi.fn(() => Promise.resolve({ total_logs: 0 })),
   },
 }));

@@ -264,7 +264,7 @@ app.add_middleware(
 @app.post("/api/v1/audit/telemetry", tags=["Audit"])
 async def receive_telemetry(payload: Dict[str, Any]):
     """Recebe telemetria silenciosa do plugin para monitoramento e auto-healing."""
-    logger.info("telemetry_received", **payload)
+    logger.info("telemetry_received", payload=payload)
     return {"status": "received"}
 
 

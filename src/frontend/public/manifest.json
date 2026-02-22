@@ -1,0 +1,31 @@
+{
+  "name": "sisRUA — Generative Urban Design",
+  "short_name": "sisRUA",
+  "description": "Plugin de levantamento técnico urbano e geração CAD para AutoCAD. Suporte a SIRGAS 2000, ABNT NBR 14166/13133 e ANEEL/PRODIST.",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8fafc",
+  "theme_color": "#3b82f6",
+  "categories": ["utilities", "productivity", "engineering"],
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Nova Busca OSM",
+      "short_name": "Buscar",
+      "description": "Inicia uma nova busca de dados OpenStreetMap",
+      "url": "/?action=osm-search"
+    }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": []
+}

@@ -140,4 +140,50 @@ export const api = {
   exportGeoPackage: (projectId) => {
     window.open(`${API_BASE}/export/geopackage/${projectId}`, '_blank');
   },
+
+  /**
+   * Enterprise: Export project to DXF (ABNT NBR 14166 / 2.5D)
+   */
+  exportDxf: (projectId) => {
+    window.open(`${API_BASE}/export/dxf/${projectId}`, '_blank');
+  },
+
+  /**
+   * ANEEL/PRODIST: Retorna a norma técnica ativa.
+   */
+  getNormaAtiva: async () => {
+    const response = await axios.get(`${API_BASE}/normas/ativas`);
+    return response.data;
+  },
+
+  /**
+   * ANEEL/PRODIST: Configura a norma técnica ativa (ABNT ou PRODIST).
+   * @param {{ ativa: boolean, concessionaria: string, classe_tensao: string, numero_processo: string }} payload
+   */
+  setNormaConfig: async (payload) => {
+    const response = await axios.post(`${API_BASE}/normas/config`, payload);
+    return response.data;
+  },
+
+  /**
+   * Ferramentas: Gera curvas de nível para uma área delimitada.
+   * @param {number} minLat - Latitude mínima da área
+   * @param {number} minLon - Longitude mínima da área
+   * @param {number} maxLat - Latitude máxima da área
+   * @param {number} maxLon - Longitude máxima da área
+   * @param {number} interval - Intervalo de contorno em metros (padrão: 10)
+   * @returns {{ contours: Array, interval: number, count: number }}
+   */
+  getElevationContours: async (minLat, minLon, maxLat, maxLon, interval = 10.0) => {
+    return await ResilienceService.executeWithTracing('ELEVATION_CONTOURS', async (context) => {
+      return await ResilienceService.guard('ELEVATION_API', async () => {
+        const response = await axios.post(
+          `${API_BASE}/tools/elevation/contours`,
+          { min_lat: minLat, min_lon: minLon, max_lat: maxLat, max_lon: maxLon, interval },
+          { headers: { 'X-Trace-ID': context.traceId } },
+        );
+        return response.data;
+      });
+    });
+  },
 };
