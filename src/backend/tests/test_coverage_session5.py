@@ -591,36 +591,20 @@ class TestAuditValuationExtraMileage:
 class TestUtilsIsnanException:
     """Cobre a linha 28 de core/utils.py (math.isnan raises para tipos incomuns)."""
 
-    def test_norm_optional_str_com_valor_que_causa_isnan_exception(self):
-        """Linha 28: math.isnan levanta TypeError → except pass → continua para str()."""
+    def test_norm_optional_str_nan_float_retorna_none(self):
+        """Linha 26-27: float NaN → None."""
+        from backend.core.utils import norm_optional_str
+        assert norm_optional_str(float("nan")) is None
+
+    def test_norm_optional_str_isnan_exception_usa_fallback(self):
+        """Linha 28: math.isnan TypeError → except pass → tenta str()."""
         from backend.core.utils import norm_optional_str
 
-        # O try/except em linha 25-29 tenta math.isnan para float.
-        # Usar mock para fazer math.isnan levantar quando chamado.
+        # Usa mock para simular isnan levantando durante verificação de float
         with patch("backend.core.utils.math.isnan", side_effect=TypeError("isnan fail")):
             # 3.14 é float, passa isinstance(val, float), tenta isnan, pega TypeError,
             # executa pass, cai no try abaixo e converte para str
             result = norm_optional_str(3.14)
 
         # Após TypeError no isnan, fallback é str(3.14) = "3.14"
-        assert result == "3.14"
-
-    def test_norm_optional_str_nan_float_retorna_none(self):
-        """Linha 26-27: float NaN → None."""
-        from backend.core.utils import norm_optional_str
-        assert norm_optional_str(float("nan")) is None
-
-    def test_norm_optional_str_isnan_tipo_errado_usa_fallback(self):
-        """Linha 28: math.isnan TypeError → except pass → tenta str()."""
-        from backend.core.utils import norm_optional_str
-
-        # Cria um objeto float-like que faz math.isnan levantar
-        class FakeFloat(float):
-            pass
-
-        # Usa mock para simular isnan levantando na verificação
-        with patch("backend.core.utils.math.isnan", side_effect=TypeError("isnan fail")):
-            result = norm_optional_str(FakeFloat(3.14))
-
-        # Deve continuar e retornar "3.14" (fallback via str())
         assert result == "3.14"

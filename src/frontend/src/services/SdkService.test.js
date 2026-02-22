@@ -60,7 +60,7 @@ describe('SdkService (interface e contrato)', () => {
       expect(result).toHaveProperty('status');
     });
 
-    it('pode ser chamado sem argumentos', async () => {
+    it('resolve com sucesso sem argumentos extras', async () => {
       await expect(SdkService.checkHealth()).resolves.not.toThrow();
     });
   });
