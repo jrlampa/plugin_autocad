@@ -1661,3 +1661,50 @@ direta ao handler com MagicMock que bypassa Pydantic.
 - **Testes frontend**: 135 → **135 passando** (sem regressão)
 - **Cobertura total**: 98.62% → **98.74%**
 - **CodeQL**: 0 alertas
+
+---
+
+## ⚡ Sessão 2026-02-22 (Continuação) — Coverage Frontend ≥ 80%
+
+### Baseline
+638 testes backend (98.74%), 135 testes frontend (55.81%).
+
+### Problema
+Coverage mínima de 80% não atingida no frontend. As maiores lacunas:
+- `api.js` — 0% (180 linhas)
+- `HealthDashboard.jsx` — 0% (161 linhas)
+- `SdkService.js` — 0% (266 linhas)
+
+### Solução
+
+**`setupTests.js`** — Adicionado `interceptors: { request: { use: vi.fn() }, response: { use: vi.fn() } }` ao mock global do axios. Necessário para que o módulo real `api.js` possa se importar sem lançar TypeError.
+
+**`src/api.test.js`** (48 testes):
+- `vi.unmock('./api')` antes de importar → módulo REAL
+- Callbacks dos interceptors capturadas de `axios.interceptors.*.use.mock.calls[0]` ANTES de `clearAllMocks()`
+- Testa 401 (clear tokens), 429 (RATE_LIMIT event), 503 (CIRCUIT_BREAKER event)
+- `api.js` coverage: **0% → 100%**
+
+**`src/components/HealthDashboard.test.jsx`** (15 testes):
+- Usa o mock global de `SdkService` (setupTests.js) — componente é testado sem tocar na API real
+- Testa: loading, error, retry button, healthy, degraded, External APIs
+- `HealthDashboard.jsx` coverage: **0% → 98.05%**
+- **Descoberta importante**: `vi.useFakeTimers()` dentro de um `describe` vaza para o próximo `describe` quando não restaurado em `afterEach`. Solução: usar `afterEach(() => vi.useRealTimers())` global no topo do arquivo de teste.
+
+**`src/services/SdkService.real.test.js`** (30 testes):
+- `vi.unmock('./SdkService')` → módulo REAL
+- Mocka `global.fetch` para todas as chamadas HTTP do `SisRuaClient`
+- Testa: checkHealth, authCheck, createPrepareJob (100m/500m/1km REF_2), queryElevation, queryElevationProfile, chatWithAI, prepareOSM (IPC + fallback), prepareGeoJSON, registerWebhook, emitEvent, audit, updateProject, getJob, cancelJob
+- `SdkService.js` coverage: **0% → 100%**
+
+### Resultado Final
+- **Testes frontend**: 135 → **228 passando** (+93)
+- **Testes backend**: **638 passando** (sem regressão)
+- **Coverage frontend**: 55.81% → **80.12%** (threshold ≥ 80% ✅)
+- **Coverage backend**: **98.74%** (sem regressão)
+- **CodeQL**: 0 alertas
+
+### Descobertas Importantes
+1. `vi.unmock()` deve ser chamado ANTES de `import` no mesmo arquivo — a ordem importa em ESM.
+2. `axios.interceptors.*.use.mock.calls[0]` captura a callback registrada no load do módulo. Mas `vi.clearAllMocks()` nos `beforeEach` apaga esse histórico → capturar callbacks em variável de módulo antes de qualquer `clearAllMocks()`.
+3. Para testar `SdkService.js` real, mockar `global.fetch` é mais simples do que mockar `SisRuaClient` (TypeScript + path complex).

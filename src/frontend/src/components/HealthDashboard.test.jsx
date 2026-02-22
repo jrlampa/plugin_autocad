@@ -210,7 +210,7 @@ describe('HealthDashboard — estado degradado', () => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Estado com sem detalhe de APIs externas (details vazio)
+// Estado sem detalhe de APIs externas (details vazio)
 // ──────────────────────────────────────────────────────────────────────────────
 
 describe('HealthDashboard — External APIs sem detalhes', () => {
