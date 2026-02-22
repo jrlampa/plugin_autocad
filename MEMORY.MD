@@ -1361,3 +1361,87 @@ Cobertura por módulo após essa sessão:
 - **`services/projects.py`**: **100%**
 - **`services/jobs.py`**: **100%**
 - **PWA manifest + SW**: Fase 4 App Campo offline habilitada
+
+---
+
+## 🧪 Sessão 2026-02-22 (Sessão 4) — Coverage 94.90%→97.16%, +35 Testes, Bugfixes
+
+### Baseline
+531 testes backend, 39 testes frontend, 94.90% cobertura.
+
+### Trabalho Realizado
+
+#### 1. Bugfixes (código de produção)
+
+**`services/ai.py`** — Logger errado:
+- Substituído `import logging; logger = logging.getLogger(__name__)` por `from backend.core.logger import get_logger; logger = get_logger(__name__)`
+- Motivo: `logging.getLogger` usa API padrão Python que rejeita kwargs estrutlog como `error=str(e)`, causando TypeError nas linhas de logging de exceção (53-54, 69-70)
+
+**`core/utils.py`** — ImportError em `get_layer_config`:
+- Linha 140: `from backend.core.logger import logger` → `from backend.core.logger import get_logger`
+- Linha 141: `logger.error(...)` → `get_logger(__name__).error(...)`
+- Motivo: `backend.core.logger` não exporta `logger` no nível de módulo, causando ImportError quando JSON parsing falha
+
+#### 2. Testes Backend (21 novos) — `tests/test_coverage_session4.py`
+
+**`core/utils.py`** (91% → 97%):
+- `test_norm_optional_str_str_strips_to_empty` — string vazia após strip → None
+- `test_sanitize_jsonable_fallback_to_str` — objeto não serializável → str()
+- `test_sanitize_jsonable_str_exception_returns_none` — str() raise → None
+- `test_get_layer_config_json_parse_error_returns_fallback` — JSON inválido → fallback hardcoded (linha 139-141)
+- `test_clean_geometry_simplification_exception_keeps_original` — exceção em LineString.simplify → original mantido (linha 205)
+
+**`core/database.py`** (87% → 97%):
+- `test_init_geopackage_exception_swallowed` — exceção em execute swallowed (linha 70-71)
+- `test_init_schema_exception_swallowed` — exceção em execute swallowed (linha 146-147)
+- `test_get_db_connection_returns_valid_connection` — conexão válida retornada
+
+**`services/ai.py`** (92% → 100%):
+- `test_generate_response_rag_exception_swallowed` — exceção RAG swallowed (linha 53-54)
+- `test_generate_response_audit_logs_context` — fetch_audit_logs injeta logs (linha 57-68)
+- `test_generate_response_audit_exception_swallowed` — exceção audit swallowed (linha 69-70)
+- `test_generate_response_no_client_returns_config_message` — sem cliente → mensagem de config
+
+**`audit_routes.py`** (92% → 97%):
+- `test_create_audit_log_generic_exception_returns_500` — exceção genérica → 500 (linha 56-58)
+- `test_verify_all_exception_returns_500` — exceção em verify_all → 500 (linha 202-204)
+- `test_stats_mileage_parsing_continues_on_exception` — JSON inválido → continue (linha 141-143)
+
+**`gis_core/osm.py`** (88% → 95%):
+- `test_contour_features_adicionadas_ao_resultado` — curvas de nível convertidas e adicionadas (linhas 321-344)
+- `test_contour_com_menos_de_2_coords_ignorado` — curva < 2 pontos ignorada (linha 334)
+- `test_elevacao_injeta_cor_por_altitude` — elevações distintas → cores calculadas
+
+**`api.py`** (71% → 80%):
+- `test_root_returns_html_when_dist_not_found` — fallback HTML quando dist/ não existe
+- `test_api_startup_no_exception` — startup lifespan sem exceção (linhas 67-114)
+
+#### 3. Testes Frontend (14 novos)
+
+**`services/ResilienceService.test.js`** (8 testes):
+- executeWithTracing: sucesso, falha, traceId no contexto
+- Circuit Breaker: CLOSED, OPEN após 3 falhas, evento CustomEvent, HALF_OPEN → CLOSED
+
+**`services/aiService.test.js`** (6 testes):
+- sendMessage: 200 retorna resposta, token em header, contexto no body
+- sendMessage: não-200 → mensagem amigável, fetch error → mensagem amigável
+- sendMessage: sem token localStorage → header vazio
+
+#### 4. Cobertura por Módulo
+
+| Módulo | Antes | Depois |
+|--------|-------|--------|
+| `core/utils.py` | 91% | 97% |
+| `core/database.py` | 87% | 97% |
+| `services/ai.py` | 92% | **100%** |
+| `audit_routes.py` | 92% | 97% |
+| `gis_core/osm.py` | 88% | 95% |
+| `api.py` | 71% | 80% |
+
+### Resultado Final
+- **Testes backend**: 531 → **552 passando**
+- **Testes frontend**: 39 → **53 passando**
+- **Cobertura total**: 94.90% → **97.16%**
+- **`services/ai.py`**: **100%**
+- **`services/projects.py`**: **100%** (mantido)
+- **`services/jobs.py`**: **100%** (mantido)

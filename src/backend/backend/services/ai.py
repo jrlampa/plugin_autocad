@@ -1,10 +1,10 @@
 import os
-import logging
 from typing import Optional, Dict, Any, List
 from groq import Groq
 from backend.core.utils import cache_key
+from backend.core.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class AiService:
     """Service to interact with Groq AI API."""
