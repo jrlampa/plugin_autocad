@@ -121,4 +121,30 @@ describe('ResilienceService', () => {
       Date.now = realNow;
     });
   });
+
+  // ── Fallback de traceId sem crypto.randomUUID (linha 72) ────────────────────
+
+  describe('executeWithTracing — fallback traceId (linha 72)', () => {
+    it('usa Math.random como fallback quando crypto.randomUUID não está disponível', async () => {
+      // Salva e remove crypto.randomUUID para forçar o fallback
+      const original = crypto.randomUUID;
+      delete crypto.randomUUID;
+
+      let receivedCtx;
+      const action = vi.fn().mockImplementation((ctx) => {
+        receivedCtx = ctx;
+        return Promise.resolve('ok');
+      });
+
+      const result = await ResilienceService.executeWithTracing('OP_FALLBACK_TRACE', action);
+
+      expect(result).toBe('ok');
+      // traceId gerado via Math.random (linha 72) — é string não-vazia
+      expect(typeof receivedCtx.traceId).toBe('string');
+      expect(receivedCtx.traceId.length).toBeGreaterThan(0);
+
+      // Restaura
+      crypto.randomUUID = original;
+    });
+  });
 });

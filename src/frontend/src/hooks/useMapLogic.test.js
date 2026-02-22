@@ -62,4 +62,19 @@ describe('useMapLogic', () => {
     // Não deve ter adicionado nenhum marcador
     expect(result.current.markers).toHaveLength(0);
   });
+
+  it('confirmMarker retorna sem fazer nada quando currentDrop é null (linha 22)', () => {
+    const { result } = renderHook(() => useMapLogic());
+
+    // currentDrop é null no estado inicial — confirmMarker deve retornar no guard (linha 22)
+    expect(result.current.currentDrop).toBeNull();
+    expect(result.current.markers).toHaveLength(0);
+
+    act(() => result.current.confirmMarker());
+
+    // Nenhum marcador deve ser adicionado
+    expect(result.current.markers).toHaveLength(0);
+    // Modal permanece fechado
+    expect(result.current.isModalOpen).toBe(false);
+  });
 });

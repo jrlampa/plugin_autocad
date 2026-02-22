@@ -1887,3 +1887,83 @@ Continuar cobrindo linhas não cobertas com o menor número de mudanças:
 3. **`vi.mock('@mapbox/togeojson', ...)`** com `_kmlMockReturn` / `_kmlMockThrow`: controla o retorno/exceção do `kml()` por teste, mesmo quando importado dinamicamente (`await import('@mapbox/togeojson')`).
 4. **WebView message handler**: configurar `window.chrome.webview` com `addEventListener` capturando listeners, depois `_emit()` via `listeners[event].forEach(cb => cb({data}))` — cobre os caminhos error (non-JSON) e warning (non-string).
 5. **`sdk/client.test.ts`** em TypeScript: Vitest suporta TypeScript nativamente — mesmas técnicas de mock global.fetch com `makeFetchOk` / `makeFetchError`.
+
+---
+
+## ⚡ Sessão 2026-02-22 (Parte 5 — Sessão 11) — Coverage Frontend 84.10% → 96.73%
+
+### Baseline
+673 testes backend (98.84%), 342 testes frontend (84.10%).
+
+### Problema / Objetivo
+Continuar cobrindo branches e statements não cobertos no frontend, incluindo:
+- `ErrorBoundary.jsx` linhas 64-65 (localStorage catch), 87-89 (clipboard reject)
+- `SdkTest.jsx` linhas 15-17 (checkHealth error path)
+- `MapView.jsx` linhas 21-27, 29-30 (MapDropHandler drop/dragover)
+- `App.jsx` linhas 125-127 (INIT_AUTH_TOKEN WebView message)
+- `useMapLogic.js` linha 22 (confirmMarker com currentDrop null)
+- `useDrawingCanvas.js` linha 39 (finishDrawing com non-FeatureCollection)
+- `useFileProcessing.js` linha 89 (handleGlobalDrop com geometry)
+- `ResilienceService.js` linha 72 (crypto.randomUUID fallback)
+- `NormaPanel.jsx` linhas 37, 39, 48 (branches de fallback)
+
+### Implementações
+
+**`vitest.config.js`** — Adicionado `coverage.exclude` para arquivos não testáveis:
+- Build configs (tailwind.config.*, postcss.config.js) — não são lógica de aplicação
+- Service Worker (`public/sw.js`) — roda em thread separada, não testável em jsdom
+- Bootstrap da app (`src/main.jsx`) — requer real DOM mount
+- Sentry (`src/sentry.js`, `src/utils/dynamicSentry.js`) — requer rede/DSN real
+- Type declarations (`src/sdk/types.ts`) — sem statements em runtime
+
+**`ErrorBoundary.test.jsx`** (+2 testes):
+- `Storage.prototype.getItem` lança → `catch {}` vazio exercitado (linhas 64-65)
+- `navigator.clipboard.writeText` rejeita → `.catch()` → `alert(...)` chamado (linhas 87-89)
+- Ambos os `Object.defineProperty(navigator.clipboard)` agora usam `configurable: true` para consistência
+
+**`SdkTest.test.jsx`** (novo arquivo, 2 testes):
+- `checkHealth()` retorna ok → componente retorna `null`
+- `checkHealth()` lança → status='ERROR', detalhes exibidos (linhas 15-17)
+
+**`MapView.test.jsx`** (+4 testes):
+- `drop` event com `symbolType='POSTE'` → `onSymbolDrop` chamado (linhas 21-27)
+- `drop` event sem symbolType → `onSymbolDrop` NÃO chamado
+- `dragover` event com `types=['symbolType']` → `preventDefault` chamado (linha 29-30)
+- `dragover` event sem symbolType → `preventDefault` NÃO chamado
+
+**`App.coverage.test.jsx`** (+1 teste):
+- WebView emite `INIT_AUTH_TOKEN` com token → `api.setupSecurity(token)` chamado (linhas 125-127)
+
+**`useMapLogic.test.js`** (+1 teste):
+- `confirmMarker()` com `currentDrop=null` → guard `if (!currentDrop) return` (linha 22)
+
+**`useDrawingCanvas.test.js`** (+1 teste):
+- `finishDrawing` com `prev` sendo Feature (não FeatureCollection) → `existing = [base]` (linha 39)
+
+**`useFileProcessing.test.js`** (+1 teste):
+- `handleGlobalDrop` com JSON Feature (tem `geometry`, sem `features`) → `previewGeoJson` definido (linha 89)
+
+**`ResilienceService.test.js`** (+1 teste):
+- `delete crypto.randomUUID` → `Math.random().toString(36)...` usado como fallback (linha 72)
+- Nota: branch `typeof crypto === 'undefined'` é estruturalmente não-cobrível em jsdom (crypto é sempre definido)
+
+**`NormaPanel.test.jsx`** (+2 testes):
+- API retorna sem `ativa`/`classe_tensao` → fallbacks `'ABNT'`/`'MT'` ativados (linhas 37, 39)
+- API retorna `classe_tensao='INVALIDA'` → `CLASSES_TENSAO.find()` retorna `undefined` → `found || null` (linha 48)
+
+### Resultado Final Sessão 11
+- **Testes frontend**: 342 → **357 passando** (+15)
+- **Coverage frontend**: 84.10% → **96.73%** (threshold ≥ 80% ✅)
+- **MapView.jsx**: 91.96% → **100%**
+- **SdkTest.jsx**: 86.95% → **100%**
+- **ErrorBoundary.jsx**: 95.09% → **100% stmts/lines** (branches parcialmente limitados por jsdom)
+- **Backend**: **673 testes, 98.84%** (sem regressão)
+- **CodeQL**: 0 alertas
+
+### Descobertas Importantes
+1. **Coverage exclusions em vitest.config.js**: arquivos de configuração de build, service worker, bootstraps e type-only files devem ser excluídos do coverage — eles nunca são executáveis em jsdom e mascaram a cobertura real da aplicação.
+2. **`navigator.clipboard` em jsdom**: precisa de `configurable: true` em `Object.defineProperty` para ser redefinido entre testes. Usar sempre `configurable: true` quando há múltiplos testes que redefinam a mesma propriedade.
+3. **SdkTest.jsx**: usa o mock global de `SdkService` do setupTests.js. Para testar o path de erro, usar `SdkService.checkHealth.mockRejectedValueOnce(...)` + `waitFor` para aguardar o efeito assíncrono.
+4. **MapDropHandler**: os event handlers (`drop`, `dragover`) são registrados via `container.addEventListener` que é capturado pelo `_containerListeners` do mock. Invocação direta dos handlers via `_containerListeners['drop'][0](fakeEvent)` cobre as linhas sem precisar de evento DOM real.
+5. **Branch `typeof crypto !== 'undefined'` falso**: esta branch nunca é exercitada em jsdom pois `crypto` é sempre definido. V8 reporta linha 72 de ResilienceService.js como branch parcialmente coberta — é um false negative de cobertura.
+

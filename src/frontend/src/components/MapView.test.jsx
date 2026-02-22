@@ -281,3 +281,86 @@ describe('MapView — MapController', () => {
     expect(_mapEventHandlers['click']).toBeDefined();
   });
 });
+
+// ─────────────────────────────────────────────────────────
+// MapDropHandler — drop e dragover (linhas 21-27, 29-30)
+// ─────────────────────────────────────────────────────────
+
+describe('MapView — MapDropHandler (linhas 21-27, 29-30)', () => {
+  it('chama onSymbolDrop quando drop ocorre com symbolType (linhas 21-27)', () => {
+    const onSymbolDrop = vi.fn();
+    render(<MapView {...makeProps({ onSymbolDrop })} />);
+
+    // Simula evento drop com symbolType definido
+    const dropHandlers = _containerListeners['drop'] || [];
+    expect(dropHandlers.length).toBeGreaterThan(0);
+
+    const fakeDropEvent = {
+      preventDefault: vi.fn(),
+      dataTransfer: {
+        getData: vi.fn((key) => (key === 'symbolType' ? 'POSTE' : '')),
+      },
+    };
+
+    dropHandlers[0](fakeDropEvent);
+
+    // onSymbolDrop deve ser chamado com a latlng e o tipo de símbolo
+    expect(fakeDropEvent.preventDefault).toHaveBeenCalled();
+    expect(onSymbolDrop).toHaveBeenCalledWith(
+      { lat: -22.15018, lng: -42.92185 },
+      'POSTE'
+    );
+  });
+
+  it('não chama onSymbolDrop quando drop não tem symbolType', () => {
+    const onSymbolDrop = vi.fn();
+    render(<MapView {...makeProps({ onSymbolDrop })} />);
+
+    const dropHandlers = _containerListeners['drop'] || [];
+    const fakeDropEvent = {
+      preventDefault: vi.fn(),
+      dataTransfer: {
+        getData: vi.fn(() => ''), // sem symbolType
+      },
+    };
+
+    dropHandlers[0]?.(fakeDropEvent);
+
+    expect(fakeDropEvent.preventDefault).not.toHaveBeenCalled();
+    expect(onSymbolDrop).not.toHaveBeenCalled();
+  });
+
+  it('chama preventDefault no dragover quando types inclui symbolType (linha 29-30)', () => {
+    render(<MapView {...makeProps()} />);
+
+    const dragoverHandlers = _containerListeners['dragover'] || [];
+    expect(dragoverHandlers.length).toBeGreaterThan(0);
+
+    const fakeDragOverEvent = {
+      preventDefault: vi.fn(),
+      dataTransfer: {
+        types: ['symbolType'],
+      },
+    };
+
+    dragoverHandlers[0](fakeDragOverEvent);
+
+    expect(fakeDragOverEvent.preventDefault).toHaveBeenCalled();
+  });
+
+  it('não chama preventDefault no dragover quando types não inclui symbolType', () => {
+    render(<MapView {...makeProps()} />);
+
+    const dragoverHandlers = _containerListeners['dragover'] || [];
+    const fakeDragOverEvent = {
+      preventDefault: vi.fn(),
+      dataTransfer: {
+        types: ['text/plain'],
+      },
+    };
+
+    dragoverHandlers[0]?.(fakeDragOverEvent);
+
+    expect(fakeDragOverEvent.preventDefault).not.toHaveBeenCalled();
+  });
+});

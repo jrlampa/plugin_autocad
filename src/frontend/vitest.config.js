@@ -25,6 +25,24 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov'],
       reportsDirectory: path.join(repoRoot, 'qa', 'out', 'coverage', 'frontend'),
+      // Exclude files that cannot be unit-tested in a jsdom environment
+      exclude: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/e2e/**',
+        // Build/config files (not application logic)
+        'tailwind.config.*',
+        'postcss.config.*',
+        // Service worker (runs in separate thread — not testable in jsdom)
+        'public/sw.js',
+        // App bootstrap (requires real DOM mount)
+        'src/main.jsx',
+        // Sentry error-monitoring initialisation (requires real network/DSN)
+        'src/sentry.js',
+        'src/utils/dynamicSentry.js',
+        // TypeScript type-only declarations (no runtime statements)
+        'src/sdk/types.ts',
+      ],
     },
   },
 });

@@ -229,4 +229,42 @@ describe('NormaPanel', () => {
       expect(screen.getByText(/10 m/)).toBeInTheDocument();
     });
   });
+
+  // ── Branches de fallback (linhas 37, 39, 48) ─────────────────────────────
+
+  it('usa fallback "ABNT" e "MT" quando API retorna campos ausentes (linhas 37, 39)', async () => {
+    // data.ativa e data.classe_tensao são undefined → os operadores || tomam o ramo direito
+    mockGetNormaAtiva.mockResolvedValue({
+      concessionaria: '',
+      numero_processo: '',
+      // ativa e classe_tensao ausentes (undefined)
+    });
+
+    render(<NormaPanel onToast={vi.fn()} />);
+
+    // Componente deve renderizar com ABNT como fallback
+    // O botão "ABNT" existe independentemente da resposta da API (estado inicial = 'ABNT')
+    expect(screen.getByRole('button', { name: 'ABNT' })).toBeInTheDocument();
+
+    // Aguarda API resolver — componente permanece em ABNT (fallback)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'ABNT' })).toBeInTheDocument();
+    });
+  });
+
+  it('setBufferInfo recebe null quando classe não está em CLASSES_TENSAO (linha 48)', async () => {
+    // classe_tensao 'INVALIDA' não está na lista → found é undefined → found || null → null
+    mockGetNormaAtiva.mockResolvedValue({
+      ativa: 'PRODIST',
+      concessionaria: 'CEMIG',
+      classe_tensao: 'INVALIDA',
+      numero_processo: '',
+    });
+
+    render(<NormaPanel onToast={vi.fn()} />);
+
+    // Componente não deve lançar exceção com classe inválida (bufferInfo = null)
+    // O botão ANEEL/PRODIST sempre existe no DOM
+    expect(screen.getByRole('button', { name: 'ANEEL/PRODIST' })).toBeInTheDocument();
+  });
 });

@@ -359,4 +359,20 @@ describe('App — WebView message handler (linhas 140-141, 143-144)', () => {
     );
     warnSpy.mockRestore();
   });
+
+  it('chama api.setupSecurity quando recebe INIT_AUTH_TOKEN com token (linhas 125-127)', async () => {
+    const { api } = await import('./api');
+
+    render(<App />);
+    await screen.findByTestId('app-root', {}, { timeout: 5000 });
+
+    // Envia mensagem INIT_AUTH_TOKEN com token válido
+    act(() => {
+      emitWebView(JSON.stringify({ action: 'INIT_AUTH_TOKEN', data: { token: 'test-token-abc' } }));
+    });
+
+    expect(screen.getByTestId('app-root')).toBeInTheDocument();
+    // api.setupSecurity deve ser chamado com o token (linha 126)
+    expect(api.setupSecurity).toHaveBeenCalledWith('test-token-abc');
+  });
 });

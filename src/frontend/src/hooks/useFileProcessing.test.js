@@ -388,4 +388,23 @@ describe('useFileProcessing', () => {
     expect(result.current.toastMessage?.type).toBe('error');
     expect(result.current.toastMessage?.message).toMatch(/processar KML/i);
   });
+
+  it('handleGlobalDrop com Feature (geometry, sem features) define previewGeoJson (linha 89 — ramo geometry)', () => {
+    // parsed.features é undefined mas parsed.geometry é truthy → (parsed.features || parsed.geometry) ✓
+    const geojsonFeature = JSON.stringify({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [-42.92185, -22.15018] },
+      properties: { name: 'REF_2' },
+    });
+    const { result } = renderHook(() => useFileProcessing());
+    const dropEvent = makeFileEvent(geojsonFeature);
+
+    act(() => {
+      result.current.handleGlobalDrop(dropEvent);
+    });
+
+    // O arquivo GeoJSON Feature deve ser aceito via parsed.geometry (linha 89)
+    expect(result.current.previewGeoJson).not.toBeNull();
+    expect(result.current.previewGeoJson?.type).toBe('Feature');
+  });
 });
