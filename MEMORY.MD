@@ -1771,3 +1771,62 @@ Continuar cobrindo linhas não cobertas em frontend e backend, especialmente:
 2. Para `useMapLogic` mockado via `vi.mock()`, as variáveis de módulo precisam ser mutáveis para permitir alteração entre testes (usar variável `let _mockMapLogic` que é reatribuída em `beforeEach`).
 3. Botões sem `aria-label` são inacessíveis e difíceis de encontrar em testes — adicionar `aria-label` é uma melhoria de acessibilidade que também melhora a testabilidade.
 4. Para testar `get_contours` com TIF real: criar um arquivo TIF temporário com `rasterio.open(..., 'w', ...)` e usar `patch.object(svc, 'get_elevation_grid', return_value=tif_path)`.
+
+---
+
+## ⚡ Sessão 2026-02-22 (Parte 3 — Continuação) — Coverage Boost Sessão 9
+
+### Baseline
+673 testes backend (98.84%), 303 testes frontend (82.63%).
+
+### Problema / Objetivo
+Continuar cobrindo linhas não cobertas. Prioridades:
+- `SettingsPanel.jsx` (96.2%) — loading guard (linha 49), slider (103), engConfig selects (155-158)
+- `MapView.jsx` (76.78%) — tileerror handler (93-101), MapClickHandler drag (53, 55-56)
+- `useFileProcessing.js` (92.56%) — GeoJSON inválido (52-53), non-JSON webview (59-61)
+- `geocode.py` (99%) — linha 183 (_sanitize_query retorna vazio)
+- `cache.py` (98%) — linha 49 (arquivo corrompido)
+- `elevation.py` (99%) — linha 145 (DEM constante → levels < 2)
+
+### Implementações
+
+**`useFileProcessing.test.js`** (+3 testes):
+- `FILE_DROPPED_GEOJSON` com estrutura inválida (sem features/geometry) → toast erro (linha 52)
+- `FILE_DROPPED_GEOJSON` com JSON malformado → catch interno (linhas 53-54)
+- Mensagem WebView não-JSON → outer catch silencioso (linhas 59-61)
+- `useFileProcessing.js`: **92.56% → 100%**
+
+**`SettingsPanel.test.jsx`** (23 novos testes):
+- Mock `NormaPanel` com `vi.mock('./NormaPanel', ...)` para evitar dependências de api
+- `loading=true` → `onClick={() => !loading && setShowSettings(!showSettings)}` → setShowSettings NÃO chamado
+- Slider `onChange` → `parseInt(e.target.value, 10)` → setRadius + setRadiusInput
+- Select perfil/CRS → `setEngConfig({...engConfig, profile_name/crs_out: e.target.value})`
+- `SettingsPanel.jsx`: **96.2% → 100%**
+
+**`MapView.test.jsx`** (14 novos testes):
+- Técnica chave: mock `TileLayer` captura `eventHandlers.tileerror` em variável `_tileerrorHandler`
+- Técnica chave: mock `useMap` captura handlers de `map.on(event, handler)` em `_mapEventHandlers`
+- `vi.useFakeTimers()` para testar o `setTimeout(() => isDragging = false, 50)` no dragend
+- `MapView.jsx`: **76.78% → 91.96%**
+
+**`test_coverage_session9.py`** (17 testes):
+- `geocode.py`: `geocode('<>')`  → `_sanitize_query` → string vazia → None (linha 183)
+- `cache.py`: arquivo de cache corrompido → `json.loads` lança → `except Exception: pass` → None (linha 49)
+- `osm.py`: `_parse_overpass_to_features({elements: []})` → loops sem iterações
+- `elevation.py`: DEM constante com TIF real → `z_min == z_max` → `len(levels) == 1 < 2` → `return []` (linha 145)
+
+### Resultado Final Sessão 9
+- **Testes backend**: 656 → **673 passando** (+17)
+- **Testes frontend**: 263 → **303 passando** (+40)
+- **Coverage backend**: 98.77% → **98.84%**
+- **Coverage frontend**: 81.52% → **82.63%**
+- **SettingsPanel.jsx, useFileProcessing.js**: 96.2%/92.56% → **100%**
+- **MapView.jsx**: 76.78% → **91.96%**
+- **CodeQL**: 0 alertas
+
+### Descobertas Importantes
+1. Para testar handlers de eventos Leaflet (map.on), o mock de `useMap` deve capturar os handlers em `_mapEventHandlers[event] = [...]`. Após o render, os handlers podem ser invocados diretamente nos testes.
+2. `vi.useFakeTimers()` + `vi.advanceTimersByTime(50)` é essencial para testar `setTimeout` em hooks React.
+3. Para mockar sub-componentes com dependências externas em testes de pai, usar `vi.mock('./SubComponent', () => ({ default: () => <div>Mock</div> }))` no nível do arquivo de teste.
+4. `geocode.py`: função pública se chama `geocode()` (não `smart_geocode()`). Endpoint é GET não POST.
+5. `cache.py`: `CacheService._sanitize_key(key)` é necessário para calcular o nome do arquivo de cache correspondente ao criar fixtures de teste corrompidas.
