@@ -172,6 +172,13 @@ describe('SettingsPanel — geocoding', () => {
     fireEvent.click(buttons[buttons.length - 1]);
     expect(setInputText).toHaveBeenCalledWith('');
   });
+
+  it('exibe spinner de loading quando inputLoading=true (linha 103)', () => {
+    render(<SettingsPanel {...makeProps({ inputLoading: true })} />);
+    // O spinner tem a classe animate-spin — quando inputLoading=true, a div de spinner é renderizada
+    const spinner = document.querySelector('.animate-spin');
+    expect(spinner).toBeInTheDocument();
+  });
 });
 
 // ── Preview GeoJSON ──────────────────────────────────────

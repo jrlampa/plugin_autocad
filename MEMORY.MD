@@ -1830,3 +1830,60 @@ Continuar cobrindo linhas não cobertas. Prioridades:
 3. Para mockar sub-componentes com dependências externas em testes de pai, usar `vi.mock('./SubComponent', () => ({ default: () => <div>Mock</div> }))` no nível do arquivo de teste.
 4. `geocode.py`: função pública se chama `geocode()` (não `smart_geocode()`). Endpoint é GET não POST.
 5. `cache.py`: `CacheService._sanitize_key(key)` é necessário para calcular o nome do arquivo de cache correspondente ao criar fixtures de teste corrompidas.
+
+---
+
+## ⚡ Sessão 2026-02-22 (Parte 4 — Continuação) — Coverage Boost Sessão 10
+
+### Baseline
+673 testes backend (98.84%), 303 testes frontend (82.63%).
+
+### Problema / Objetivo
+Continuar cobrindo linhas não cobertas com o menor número de mudanças:
+- `SettingsPanel.jsx` linha 103 (inputLoading spinner)
+- `App.jsx` linhas 173, 176-182, 377, 140-141, 143-144
+- `useMapLogic.js` linhas 37-38 (cancelMarker)
+- `useFileProcessing.js` linhas 39-40, 42-43 (KML inválido, KML que lança)
+- `sdk/client.ts` linhas 134-135 (rootGet)
+
+### Implementações
+
+**`SettingsPanel.test.jsx`** (+1 teste):
+- `inputLoading=true` → `.animate-spin` div renderizada (linha 103)
+
+**`App.coverage.test.jsx`** (novo, 9 testes):
+- `handleGeocode` sucesso: `api.smartGeocode.mockResolvedValueOnce({lat, lng})` → verifica chamada API
+- `handleMapClick` isDrawing=true: mock `MapCanvas` captura `handleMapClick`; mock `useDrawingCanvas` com `isDrawing=true` → verifica `addPoint` chamado (linhas 176-177)
+- Modal `desc` onChange: `setMetaInput` chamado com `{desc: ...}` (linha 377)  
+- WebView non-JSON → `catch(e)` → `console.error` (linhas 140-141)
+- WebView data não-string → `else` → `console.warn` (linhas 143-144)
+
+**`useMapLogic.test.js`** (+1 teste):
+- `cancelMarker`: `handleSymbolDrop` → modal aberto → `cancelMarker` → modal fechado, `markers=[]` (linhas 37-38)
+- `useMapLogic.js`: **95.74% → 100%**
+
+**`useFileProcessing.test.js`** (+2 testes + `vi.mock('@mapbox/togeojson', ...)`):
+- `vi.mock('@mapbox/togeojson', ...)` com variáveis mutáveis `_kmlMockReturn` / `_kmlMockThrow`
+- KML → `kml()` retorna sem features → `showError('KMZ/KML inválido...')` (linha 39)
+- KML → `kml()` lança Error → `catch(err)` → `showError('Erro ao processar KML...')` (linha 42)
+
+**`sdk/client.test.ts`** (novo, 26 testes):
+- Todos os 19 métodos de API, incluindo `rootGet()` (linhas 134-135) e `verifyAllLogsApiAuditVerifyAllPost` (linha 124)
+- Construtor, `request()` (token, Content-Type, resposta não-ok)
+- `sdk/client.ts`: **97.80% → 100%**
+
+### Resultado Final Sessão 10
+- **Testes frontend**: 303 → **342 passando** (+39)
+- **Coverage frontend**: 82.63% → **84.10%**
+- **App.jsx**: 88.35% → **97.60%**
+- **useMapLogic.js**: 95.74% → **100%**
+- **sdk/client.ts**: 97.80% → **100%**
+- **useFileProcessing.js**: 96.69% → ~**100%** (linhas KML cobertas)
+- **CodeQL**: 0 alertas
+
+### Técnicas-chave desta sessão
+1. **Mock de MapCanvas** para capturar `handleMapClick`: `vi.mock('./components/MapCanvas', () => ({ default: ({ handleMapClick }) => { _capturedOnMapClick = handleMapClick; return <div />; } }))` — permite invocar `handleMapClick` diretamente sem passar pelo evento de mapa.
+2. **Mock de `useDrawingCanvas`** com variável mutável `_mockIsDrawing`: permite controlar `isDrawing` por teste sem precisar acionar o toggle real.
+3. **`vi.mock('@mapbox/togeojson', ...)`** com `_kmlMockReturn` / `_kmlMockThrow`: controla o retorno/exceção do `kml()` por teste, mesmo quando importado dinamicamente (`await import('@mapbox/togeojson')`).
+4. **WebView message handler**: configurar `window.chrome.webview` com `addEventListener` capturando listeners, depois `_emit()` via `listeners[event].forEach(cb => cb({data}))` — cobre os caminhos error (non-JSON) e warning (non-string).
+5. **`sdk/client.test.ts`** em TypeScript: Vitest suporta TypeScript nativamente — mesmas técnicas de mock global.fetch com `makeFetchOk` / `makeFetchError`.

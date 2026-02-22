@@ -7,12 +7,29 @@
  *  - Recebimento de mensagens WebView (GeoJSON e KML) do host C#
  *  - Importação de GeoJSON para o AutoCAD
  *  - Toast de erro em casos de arquivo inválido
+ *  - KML inválido após conversão (linha 39) e KML que lança exceção (linha 42)
  *
  * Interface em pt-BR conforme requisito do projeto sisRUA.
  */
 import { renderHook, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { useFileProcessing } from './useFileProcessing';
+
+// ─────────────────────────────────────────────────────
+// Mock de @mapbox/togeojson para controlar comportamento
+// do kml() nas linhas 36-43 de useFileProcessing.js
+// ─────────────────────────────────────────────────────
+
+// _kmlMockReturn é o retorno padrão de kml() — trocado por teste para simular erros
+let _kmlMockReturn = { type: 'FeatureCollection', features: [{ type: 'Feature' }] };
+let _kmlMockThrow = null;
+
+vi.mock('@mapbox/togeojson', () => ({
+  kml: (...args) => {
+    if (_kmlMockThrow) throw _kmlMockThrow;
+    return _kmlMockReturn;
+  },
+}));
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -85,6 +102,9 @@ describe('useFileProcessing', () => {
   beforeEach(() => {
     webview = setupWebViewMock();
     vi.restoreAllMocks();
+    // Reset KML mock state
+    _kmlMockReturn = { type: 'FeatureCollection', features: [{ type: 'Feature' }] };
+    _kmlMockThrow = null;
   });
 
   afterEach(() => {
@@ -322,5 +342,50 @@ describe('useFileProcessing', () => {
     // Não deve definir toast de erro nem alterar previewGeoJson (silencioso)
     expect(result.current.toastMessage).toBeNull();
     expect(result.current.previewGeoJson).toBeNull();
+  });
+
+  // ── KML com conversão inválida (kml() retorna estrutura sem features) ──
+
+  it('KML com conversão inválida (sem features/geometry) cria toast de erro (linha 39)', async () => {
+    // kml() retorna objeto sem features e sem geometry → linha 39: showError(...)
+    _kmlMockReturn = { type: 'FeatureCollection' }; // sem 'features'
+
+    const kmlContent = `<?xml version="1.0"?><kml><Placemark><Point>
+      <coordinates>-42.92185,-22.15018,0</coordinates></Point></Placemark></kml>`;
+    const { result } = renderHook(() => useFileProcessing());
+
+    await act(async () => {
+      webview._emit('message', {
+        data: JSON.stringify({
+          action: 'FILE_DROPPED_KML',
+          data: { content: kmlContent },
+        }),
+      });
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(result.current.toastMessage?.type).toBe('error');
+    expect(result.current.toastMessage?.message).toMatch(/KMZ\/KML|Conversão/i);
+  });
+
+  it('KML onde kml() lança exceção cria toast de erro (linha 42)', async () => {
+    // kml() lança TypeError → catch(err) → linha 42: showError(...)
+    _kmlMockThrow = new Error('DOMParser falhou catastroficamente');
+
+    const kmlContent = `<?xml version="1.0"?><kml><Placemark></Placemark></kml>`;
+    const { result } = renderHook(() => useFileProcessing());
+
+    await act(async () => {
+      webview._emit('message', {
+        data: JSON.stringify({
+          action: 'FILE_DROPPED_KML',
+          data: { content: kmlContent },
+        }),
+      });
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    expect(result.current.toastMessage?.type).toBe('error');
+    expect(result.current.toastMessage?.message).toMatch(/processar KML/i);
   });
 });

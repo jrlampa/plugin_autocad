@@ -41,4 +41,25 @@ describe('useMapLogic', () => {
       meta: { desc: 'Teste', altura: '12m' },
     });
   });
+
+  it('cancelMarker fecha o modal e limpa currentDrop (linhas 37-38)', () => {
+    const { result } = renderHook(() => useMapLogic());
+
+    // Abre o modal via drop de símbolo
+    act(() => {
+      result.current.handleSymbolDrop({ lat: -22.15018, lng: -42.92185 }, 'POSTE');
+    });
+
+    // Confirma que o modal está aberto e currentDrop foi definido
+    expect(result.current.isModalOpen).toBe(true);
+    expect(result.current.currentDrop).not.toBeNull();
+
+    // Cancela o marcador (cobre linhas 37-38)
+    act(() => result.current.cancelMarker());
+
+    expect(result.current.isModalOpen).toBe(false);
+    expect(result.current.currentDrop).toBeNull();
+    // Não deve ter adicionado nenhum marcador
+    expect(result.current.markers).toHaveLength(0);
+  });
 });
