@@ -27,7 +27,7 @@ describe('LoadingScreen', () => {
 
   it('exibe a versão do sistema', () => {
     render(<LoadingScreen />);
-    expect(screen.getByText(/v0\.5\.0/i)).toBeInTheDocument();
+    expect(screen.getByText(/v0\.2\.0-alpha/i)).toBeInTheDocument();
   });
 
   it('exibe o indicador de carregamento animado (spinner)', () => {

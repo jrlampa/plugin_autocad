@@ -6,7 +6,7 @@ variable "project_id" {
 variable "region" {
   description = "The GCP region to deploy to"
   type        = string
-  default     = "us-central1"
+  default     = "southamerica-east1"
 }
 
 variable "service_name" {
@@ -16,12 +16,18 @@ variable "service_name" {
 }
 
 variable "image_tag" {
-  description = "The container image tag for v0.9.0"
+  description = "The container image tag to deploy (e.g. v0.2.0-alpha)"
   type        = string
-  default     = "v0.9.0"
+  default     = "latest"
 }
 
 variable "container_image" {
-  description = "The full URI of the container image"
+  description = "The full URI of the container image (e.g. gcr.io/PROJECT/sisrua-backend:TAG)"
   type        = string
+}
+
+variable "cors_origins" {
+  description = "Comma-separated list of allowed CORS origins for the backend (e.g. https://sisrua.app)"
+  type        = string
+  default     = ""
 }

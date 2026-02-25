@@ -59,12 +59,16 @@ def _client(api_mod, base_url: str = "http://localhost:8000") -> TestClient:
 
 def test_auth_token_auto_generated_when_not_set(tmp_path):
     """When SISRUA_AUTH_TOKEN is absent, api.py generates a UUID hex and sets env (lines 43-44)."""
+    import backend.shared.config as _cfg_mod
     os.environ.pop("SISRUA_AUTH_TOKEN", None)
-    api_mod = _load_api(token=None, tmp_path=tmp_path)
+    # Reset the config singleton's cached token so the module-level auto-generation
+    # path is exercised even when other tests have already initialized the config.
+    with patch.object(_cfg_mod.config, "sisrua_auth_token", None):
+        api_mod = _load_api(token=None, tmp_path=tmp_path)
 
-    generated = os.environ.get("SISRUA_AUTH_TOKEN", "")
-    assert len(generated) == 32, "Auto-generated token must be a 32-char hex (UUID)"
-    assert generated == generated.lower()
+        generated = os.environ.get("SISRUA_AUTH_TOKEN", "")
+        assert len(generated) == 32, "Auto-generated token must be a 32-char hex (UUID)"
+        assert generated == generated.lower()
 
     # Reset to stable token for other tests
     os.environ["SISRUA_AUTH_TOKEN"] = "test-api-cov-token"

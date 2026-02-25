@@ -1,6 +1,6 @@
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
+from typing import List, Optional
 import os
 
 class Settings(BaseSettings):
@@ -27,6 +27,17 @@ class Settings(BaseSettings):
     environment: str = Field("dev", validation_alias="ENVIRONMENT")
     sentry_dsn: Optional[str] = Field(None, validation_alias="SENTRY_DSN")
     
+    # CORS: comma-separated extra origins (Cloud Run, staging, etc.)
+    # Example: "https://sisrua.app,https://staging.sisrua.app"
+    sisrua_cors_origins: str = Field("", validation_alias="SISRUA_CORS_ORIGINS")
+
+    @property
+    def extra_cors_origins(self) -> List[str]:
+        """Parse SISRUA_CORS_ORIGINS into a list of origin strings."""
+        if not self.sisrua_cors_origins:
+            return []
+        return [o.strip() for o in self.sisrua_cors_origins.split(",") if o.strip()]
+
     # Paths (OS dependent)
     localappdata: str = Field(os.environ.get("LOCALAPPDATA", "."), validation_alias="LOCALAPPDATA")
     

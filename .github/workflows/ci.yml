@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write   # Required for Workload Identity Federation (Cloud Run deploy)
 
 jobs:
   backend-ci:
@@ -82,11 +83,71 @@ jobs:
           name: frontend-dist
           path: src/frontend/dist
 
-  # Optional: Deployment / Packaging if on Main
+  # Artifacts summary for PRs / non-main pushes
   publish-artifacts:
     name: Publish Artifacts
     needs: [backend-ci, frontend-ci]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - run: echo "Pipeline complete and green. Artifacts available for download."
+
+  # Deploy backend to Google Cloud Run (main branch only)
+  deploy-cloud-run:
+    name: Deploy to Cloud Run
+    needs: [backend-ci, frontend-ci]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.GCP_PROJECT_ID != ''
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION || 'southamerica-east1' }}-docker.pkg.dev --quiet
+
+      - name: Build and Push Docker Image
+        env:
+          IMAGE: ${{ vars.GCP_REGION || 'southamerica-east1' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/sisrua/backend:${{ github.sha }}
+        run: |
+          docker build -t "$IMAGE" src/backend/
+          docker push "$IMAGE"
+
+      - name: Deploy to Cloud Run
+        env:
+          IMAGE: ${{ vars.GCP_REGION || 'southamerica-east1' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/sisrua/backend:${{ github.sha }}
+          REGION: ${{ vars.GCP_REGION || 'southamerica-east1' }}
+          PROJECT: ${{ vars.GCP_PROJECT_ID }}
+          SERVICE: sisrua-backend
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --project "$PROJECT" \
+            --platform managed \
+            --allow-unauthenticated \
+            --memory 1Gi \
+            --cpu 1 \
+            --min-instances 0 \
+            --max-instances 10 \
+            --set-env-vars "ENVIRONMENT=production,SISRUA_CORS_ORIGINS=${{ vars.SISRUA_CORS_ORIGINS || '' }}" \
+            --set-secrets "SISRUA_AUTH_TOKEN=sisrua-auth-token:latest,GROQ_API_KEY=groq-api-key:latest" \
+            --quiet
+
+      - name: Show Cloud Run URL
+        env:
+          REGION: ${{ vars.GCP_REGION || 'southamerica-east1' }}
+          PROJECT: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          gcloud run services describe sisrua-backend \
+            --region "$REGION" \
+            --project "$PROJECT" \
+            --format "value(status.url)"

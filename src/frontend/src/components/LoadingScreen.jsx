@@ -33,7 +33,7 @@ export default function LoadingScreen() {
       </div>
 
       <div className="absolute bottom-8 text-[10px] text-slate-600 font-mono">
-        v0.5.0 &bull; Build 2026.01
+        v0.2.0-alpha &bull; Build 2026.02
       </div>
     </div>
   );

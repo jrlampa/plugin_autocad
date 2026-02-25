@@ -5,16 +5,15 @@ resource "google_cloud_run_v2_service" "sisrua" {
 
   template {
     scaling {
-      max_instance_count = 50   # Increased for 10k users baseline
-      min_instance_count = 2    # Prevent cold starts under load
+      max_instance_count = 50
+      min_instance_count = 2
     }
-    
-    # High concurrency settings
-    revision_name = "sisrua-backend-v090-concurrency-locked"
+
+    service_account = google_service_account.sisrua_sa.email
 
     containers {
       image = var.container_image
-      
+
       resources {
         limits = {
           cpu    = "1"
@@ -23,13 +22,25 @@ resource "google_cloud_run_v2_service" "sisrua" {
       }
 
       env {
+        name  = "ENVIRONMENT"
+        value = "production"
+      }
+
+      env {
         name  = "SENTRY_ENVIRONMENT"
         value = "production"
       }
-      
+
       env {
         name  = "SENTRY_RELEASE"
         value = "sisrua-backend@${var.image_tag}"
+      }
+
+      # CORS_ORIGINS: comma-separated list of allowed origins for the Cloud Run instance.
+      # The backend reads this via SISRUA_CORS_ORIGINS env var.
+      env {
+        name  = "SISRUA_CORS_ORIGINS"
+        value = var.cors_origins
       }
     }
   }
@@ -39,10 +50,6 @@ resource "google_cloud_run_v2_service" "sisrua" {
     type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
     percent = 100
   }
-
-  # Optional: Keep previous revision for fast rollback
-  # This is usually managed via CLI during deploy, 
-  # but we can preserve the structure here.
 }
 
 # Allow unauthenticated access (Public API)
