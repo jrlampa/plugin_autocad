@@ -16,11 +16,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       - name: Install backend deps (CI + dev + SAST + SCA)
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r src/backend/requirements-ci.txt -r src/backend/requirements-dev.txt bandit pip-audit
+          python -m pip install pytest-timeout pytest-asyncio httpx pydantic-settings anyio
       - name: Run Bandit (SAST)
         run: |
           mkdir -p qa/out/test-reports
@@ -32,12 +33,14 @@ jobs:
       - name: Run pytest (JUnit + Coverage)
         env:
           LOCALAPPDATA: /tmp/localappdata
+          SISRUA_TESTING: "true"
+          SISRUA_AUTH_TOKEN: "test-ci-token"
         run: |
           mkdir -p qa/out/test-reports
           mkdir -p qa/out/coverage
           mkdir -p "$LOCALAPPDATA"
           cd src/backend
-          python -m pytest tests --cov=backend --cov-report=xml:../../qa/out/coverage/backend-coverage.xml --junitxml=../../qa/out/test-reports/pytest-junit.xml
+          python -m pytest tests --cov=backend --cov-report=xml:../../qa/out/coverage/backend-coverage.xml --junitxml=../../qa/out/test-reports/pytest-junit.xml --timeout=60
       - name: Upload backend artifacts
         if: always()
         uses: actions/upload-artifact@v4

@@ -2147,3 +2147,63 @@ Corrigir 7 falhas nos testes frontend após instalação de `@testing-library/do
 1. **Mock de módulo vs. mock de API**: quando um hook é refatorado de `@mapbox/togeojson` local para `api.convertKml()`, os testes que controlavam o mock antigo precisam ser atualizados para controlar o novo mock. Padrão correto: `vi.mocked(api.convertKml).mockImplementation(() => Promise.resolve(customReturn))` no `beforeEach`.
 2. **setupTests.js como barreira**: qualquer função de `api.js` usada em hooks deve ser incluída no mock global de `setupTests.js`; caso contrário, chamadas não-mockadas geram `TypeError: api.X is not a function`.
 3. **Validação de FeatureCollection**: checagem correta é `res.type === 'FeatureCollection' && res.features && res.features.length > 0`. Checar apenas `type` permite que objetos "quase-válidos" (sem features) passem silenciosamente.
+
+---
+
+## ⚡ Sessão 2026-02-25 (Sessão 3) — Coverage Improvements + CI Fix + v0.2.0
+
+### Baseline
+776 backend tests / 362 frontend tests. Coverage: 92.44% backend, 99.35% frontend.
+
+### Objetivo
+Melhorar cobertura de módulos críticos com baixa coverage; corrigir CI para Python 3.12; lançar v0.2.0.
+
+### Módulos Cobertos
+
+**`backend/shared/migrations.py` — 18% → 100%**
+- `test_migrate_database_no_db`: retorna 0 para banco inexistente
+- `test_check_migration_status_no_db`: reporta database_exists=False
+- `test_migrate_database_applies_all_migrations`: aplica todas as migrações em DB vazia
+- `test_migrate_database_idempotent`: segunda execução retorna 0 (nada a aplicar)
+- `test_get_schema_version_empty_db`: retorna 0 sem schema_version
+- `test_apply_migration_skips_duplicate_column`: ignora "duplicate column name"
+- `test_apply_migration_raises_on_real_error`: propaga erros não-idempotentes
+- `test_check_migration_status_up_to_date`: reporta pending=[] após migrate
+
+**`backend/models.py` — 64% → 98%**
+- ElevationProfileRequest: validação lat/lon inválida, ponto curto
+- ElevationContoursRequest: max_lat<=min_lat, max_lon<=min_lon, válido
+- WebhookRegistrationRequest: sem scheme, sem hostname, HTTPS válido, eventos sanitizados, todos vazios
+- PrepareIbgeRequest: UF normalizada para maiúsculas, UF=None
+- PrepareIneaRequest: bbox wrong count, lon inválida, lat inválida, válido
+- ProdistConfigRequest: classe_tensao inválida, classe_tensao=BT
+
+**`backend/shared/logger.py` — 74% → 96%**
+- CompatLogger.info/warning/error/debug com e sem kwargs
+- bind_contextvars com HAS_STRUCTLOG=False
+- get_logger com HAS_STRUCTLOG=False → retorna CompatLogger
+- sanitize_log_data: máscaras de chaves sensíveis, caminhos de usuário, dicts aninhados, listas
+
+**`backend/infrastructure/api.py` — 79% → 81%**
+- Test de fallback HTML de `/` quando frontend/dist não existe
+- Test de frozen exe path
+
+### CI/CD
+- `ci.yml`: Python 3.10 → **3.12**; adicionado `SISRUA_TESTING=true`; adicionado `pytest-timeout`, `pytest-asyncio`, `httpx`, `pydantic-settings`, `anyio`
+- `ci_qa.yml`: Python 3.11 → **3.12**; adicionado `SISRUA_TESTING=true`/`SISRUA_AUTH_TOKEN`; adicionado `pytest-timeout`, `pytest-asyncio`, `httpx`, `pydantic-settings`, `anyio`
+- `requirements-ci.txt`: adicionados `pydantic-settings`, `httpx`, `anyio`
+
+### Release
+- `VERSION.txt`: 0.1.0 → **0.2.0**
+- `CHANGELOG.md`: entrada `[0.2.0] - 2026-02-25` completa
+
+### Resultado Final
+- **Backend**: **776/776 passando** (+41), cobertura **95.60%** (era 92.44%)
+- **Frontend**: **362/362 passando** (sem alterações)
+- **Total**: **1138/1138 testes passando**
+
+### Descobertas Importantes
+1. **apply_migration precisa de schema_version**: `apply_migration()` assume que `schema_version` já existe. É necessário chamar `get_schema_version(conn)` antes de chamar `apply_migration()` diretamente nos testes.
+2. **monkeypatch.setattr com raising=False**: ao tentar setar atributos que podem não existir (ex: `sys.frozen`), usar `raising=False` e deixar o monkeypatch fazer o cleanup automaticamente em vez de fazer `delattr` manual.
+3. **CompatLogger para HAS_STRUCTLOG=False**: alterar `log_mod.HAS_STRUCTLOG = False` diretamente (sem patch) funciona, mas requer restaurar o valor original no `finally`. Alternativa mais limpa: usar `monkeypatch.setattr(log_mod, "HAS_STRUCTLOG", False)`.
+4. **Shims 0%**: os arquivos `backend/core/*.py` aparecem com 0% porque são importados via `sys.modules` e o coverage não os conta como "executados" quando são substituídos pelo módulo real. Isso é comportamento esperado do padrão de alias — não é um bug real de cobertura.
