@@ -4,22 +4,25 @@ from unittest.mock import MagicMock, patch
 import os
 import time
 import importlib
+from pathlib import Path
+from typing import Optional, Any, Dict, List
 
-def _import_api_with_token(token: str):
+def _import_api_mod(token: str):
     os.environ["SISRUA_AUTH_TOKEN"] = token
-    from backend import api as api_mod
-    importlib.reload(api_mod)
-    return api_mod
+    from backend.infrastructure import api
+    import importlib
+    importlib.reload(api)
+    return api
 
 @pytest.fixture()
-def api_mod(tmp_path, monkeypatch):
-    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
-    return _import_api_with_token("iso-master-token")
+def api_mod(monkeypatch):
+    return _import_api_mod("iso-master-token")
 
 @pytest.fixture()
 def client(api_mod):
-    # Set base_url and default Origin for ISO 27001 compliance tests
-    c = TestClient(api_mod.app, base_url="http://localhost:8000")
+    # Set default Origin for ISO 27001 compliance tests
+    from fastapi.testclient import TestClient
+    c = TestClient(api_mod.app)
     c.headers.update({"Origin": "http://localhost:8000"})
     return c
 
@@ -127,7 +130,7 @@ def test_audit_post_with_valid_token(client):
     mock_audit = MagicMock()
     mock_audit.log.return_value = 42
 
-    with patch("backend.audit_routes.get_audit_logger", return_value=mock_audit):
+    with patch("backend.infrastructure.audit_routes.get_audit_logger", return_value=mock_audit):
         r = client.post(
             "/api/audit",
             json={"event_type": "TEST_EVENT", "entity_type": "Project", "entity_id": "p1"},
@@ -143,7 +146,7 @@ def test_audit_sanitizes_oversized_fields(client):
     mock_audit.log.return_value = 99
     long_str = "A" * 1000
 
-    with patch("backend.audit_routes.get_audit_logger", return_value=mock_audit):
+    with patch("backend.infrastructure.audit_routes.get_audit_logger", return_value=mock_audit):
         r = client.post(
             "/api/audit",
             json={"event_type": long_str, "entity_type": "Project"},
