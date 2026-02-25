@@ -7,29 +7,19 @@
  *  - Recebimento de mensagens WebView (GeoJSON e KML) do host C#
  *  - Importação de GeoJSON para o AutoCAD
  *  - Toast de erro em casos de arquivo inválido
- *  - KML inválido após conversão (linha 39) e KML que lança exceção (linha 42)
+ *  - KML inválido após conversão (sem features) e KML que lança exceção
  *
  * Interface em pt-BR conforme requisito do projeto sisRUA.
  */
 import { renderHook, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { useFileProcessing } from './useFileProcessing';
+import { api } from '../api';
 
-// ─────────────────────────────────────────────────────
-// Mock de @mapbox/togeojson para controlar comportamento
-// do kml() nas linhas 36-43 de useFileProcessing.js
-// ─────────────────────────────────────────────────────
-
-// _kmlMockReturn é o retorno padrão de kml() — trocado por teste para simular erros
-let _kmlMockReturn = { type: 'FeatureCollection', features: [{ type: 'Feature' }] };
-let _kmlMockThrow = null;
-
-vi.mock('@mapbox/togeojson', () => ({
-  kml: (...args) => {
-    if (_kmlMockThrow) throw _kmlMockThrow;
-    return _kmlMockReturn;
-  },
-}));
+// Controle de retorno do mock api.convertKml (via vi.mocked em beforeEach)
+// Padrão: retorna FeatureCollection com 1 feature (sucesso)
+let _convertKmlReturn = { type: 'FeatureCollection', features: [{ type: 'Feature' }] };
+let _convertKmlThrow = null;
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -103,8 +93,13 @@ describe('useFileProcessing', () => {
     webview = setupWebViewMock();
     vi.restoreAllMocks();
     // Reset KML mock state
-    _kmlMockReturn = { type: 'FeatureCollection', features: [{ type: 'Feature' }] };
-    _kmlMockThrow = null;
+    _convertKmlReturn = { type: 'FeatureCollection', features: [{ type: 'Feature' }] };
+    _convertKmlThrow = null;
+    // Wire api.convertKml mock to _convertKmlReturn/_convertKmlThrow
+    vi.mocked(api.convertKml).mockImplementation(() => {
+      if (_convertKmlThrow) return Promise.reject(_convertKmlThrow);
+      return Promise.resolve(_convertKmlReturn);
+    });
   });
 
   afterEach(() => {
@@ -347,8 +342,8 @@ describe('useFileProcessing', () => {
   // ── KML com conversão inválida (kml() retorna estrutura sem features) ──
 
   it('KML com conversão inválida (sem features/geometry) cria toast de erro (linha 39)', async () => {
-    // kml() retorna objeto sem features e sem geometry → linha 39: showError(...)
-    _kmlMockReturn = { type: 'FeatureCollection' }; // sem 'features'
+    // api.convertKml retorna FeatureCollection sem features → showError(...)
+    _convertKmlReturn = { type: 'FeatureCollection' }; // sem 'features'
 
     const kmlContent = `<?xml version="1.0"?><kml><Placemark><Point>
       <coordinates>-42.92185,-22.15018,0</coordinates></Point></Placemark></kml>`;
@@ -369,8 +364,8 @@ describe('useFileProcessing', () => {
   });
 
   it('KML onde kml() lança exceção cria toast de erro (linha 42)', async () => {
-    // kml() lança TypeError → catch(err) → linha 42: showError(...)
-    _kmlMockThrow = new Error('DOMParser falhou catastroficamente');
+    // api.convertKml rejeita → catch(err) → showError(...)
+    _convertKmlThrow = new Error('DOMParser falhou catastroficamente');
 
     const kmlContent = `<?xml version="1.0"?><kml><Placemark></Placemark></kml>`;
     const { result } = renderHook(() => useFileProcessing());

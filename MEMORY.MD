@@ -2109,3 +2109,41 @@ Auditoria completa do backend. Módulos foram refatorados para nova estrutura DD
 3. **SHUTDOWN_EVENT**: é um singleton global. Quando `TestClient(app)` é usado como context manager, o lifespan shutdown seta o evento. Testes subsequentes precisam de `SHUTDOWN_EVENT.clear()` antes de iniciar jobs.
 4. **fastkml**: biblioteca necessária para `GisService.process_kml()`. Não estava em requirements-ci.txt.
 5. **highway como lista**: OSM pode retornar tags como listas (multi-valor). `_sanitize_tags` precisava preservar listas em vez de chamar `str(v)`.
+
+---
+
+## ⚡ Sessão 2026-02-25 (Continuação) — Correção de Testes Frontend
+
+### Baseline
+362 testes frontend, 7 falhando. 735 backend passando.
+
+### Problema / Objetivo
+Corrigir 7 falhas nos testes frontend após instalação de `@testing-library/dom`.
+
+### Falhas e Correções
+
+**AiAssistant.test.jsx (6 falhas)**
+- Causa: testes usavam `screen.getByText('Env')` mas o botão renderiza `Enviar`
+- Correção: substituiu `getByText('Env')` por `getByText('Enviar')` em todas as 6 ocorrências + comentários atualizados
+- Arquivo: `src/components/AiAssistant.test.jsx`
+
+**useFileProcessing.test.js (1 falha)**
+- Causa múltipla:
+  1. Teste controlava `@mapbox/togeojson.kml()` via `_kmlMockReturn`, mas hook foi refatorado para usar `api.convertKml()` (não usa `@mapbox/togeojson` mais)
+  2. `setupTests.js` não incluía `api.convertKml` no mock → `undefined()` → TypeError
+  3. Hook checava apenas `res.type === 'FeatureCollection'` sem verificar `res.features?.length > 0`
+  4. Mensagem de erro não combinava com `/KMZ\/KML|Conversão/i`
+- Correções:
+  - `src/setupTests.js`: adicionado `convertKml: vi.fn(() => Promise.resolve({ type: 'FeatureCollection', features: [{...}] }))`
+  - `src/hooks/useFileProcessing.js`: validação mudou para `res.features && res.features.length > 0`; mensagem de erro mudou para `'Conversão KMZ/KML falhou: nenhuma feição encontrada.'` (em ambos caminhos: WebView + drag&drop)
+  - `src/hooks/useFileProcessing.test.js`: removeu mock de `@mapbox/togeojson`; importa `api` e usa `vi.mocked(api.convertKml).mockImplementation()` para controlar comportamento por teste via `_convertKmlReturn/_convertKmlThrow`
+
+### Resultado Final
+- **Frontend**: **362/362 passando** (100% ✅) — cobertura 99.35% stmts, 96.5% branches
+- **Backend**: **735/735 passando** (100% ✅)
+- **Total**: **1097/1097 testes passando**
+
+### Descobertas Importantes
+1. **Mock de módulo vs. mock de API**: quando um hook é refatorado de `@mapbox/togeojson` local para `api.convertKml()`, os testes que controlavam o mock antigo precisam ser atualizados para controlar o novo mock. Padrão correto: `vi.mocked(api.convertKml).mockImplementation(() => Promise.resolve(customReturn))` no `beforeEach`.
+2. **setupTests.js como barreira**: qualquer função de `api.js` usada em hooks deve ser incluída no mock global de `setupTests.js`; caso contrário, chamadas não-mockadas geram `TypeError: api.X is not a function`.
+3. **Validação de FeatureCollection**: checagem correta é `res.type === 'FeatureCollection' && res.features && res.features.length > 0`. Checar apenas `type` permite que objetos "quase-válidos" (sem features) passem silenciosamente.

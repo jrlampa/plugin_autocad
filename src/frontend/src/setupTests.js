@@ -55,6 +55,9 @@ vi.mock('./api', () => ({
   api: {
     checkHealth: vi.fn(() => Promise.resolve(true)),
     smartGeocode: vi.fn(),
+    convertKml: vi.fn(() =>
+      Promise.resolve({ type: 'FeatureCollection', features: [{ type: 'Feature' }] })
+    ),
   },
 }));
 
