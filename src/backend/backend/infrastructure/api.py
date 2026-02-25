@@ -55,7 +55,7 @@ class _DynamicToken(str):
         return super().__new__(cls, _os.environ.get("SISRUA_AUTH_TOKEN", ""))
 
     def __str__(self) -> str:  # noqa: D102
-        return _os.environ.get("SISRUA_AUTH_TOKEN", "") or super().__str__()
+        return _os.environ.get("SISRUA_AUTH_TOKEN", "")
 
     def __eq__(self, other: object) -> bool:  # noqa: D102
         return str(self) == str(other)
@@ -100,6 +100,11 @@ from backend.infrastructure.middleware import add_trace_header, validate_origin,
 async def _lifespan(app: FastAPI):
     """Startup e shutdown gracioso (FastAPI 0.93+)."""
     # --- Startup ---
+    # Garante que o shutdown event esteja limpo ao (re)iniciar a app.
+    # Essencial para testes que criam múltiplas instâncias de TestClient.
+    from backend.shared.lifecycle import SHUTDOWN_EVENT
+    SHUTDOWN_EVENT.clear()
+
     start_background_tasks()
 
     if os.environ.get("SISRUA_TESTING") != "true":

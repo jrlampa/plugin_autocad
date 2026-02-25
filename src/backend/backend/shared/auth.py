@@ -8,22 +8,10 @@ SESSION_DURATION = 3600  # 1 hora
 AUTH_HEADER_NAME = "X-SisRua-Token"
 
 def _get_master_token() -> str:
-    """Lê o master token de os.environ ou, como fallback, do módulo de API em sys.modules.
-
-    Ordem de precedência:
-    1. os.environ["SISRUA_AUTH_TOKEN"] — suporta monkeypatch/setenv em testes.
-    2. backend.infrastructure.api.AUTH_TOKEN — fallback para quando o env foi
-       alterado por outro teste mas o módulo de API ainda guarda o token original.
-    """
+    """Lê o master token diretamente de os.environ para suportar reconfiguração em testes.
+    Retorna string vazia se SISRUA_AUTH_TOKEN não estiver configurado."""
     import os
-    import sys
-    env_token = os.environ.get("SISRUA_AUTH_TOKEN", "")
-    if env_token:
-        return env_token
-    api_mod = sys.modules.get("backend.infrastructure.api")
-    if api_mod:
-        return getattr(api_mod, "AUTH_TOKEN", "") or ""
-    return ""
+    return os.environ.get("SISRUA_AUTH_TOKEN", "")
 
 
 def is_valid_session(token: str) -> bool:
