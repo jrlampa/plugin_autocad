@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-02-25
+
+### Added
+- **Modularização C# `BackendManager`**: dividido em 3 arquivos `partial class` (BackendManager.cs 309L, BackendProcess.cs 177L, BackendPersistence.cs 100L) — todos abaixo do limite de 500 linhas.
+- **`src/frontend/.dockerignore`**: excluí `node_modules`, `dist`, `.env*`, `coverage`, etc. do contexto de build Docker.
+- **Headers de segurança nginx**: `X-Frame-Options SAMEORIGIN`, `X-Content-Type-Options nosniff`, `X-XSS-Protection`, `Referrer-Policy`, `Content-Security-Policy` para o frontend containerizado.
+- **Timeouts de proxy nginx**: `proxy_read_timeout 120s` e `proxy_connect_timeout 10s` para requests longos de processamento OSM/IBGE/INEA.
+
+### Fixed
+- **`docker-compose.yml`**: build context do backend corrigido de `.` (raiz) para `./src/backend` (contexto correto do Dockerfile); volume de dev corrigido de `./src/backend:/app/backend` para `./src/backend:/app`.
+- **`docker-compose.yml`**: `SISRUA_AUTH_TOKEN` padrão alterado de `test-token` hardcoded para string vazia (backend auto-gera UUID na inicialização).
+- **`docker-compose.yml`**: Redis atualizado de `redis:alpine` para `redis:7-alpine`; adicionados volumes nomeados para persistência de logs, cache e dados Redis.
+- **`BackendPersistence.cs`**: `TcpListener` em `ChooseFreePort()` encapsulado em `try/finally` para garantir `Stop()` mesmo em exceção.
+- **`BackendProcess.cs`**: variável renomeada de `candidate` para `pythonExePath` para clareza.
+
 ## [0.2.0] - 2026-02-25
 
 ### Added

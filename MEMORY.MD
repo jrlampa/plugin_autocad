@@ -2270,3 +2270,58 @@ Atingir 100% de cobertura de testes no backend.
 3. **OsmParser.parse_to_features é @staticmethod**: Não tem `__func__`. Para patch: usar `patch.object(..., staticmethod(patched_fn))`.
 4. **Shims 0%**: Arquivos de shim em `backend/routes/prepare.py`, `backend/services/*.py` nunca são executados — o `sys.modules` do `__init__.py` intercepta antes. Correto adicioná-los a `omit` no `.coveragerc`.
 5. **configure_logging duplicado**: `shared/logger.py` tem 2 definições de `configure_logging`. A primeira (linhas 24-34) é dead code — imediatamente sobrescrita pela segunda. Documentado com `# pragma: no cover`.
+
+---
+
+## ⚡ Sessão 2026-02-25 (Sessão 5) — Modularização C#, Docker, nginx
+
+### Baseline da Sessão
+- Backend: 861/861 testes, 100% cobertura
+- Frontend: 362/362 testes
+
+### Objetivo
+Continuar melhorias: modularizar `BackendManager.cs` (577L > limite 500L), corrigir Docker, adicionar segurança nginx.
+
+### Mudanças Implementadas
+
+**C# — Modularização `BackendManager.cs`** (577L → 3 arquivos partial class):
+- `BackendManager.cs` (309L): orquestração Start/Stop, Watchdog, health checks, logging
+- `BackendProcess.cs` (177L): StartExeBackend, StartPythonBackend, WaitForPipeServer, GetTokenFromIpc, KillProcessTree, FindPythonExecutable, EnsureVenvAndDependencies
+- `BackendPersistence.cs` (100L): FindProjectRoot, FindBackendSourceRoot, GetLocalSisRuaDir, TryRead*, Persist*, SafeWrite, ChooseFreePort
+- Técnica: `partial class BackendManager` no namespace `sisRUA.Core`
+- Bug fix: `ChooseFreePort()` agora usa `try/finally` para garantir `listener.Stop()`
+- Rename: `candidate` → `pythonExePath` para clareza
+
+**Docker `docker-compose.yml`**:
+- Build context backend: `.` → `./src/backend` (o Dockerfile está em `src/backend/`, o contexto deve ser o mesmo)
+- Volume dev: `./src/backend:/app/backend` → `./src/backend:/app` (correto para importar `backend.*`)
+- SISRUA_AUTH_TOKEN default: `test-token` → `""` (backend gera UUID automaticamente se vazio)
+- Redis: `redis:alpine` → `redis:7-alpine` (versão pinada)
+- Volumes nomeados: `backend_logs`, `backend_cache`, `redis_data`
+
+**Frontend `src/frontend/.dockerignore`** (NOVO):
+- Excluí: `node_modules/`, `dist/`, `.env*`, `coverage/`, `*.log`, `.DS_Store`, `.vite/`, `playwright-report/`, `test-results/`, `qa/`
+
+**nginx.conf — Headers de Segurança**:
+- `X-Frame-Options: SAMEORIGIN`
+- `X-Content-Type-Options: nosniff`
+- `X-XSS-Protection: 1; mode=block`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Content-Security-Policy` (OSM tiles allowlisted)
+- `proxy_read_timeout 120s` para requests longos (OSM/IBGE)
+
+### Resultado Final da Sessão
+- **Backend**: 861/861 testes, 100% cobertura (sem mudanças Python)
+- **Frontend**: 362/362 testes (sem mudanças JS)
+- **Total**: 1223/1223 testes passando
+- **CodeQL**: 0 alertas C#
+
+### Regras Aplicadas
+- "Sempre que um arquivo/código superar 500 linhas, considere modularizar" — BackendManager.cs: 577L → 3 arquivos (309, 177, 100)
+- "Docker first" — docker-compose corrigido com volumes e contextos corretos
+- "Segurança" — nginx com CSP, X-Frame-Options, etc.
+
+### Descobertas
+1. **Volume errado no docker-compose original**: `./src/backend:/app/backend` sobrescrevia o pacote Python `backend/` com o diretório `src/backend/` (que contém `backend/`, `tests/`, `requirements.txt`). O correto é montar `src/backend/` em `/app/`.
+2. **C# partial class**: funciona perfeitamente para dividir uma classe grande em múltiplos arquivos sem alterar a interface pública ou os testes existentes (GeometryCleanerTests.cs e ProjectRepositoryTests.cs não precisaram de alteração).
+3. **nginx + React SPA**: `style-src 'unsafe-inline'` é necessário para componentes com estilos inline (Material-UI, Tailwind JIT, etc.). Documentado com comentário para revisão futura.
