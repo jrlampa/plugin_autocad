@@ -167,6 +167,62 @@ class InternalEvent(FrozenBaseModel):
     event_type: str = Field(..., description="Type of the internal event", json_schema_extra={"example": "project_saved"})
     payload: Dict[str, Any] = Field(..., description="Event payload data")
 
+class PrepareIbgeRequest(FrozenBaseModel):
+    """Requisição de malha geográfica municipal via API IBGE."""
+    nome_municipio: str = Field(
+        ..., min_length=2, max_length=128,
+        description="Nome do município (ex.: 'Nova Friburgo')",
+        json_schema_extra={"example": "Nova Friburgo"},
+    )
+    uf: Optional[str] = Field(
+        None, min_length=2, max_length=2,
+        description="Sigla da UF (ex.: 'RJ'). Recomendado para desambiguação.",
+        json_schema_extra={"example": "RJ"},
+    )
+
+    @field_validator("uf")
+    @classmethod
+    def validate_uf(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        return v.strip().upper()
+
+
+class PrepareIneaRequest(FrozenBaseModel):
+    """Requisição de feições ambientais via WFS do INEA-RJ."""
+    typename: str = Field(
+        ..., min_length=2, max_length=128,
+        description=(
+            "Tipo de feição INEA. Valores suportados: "
+            "'hidrografia', 'bacias', 'unidades_conservacao', 'manguezais', "
+            "ou typename WFS direto (ex.: 'inea:RJ_Hidrografia_250000')."
+        ),
+        json_schema_extra={"example": "hidrografia"},
+    )
+    bbox: Optional[List[float]] = Field(
+        None,
+        description=(
+            "Bounding box [min_lon, min_lat, max_lon, max_lat] em EPSG:4326. "
+            "Se omitido, retorna todas as feições disponíveis (pode ser lento)."
+        ),
+        json_schema_extra={"example": [-43.5, -23.1, -42.8, -22.6]},
+    )
+
+    @field_validator("bbox")
+    @classmethod
+    def validate_bbox(cls, v: Optional[List[float]]) -> Optional[List[float]]:
+        if v is None:
+            return v
+        if len(v) != 4:
+            raise ValueError("bbox deve conter exatamente 4 valores: [min_lon, min_lat, max_lon, max_lat]")
+        min_lon, min_lat, max_lon, max_lat = v
+        if not (-180.0 <= min_lon < max_lon <= 180.0):
+            raise ValueError("Longitudes inválidas no bbox")
+        if not (-90.0 <= min_lat < max_lat <= 90.0):
+            raise ValueError("Latitudes inválidas no bbox")
+        return v
+
+
 class ProdistConfigRequest(FrozenBaseModel):
     """Configuração de norma ANEEL/PRODIST para o projeto atual."""
     ativa: bool = Field(..., description="True para ativar PRODIST, False para ABNT")
