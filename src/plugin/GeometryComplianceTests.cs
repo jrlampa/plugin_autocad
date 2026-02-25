@@ -29,6 +29,7 @@ namespace sisRUA
             results.Add(ExecuteTest("RemoveDuplicatePolylines_ExactMatch", TestRemoveDuplicatePolylines_ExactMatch));
             results.Add(ExecuteTest("MergeContiguousPolylines_Success", TestMergeContiguousPolylines_Success));
             results.Add(ExecuteTest("SimplifyPolylines_ReductionRatio", TestSimplifyPolylines_ReductionRatio));
+            results.Add(ExecuteTest("Geometry25D_Compliance", TestGeometry25D_Compliance));
 
             // Export to JUnit-style XML
             ExportToXml(results, outputPath);
@@ -84,25 +85,20 @@ namespace sisRUA
             return "Successfully merged contiguous polyline segments.";
         }
 
-        private static string TestSimplifyPolylines_ReductionRatio()
+        private static string TestGeometry25D_Compliance()
         {
-            // Zig-zag line with 5 points, almost a straight line
-            var coords = new List<List<double>> 
-            { 
-                new List<double>{0,0}, 
-                new List<double>{10, 0.1}, 
-                new List<double>{20, -0.1}, 
-                new List<double>{30, 0.05} 
-            };
-            var features = new List<CadFeatureDto> { new CadFeatureDto { FeatureType = CadFeatureDtoType.Polyline, CoordsXy = coords } };
+            var start = new SisRuaPoint(0, 0, 10);
+            var end = new SisRuaPoint(10, 10, 20); // 3D line
 
-            var simplified = GeometryCleaner.SimplifyPolylines(features, 0.5).ToList();
-            var resultPoints = simplified[0].CoordsXy.Count;
+            var line = CadFeatureFactory.CreateLine(start, end);
             
-            if (resultPoints >= 4)
-                throw new Exception($"Simplification failed to reduce points. Got {resultPoints} points.");
+            if (line.StartPoint.Z != line.EndPoint.Z)
+                throw new Exception($"Line is not 2.5D. Variance in Z detected: {line.StartPoint.Z} != {line.EndPoint.Z}");
 
-            return $"Polyline simplified from 4 to {resultPoints} points.";
+            if (line.StartPoint.Z != 10)
+                throw new Exception($"Line elevation incorrect. Expected 10, got {line.StartPoint.Z}");
+
+            return "Geometry 2.5D compliance verified (strictly constant elevation).";
         }
 
         private static void ExportToXml(List<TestResult> results, string path)

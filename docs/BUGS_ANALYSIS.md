@@ -13,10 +13,10 @@
 
 **Problema:**
 ```batch
-set IEXE=%ROOT%\installer\out\sisRUA-Installer.exe
+for %%F in (%ROOT%\installer\out\sisRUA-Installer-*.exe) do set IEXE=%%F
 ```
 
-O instalador gerado tem nome versionado: `sisRUA-Installer-0.2.0.exe` (ou a versão atual do `VERSION.txt`), mas o script procura `sisRUA-Installer.exe` (sem sufixo de versão).
+O instalador gerado tem nome versionado: `sisRUA-Installer-<versão>.exe` (ou a versão atual do `VERSION.txt`), e o script agora busca corretamente usando glob pattern.
 
 **Impacto:** A assinatura digital do instalador **nunca é executada**, apenas DLLs e backend EXE são assinados.
 

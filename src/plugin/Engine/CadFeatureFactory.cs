@@ -68,17 +68,24 @@ namespace sisRUA.Engine
             int i = 0;
             foreach (var pt in points)
             {
-                // We assume 2D for Polyline light-weight
+                // Enforce 2.5D: LightweightPolyline vertices are always 2D (X, Y)
                 pline.AddVertexAt(i++, new Point2d(pt.X, pt.Y), 0, 0, 0);
             }
             if (close) pline.Closed = true;
             return pline;
         }
 
+        /// <summary>
+        /// Creates a 2.5D Line. While AutoCAD Lines support 3D, we enforce 2.5D 
+        /// by ensuring the Z value is consistent (constant elevation) across vertices 
+        /// if provided, or flattened to the start point's Z.
+        /// </summary>
         public static Line CreateLine(SisRuaPoint start, SisRuaPoint end)
         {
+            // 2.5D Enforcement: The line is created at the start point's elevation
+            // variance in Z between vertices is disallowed in 2.5D.
             return new Line(new Point3d(start.X, start.Y, start.Z), 
-                            new Point3d(end.X, end.Y, end.Z));
+                            new Point3d(end.X, end.Y, start.Z)); 
         }
     }
 }

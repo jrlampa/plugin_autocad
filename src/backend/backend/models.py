@@ -48,11 +48,11 @@ class CadFeature(BaseModel):
     highway: Optional[str] = Field(None, description="OSM highway tag value")
     width_m: Optional[float] = Field(None, description="Estimated width in meters")
 
-    # For Polyline features
-    coords_xy: Optional[List[List[float]]] = Field(default_factory=list, description="Coordinates in projected CRS (SIRGAS 2000)")
+    # For Polyline features (2.5D: Z is stored in elevation field, not here)
+    coords_xy: Optional[List[List[float]]] = Field(default_factory=list, description="2D Coordinates [X, Y] in projected CRS (SIRGAS 2000). 2.5D Architecture: Z is treated as an attribute.")
 
     # For Point features (blocks)
-    insertion_point_xy: Optional[List[float]] = Field(default_factory=list, description="Insertion point in projected CRS")
+    insertion_point_xy: Optional[List[float]] = Field(default_factory=list, description="2D Insertion point [X, Y] in projected CRS. Z is treated as an attribute.")
     block_name: Optional[str] = Field(None, description="Name of the AutoCAD block")
     block_filepath: Optional[str] = Field(None, description="Path to the block definition file")
     rotation: float = Field(0.0, description="Rotation in radians")
@@ -60,7 +60,7 @@ class CadFeature(BaseModel):
 
     # Phase 2 fields
     color: Optional[str] = Field(None, description="ACI color code or RGB string")
-    elevation: Optional[float] = Field(None, description="Elevation (Z value) in meters")
+    elevation: Optional[float] = Field(None, description="Elevation (Z value) in meters. Source of truth for 2.5D z-axis.")
     slope: Optional[float] = Field(None, description="Calculated slope percentage")
     original_geojson_properties: Dict[str, Any] = Field(default_factory=dict, description="Original GeoJSON properties for portability")
 
