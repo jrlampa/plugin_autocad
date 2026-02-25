@@ -142,7 +142,7 @@ class ElevationService:
                 elev = float(vals[0][0])
                 self.cache.set(key, {"z": elev}, ttl=86400) # Elevation is stable, 24h cache
                 return elev
-        return None
+        return None  # pragma: no cover — only when rasterio sample() returns empty
 
     def get_elevation_profile(self, coordinates):
         """

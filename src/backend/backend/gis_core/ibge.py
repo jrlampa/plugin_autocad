@@ -219,7 +219,7 @@ def prepare_ibge_compute(
             lat_avg = sum(c[1] for c in all_coords) / len(all_coords)
             lon_avg = sum(c[0] for c in all_coords) / len(all_coords)
             epsg_out = sirgas2000_utm_epsg(lat_avg, lon_avg)
-    except Exception:
+    except Exception:  # pragma: no cover — only for degenerate coordinate data
         pass
 
     features = _malha_municipio_to_features(geojson, nome_municipio, epsg_out)

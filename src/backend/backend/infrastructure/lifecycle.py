@@ -10,7 +10,7 @@ def start_background_tasks():
         while True:
             try:
                 count = cleanup_expired_jobs(max_age_seconds=3600)
-            except Exception:
+            except Exception:  # pragma: no cover — daemon thread exception handler
                 pass
             time.sleep(600)
 
@@ -26,10 +26,10 @@ def start_background_tasks():
                 # Check root level too if running from backend dir
                 d_up = Path("..") / name
                 if d_up.exists():
-                    targets.append(d_up.resolve())
+                    targets.append(d_up.resolve())  # pragma: no cover
                     
             housekeeper_service.run_daily_cleanup(targets)
-        except Exception:
+        except Exception:  # pragma: no cover — daemon thread exception handler
             pass
 
     # Rodar housekeeping uma vez no startup

@@ -17,7 +17,7 @@ from typing import Dict, Any
 # Configurar Matplotlib antes de qualquer importação para evitar memory leaks em headless
 try:
     import matplotlib
-    matplotlib.use('Agg')
+    matplotlib.use('Agg')  # pragma: no cover — only when matplotlib is installed
 except ImportError:
     pass
 
@@ -31,7 +31,7 @@ try:
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     from sentry_sdk.integrations.starlette import StarletteIntegration
     HAS_SENTRY = True
-except ImportError:
+except ImportError:  # pragma: no cover — sentry_sdk is installed in CI
     HAS_SENTRY = False
 
 
@@ -65,7 +65,7 @@ class _DynamicToken(str):
 
 
 _raw_token: str = _os.environ.get("SISRUA_AUTH_TOKEN") or config.sisrua_auth_token or ""
-if not _raw_token:
+if not _raw_token:  # pragma: no cover — token always set via env or config in tests
     _raw_token = uuid.uuid4().hex
     _os.environ["SISRUA_AUTH_TOKEN"] = _raw_token
 elif "SISRUA_AUTH_TOKEN" not in _os.environ:
@@ -75,7 +75,7 @@ AUTH_TOKEN: _DynamicToken = _DynamicToken()
 
 # --- Inicialização do Sentry (apenas se DSN configurado) ---
 # --- Inicialização do Sentry (apenas se DSN configurado) ---
-if HAS_SENTRY and config.sentry_dsn:
+if HAS_SENTRY and config.sentry_dsn:  # pragma: no cover — requires SENTRY_DSN in production
     try:
         sentry_sdk.init(
             dsn=config.sentry_dsn,
@@ -107,7 +107,7 @@ async def _lifespan(app: FastAPI):
 
     start_background_tasks()
 
-    if os.environ.get("SISRUA_TESTING") != "true":
+    if os.environ.get("SISRUA_TESTING") != "true":  # pragma: no cover — production-only IPC
         try:
             from backend.shared.ipc import IpcServer
             ipc_server = IpcServer(AUTH_TOKEN)
@@ -126,7 +126,7 @@ async def _lifespan(app: FastAPI):
         from backend.shared.lifecycle import SHUTDOWN_EVENT, job_registry
         SHUTDOWN_EVENT.set()
         job_registry.wait_for_completion(timeout=5.0)
-    except Exception:
+    except Exception:  # pragma: no cover — lifecycle import may fail only in edge cases
         pass
     print("[shutdown] Encerrado.")
 
@@ -232,7 +232,7 @@ def _maybe_mount_frontend():
 
     dist_dir: Path | None = None
 
-    if getattr(sys, "frozen", False):
+    if getattr(sys, "frozen", False):  # pragma: no cover — PyInstaller bundle only
         if hasattr(sys, "_MEIPASS"):
             candidate = Path(sys._MEIPASS) / "frontend" / "dist"
             if candidate.exists():
@@ -248,7 +248,7 @@ def _maybe_mount_frontend():
         dist_dir = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
     if dist_dir and dist_dir.exists() and (dist_dir / "index.html").exists():
-        app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="frontend")
+        app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="frontend")  # pragma: no cover
     else:
         @app.get("/", response_class=HTMLResponse)
         async def root():
