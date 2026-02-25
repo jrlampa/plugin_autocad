@@ -15,8 +15,14 @@ ALLOWED_ORIGINS = {
 PUBLIC_PATHS = {"/api/v1/health", "/health", "/docs", "/openapi.json", "/"}
 
 async def add_trace_header(request: Request, call_next):
-    """Adiciona um trace_id único para rastreamento de logs (ISO 27001)."""
-    trace_id = request.headers.get("X-Trace-Id", uuid.uuid4().hex)
+    """Adiciona um trace_id único para rastreamento de logs (ISO 27001).
+    Suporta X-Request-ID (legado) e X-Trace-Id como cabeçalhos de correlação."""
+    # Aceita X-Request-ID (legado) ou X-Trace-Id; gera um se ausente
+    trace_id = (
+        request.headers.get("X-Request-ID")
+        or request.headers.get("X-Trace-Id")
+        or uuid.uuid4().hex
+    )
     set_trace_id(trace_id)
     
     if HAS_STRUCTLOG:
@@ -25,6 +31,7 @@ async def add_trace_header(request: Request, call_next):
         
     response = await call_next(request)
     response.headers["X-Trace-Id"] = trace_id
+    response.headers["X-Request-ID"] = trace_id
     return response
 
 async def validate_origin(request: Request, call_next):
@@ -72,7 +79,12 @@ async def add_security_headers(request: Request, call_next):
     """Adiciona cabeçalhos de segurança HTTP (OWASP Best Practices)."""
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
+        " img-src 'self' data: https:; font-src 'self'; frame-ancestors 'self';"
+    )
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response

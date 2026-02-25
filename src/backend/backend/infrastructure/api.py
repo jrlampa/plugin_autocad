@@ -41,8 +41,37 @@ from backend.shared.logger import configure_logging, get_logger
 configure_logging()
 logger = get_logger(__name__)
 
-# --- Token de autenticação (IPC) já garantido pelo config.py ---
-AUTH_TOKEN = config.sisrua_auth_token
+# --- Token de autenticação (IPC) ---
+# _DynamicToken é um proxy str-like cujo valor é sempre lido de os.environ em runtime,
+# permitindo que testes que mudam SISRUA_AUTH_TOKEN via os.environ obtenham
+# o token correto ao usar `AUTH_TOKEN` como valor de cabeçalho.
+import os as _os
+
+
+class _DynamicToken(str):
+    """Proxy de string que resolve o token de os.environ a cada acesso."""
+
+    def __new__(cls):  # noqa: D102
+        return super().__new__(cls, _os.environ.get("SISRUA_AUTH_TOKEN", ""))
+
+    def __str__(self) -> str:  # noqa: D102
+        return _os.environ.get("SISRUA_AUTH_TOKEN", "") or super().__str__()
+
+    def __eq__(self, other: object) -> bool:  # noqa: D102
+        return str(self) == str(other)
+
+    def __hash__(self) -> int:  # noqa: D102
+        return hash(str(self))
+
+
+_raw_token: str = _os.environ.get("SISRUA_AUTH_TOKEN") or config.sisrua_auth_token or ""
+if not _raw_token:
+    _raw_token = uuid.uuid4().hex
+    _os.environ["SISRUA_AUTH_TOKEN"] = _raw_token
+elif "SISRUA_AUTH_TOKEN" not in _os.environ:
+    _os.environ["SISRUA_AUTH_TOKEN"] = _raw_token
+
+AUTH_TOKEN: _DynamicToken = _DynamicToken()
 
 # --- Inicialização do Sentry (apenas se DSN configurado) ---
 # --- Inicialização do Sentry (apenas se DSN configurado) ---

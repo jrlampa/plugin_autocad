@@ -11,6 +11,7 @@ def _sanitize_tags(tags: dict) -> dict:
     - Truncates keys/values to 255 chars (XData limit)
     - Strips excessive whitespace
     - Basic HTML tag removal
+    - Preserves list values (e.g. multi-value highway tags) without flattening
     """
     import re
     html_regex = re.compile(r'<[^>]*>')
@@ -20,14 +21,25 @@ def _sanitize_tags(tags: dict) -> dict:
             continue
 
         s_k = html_regex.sub("", k).strip()[:255]
-        s_v = str(v)
-        s_v = html_regex.sub("", s_v).strip()[:255]
 
-        # Remove control characters
-        s_v = "".join(char for char in s_v if ord(char) >= 32)
-
-        if s_k:
-            sanitized[s_k] = s_v
+        if isinstance(v, list):
+            # Preserve list values; sanitize each element individually
+            cleaned = []
+            for item in v:
+                s_item = str(item)
+                s_item = html_regex.sub("", s_item).strip()[:255]
+                s_item = "".join(c for c in s_item if ord(c) >= 32)
+                if s_item:
+                    cleaned.append(s_item)
+            if s_k and cleaned:
+                sanitized[s_k] = cleaned if len(cleaned) > 1 else cleaned[0]
+        else:
+            s_v = str(v)
+            s_v = html_regex.sub("", s_v).strip()[:255]
+            # Remove control characters
+            s_v = "".join(char for char in s_v if ord(char) >= 32)
+            if s_k:
+                sanitized[s_k] = s_v
     return sanitized
 
 
@@ -39,7 +51,7 @@ class OsmWayRow:
     def __init__(self, way: dict, projected_geom: Any) -> None:
         tags = _sanitize_tags(way.get("tags", {}))
         self.geometry = projected_geom
-        self.highway: Optional[str] = tags.get("highway")
+        self.highway = tags.get("highway")
         self.name: Optional[str] = tags.get("name")
         self.tags: dict = tags
 

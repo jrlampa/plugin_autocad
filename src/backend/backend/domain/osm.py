@@ -17,7 +17,21 @@ from backend.shared.logger import get_logger
 from backend.domain.topology import TopologyHealer
 from backend.domain.geometry import apply_local_offset, snap_to_edge, get_bounding_offset
 from backend.infrastructure.osm_client import OsmClient
+
+
+def _fetch_overpass_data(latitude: float, longitude: float, radius: float, check_cancel: Callable = None) -> dict:
+    """Wrapper de módulo para OsmClient.fetch_overpass_data — permite patch em testes."""
+    return OsmClient.fetch_overpass_data(latitude, longitude, radius, check_cancel)
+
+
+def _parse_overpass_to_features(data: dict, epsg_out: int) -> tuple:
+    """Wrapper de módulo para OsmParser.parse_to_features — permite patch em testes."""
+    return OsmParser.parse_to_features(data, epsg_out)
 from backend.domain.osm_parser import OsmParser, OsmWayRow, OsmNodeRow
+
+# Aliases com underscore para retrocompatibilidade com testes legados
+_OsmWayRow = OsmWayRow
+_OsmNodeRow = OsmNodeRow
 
 logger = get_logger(__name__)
 
@@ -57,7 +71,7 @@ def prepare_osm_compute(
     
     try:
         # 1. Fetch data from Overpass via Modular Client
-        raw_data = OsmClient.fetch_overpass_data(latitude, longitude, radius, check_cancel)
+        raw_data = _fetch_overpass_data(latitude, longitude, radius, check_cancel)
         
         # 2. Parse and Project via Modular Parser
         nodes_list, edges_list = OsmParser.parse_to_features(raw_data, epsg_out)
