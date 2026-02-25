@@ -32,22 +32,24 @@ namespace sisRUA.Engine
                 tr.AddNewlyCreatedDBObject(ratRec, true);
             }
 
-            // Build XData buffer
+            // Build XData buffer (Structured BIM Pairing)
             // 1001: AppName
-            // 1000: "Key=Value" string pairs (simplest universal storage)
+            // 1000: Key
+            // 1000: Value
             var rbChain = new ResultBuffer();
             rbChain.Add(new TypedValue((int)DxfCode.ExtendedDataRegAppName, AppName));
 
             foreach (var kvp in metadata)
             {
-                string safeValue = kvp.Value?.ToString() ?? "";
-                string entry = $"{kvp.Key}={safeValue}";
-                
-                // Truncate if too long (DXF 1000 limit is 255 chars, effectively less)
-                // Just splitting logic if needed, but for now assuming fits.
-                // Or better: Use 1000 for Key, 1000 for Value for structured parsing
-                // Strategy: "Key=Value"
-                rbChain.Add(new TypedValue((int)DxfCode.ExtendedDataAsciiString, entry));
+                if (string.IsNullOrWhiteSpace(kvp.Key)) continue;
+
+                string key = kvp.Key.Length > 255 ? kvp.Key.Substring(0, 255) : kvp.Key;
+                string val = (kvp.Value?.ToString() ?? "").Length > 255 
+                    ? kvp.Value.ToString().Substring(0, 255) 
+                    : kvp.Value?.ToString() ?? "";
+
+                rbChain.Add(new TypedValue((int)DxfCode.ExtendedDataAsciiString, key));
+                rbChain.Add(new TypedValue((int)DxfCode.ExtendedDataAsciiString, val));
             }
 
             obj.UpgradeOpen();

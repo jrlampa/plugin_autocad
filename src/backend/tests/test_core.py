@@ -4,13 +4,13 @@ import math
 from unittest.mock import MagicMock
 from fastapi import HTTPException
 from pydantic import ValidationError
-from backend.core.rate_limit import TokenBucket, RateLimiter
-from backend.core.utils import (
+from backend.shared.rate_limit import TokenBucket, RateLimiter
+from backend.shared.utils import (
     cache_key, norm_optional_str, sanitize_jsonable, 
     get_color_from_elevation, estimate_width_m, get_layer_name
 )
-from backend.core.circuit_breaker import CircuitBreaker, CircuitState, CircuitBreakerOpenException
-from backend.models import (
+from backend.shared.circuit_breaker import CircuitBreaker, CircuitState, CircuitBreakerOpenException
+from backend.domain.dto import (
     PrepareOsmRequest, ElevationQueryRequest, ElevationProfileRequest,
     PrepareJobRequest, WebhookRegistrationRequest,
 )
@@ -240,7 +240,7 @@ def test_webhook_events_none_allowed():
 def test_audit_list_logs_returns_list():
     """list_logs() should return a list (even empty when DB has no records)."""
     from unittest.mock import patch, MagicMock
-    from backend.core.audit import AuditLogger
+    from backend.shared.audit import AuditLogger
 
     mock_conn = MagicMock()
     mock_conn.execute.return_value.fetchall.return_value = []
@@ -257,7 +257,7 @@ def test_audit_list_logs_returns_correct_fields():
     """list_logs() should include audit_id, event_type, entity_type, entity_id, data."""
     import json
     from unittest.mock import patch, MagicMock
-    from backend.core.audit import AuditLogger
+    from backend.shared.audit import AuditLogger
 
     fake_row = (
         42,           # audit_id
@@ -289,7 +289,7 @@ def test_audit_list_logs_returns_correct_fields():
 def test_audit_list_logs_entity_type_filter():
     """list_logs(entity_type=...) should pass entity_type as SQL parameter."""
     from unittest.mock import patch, MagicMock
-    from backend.core.audit import AuditLogger
+    from backend.shared.audit import AuditLogger
 
     mock_conn = MagicMock()
     mock_conn.execute.return_value.fetchall.return_value = []
@@ -308,7 +308,7 @@ def test_audit_list_logs_entity_type_filter():
 def test_audit_list_logs_entity_id_filter():
     """list_logs(entity_id=...) should pass entity_id as SQL parameter."""
     from unittest.mock import patch, MagicMock
-    from backend.core.audit import AuditLogger
+    from backend.shared.audit import AuditLogger
 
     mock_conn = MagicMock()
     mock_conn.execute.return_value.fetchall.return_value = []
@@ -326,7 +326,7 @@ def test_audit_list_logs_entity_id_filter():
 def test_audit_list_logs_event_type_filter():
     """list_logs(event_type=...) should pass event_type as SQL parameter."""
     from unittest.mock import patch, MagicMock
-    from backend.core.audit import AuditLogger
+    from backend.shared.audit import AuditLogger
 
     mock_conn = MagicMock()
     mock_conn.execute.return_value.fetchall.return_value = []
@@ -344,7 +344,7 @@ def test_audit_list_logs_event_type_filter():
 def test_audit_list_logs_combined_filters():
     """list_logs() with all three filters should pass all values as parameters."""
     from unittest.mock import patch, MagicMock
-    from backend.core.audit import AuditLogger
+    from backend.shared.audit import AuditLogger
 
     mock_conn = MagicMock()
     mock_conn.execute.return_value.fetchall.return_value = []
@@ -364,7 +364,7 @@ def test_audit_list_logs_combined_filters():
 def test_audit_list_logs_invalid_json_data_handled():
     """list_logs() should tolerate invalid data_json without raising an exception."""
     from unittest.mock import patch, MagicMock
-    from backend.core.audit import AuditLogger
+    from backend.shared.audit import AuditLogger
 
     fake_row = (1, "DELETE", "Project", "p1", "system", 0.0, "not-json", None)
     mock_conn = MagicMock()
@@ -383,7 +383,7 @@ def test_ipc_server_noop_on_non_windows():
     """IpcServer.start() should be a no-op on non-Windows systems (Linux/macOS)."""
     import sys
     from unittest.mock import patch
-    from backend.core.ipc import IpcServer
+    from backend.shared.ipc import IpcServer
 
     server = IpcServer("test-token")
     # Patch _WIN32_AVAILABLE to False (simulating Linux)
@@ -399,7 +399,7 @@ def test_ipc_server_noop_on_non_windows():
 
 def test_fresh_db_has_projects_table(tmp_path):
     """A new connection should automatically create the Projects table."""
-    from backend.core.database import get_db_connection
+    from backend.shared.database import get_db_connection
     import os
     db_path = tmp_path / "test.db"
     os.environ["SISRUA_TESTING"] = "true"
@@ -415,7 +415,7 @@ def test_fresh_db_has_projects_table(tmp_path):
 
 def test_fresh_db_has_auditlog_table(tmp_path):
     """A new connection should automatically create the AuditLog table."""
-    from backend.core.database import get_db_connection
+    from backend.shared.database import get_db_connection
     import os
     db_path = tmp_path / "test_audit.db"
     os.environ["SISRUA_TESTING"] = "true"
@@ -431,7 +431,7 @@ def test_fresh_db_has_auditlog_table(tmp_path):
 
 def test_fresh_db_has_cadfeatures_table(tmp_path):
     """A new connection should automatically create the CadFeatures table."""
-    from backend.core.database import get_db_connection
+    from backend.shared.database import get_db_connection
     import os
     db_path = tmp_path / "test_cad.db"
     os.environ["SISRUA_TESTING"] = "true"
@@ -447,7 +447,7 @@ def test_fresh_db_has_cadfeatures_table(tmp_path):
 
 def test_fresh_db_audit_insert_works(tmp_path):
     """INSERT into AuditLog must succeed on a fresh DB without prior seed."""
-    from backend.core.database import get_db_connection
+    from backend.shared.database import get_db_connection
     import os
     import time
     db_path = tmp_path / "test_insert.db"
@@ -468,7 +468,7 @@ def test_fresh_db_audit_insert_works(tmp_path):
 
 def test_fresh_db_project_insert_works(tmp_path):
     """INSERT into Projects must succeed on a fresh DB without prior seed."""
-    from backend.core.database import get_db_connection
+    from backend.shared.database import get_db_connection
     import os
     db_path = tmp_path / "test_proj.db"
     os.environ["SISRUA_TESTING"] = "true"

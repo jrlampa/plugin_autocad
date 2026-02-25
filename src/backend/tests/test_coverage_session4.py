@@ -45,7 +45,7 @@ class TestUtilsEdgeCases:
 
     def test_norm_optional_str_math_isnan_exception(self):
         """Linha 28: math.isnan levanta TypeError em valores não-float → except → pass."""
-        from backend.core.utils import norm_optional_str
+        from backend.shared.utils import norm_optional_str
 
         # Um objeto que levanta TypeError em isinstance float check via isnan
         class Weird:
@@ -63,12 +63,12 @@ class TestUtilsEdgeCases:
 
     def test_norm_optional_str_str_strips_to_empty(self):
         """Linha 34: str que vira vazia após strip retorna None."""
-        from backend.core.utils import norm_optional_str
+        from backend.shared.utils import norm_optional_str
         assert norm_optional_str("   ") is None
 
     def test_sanitize_jsonable_fallback_to_str(self):
         """Linhas 58-60: objeto não serializável → str()."""
-        from backend.core.utils import sanitize_jsonable
+        from backend.shared.utils import sanitize_jsonable
 
         class Custom:
             def __str__(self):
@@ -79,7 +79,7 @@ class TestUtilsEdgeCases:
 
     def test_sanitize_jsonable_str_exception_returns_none(self):
         """Linha 60-61: str() levanta exceção → None."""
-        from backend.core.utils import sanitize_jsonable
+        from backend.shared.utils import sanitize_jsonable
 
         class Unstrifiable:
             def __str__(self):
@@ -93,7 +93,7 @@ class TestUtilsEdgeCases:
 
     def test_get_layer_config_json_parse_error_returns_fallback(self, tmp_path, monkeypatch):
         """Linhas 139-141: JSON inválido no layers.json → log de erro + fallback hardcoded."""
-        from backend.core import utils as utils_mod
+        from backend.shared import utils as utils_mod
 
         # Cria um layers.json corrompido temporário
         bad_json_path = tmp_path / "layers.json"
@@ -118,8 +118,8 @@ class TestUtilsEdgeCases:
 
     def test_clean_geometry_simplification_exception_keeps_original(self):
         """Linha 205: exceção na simplificação mantém a feature original."""
-        from backend.core.utils import clean_geometry
-        from backend.models import CadFeature
+        from backend.shared.utils import clean_geometry
+        from backend.domain.dto import CadFeature
 
         f = CadFeature(
             feature_type="Polyline",
@@ -146,7 +146,7 @@ class TestDatabaseCoverage:
 
     def test_init_geopackage_exception_swallowed(self, tmp_path):
         """Linhas 70-71: exceção em init_geopackage é swallowed."""
-        from backend.core.database import init_geopackage
+        from backend.shared.database import init_geopackage
 
         # Cria conn que vai falhar na primeira execução via cursor mock
         conn = sqlite3.connect(":memory:")
@@ -165,7 +165,7 @@ class TestDatabaseCoverage:
 
     def test_init_schema_exception_swallowed(self, tmp_path):
         """Linhas 146-147: exceção em init_schema é swallowed."""
-        from backend.core.database import init_schema
+        from backend.shared.database import init_schema
 
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = sqlite3.OperationalError("schema error")
@@ -176,7 +176,7 @@ class TestDatabaseCoverage:
         """Linhas 150-179: get_db_connection retorna conexão válida."""
         monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
 
-        import backend.core.database as db_mod
+        import backend.shared.database as db_mod
         # Force reimport to pick up new env
         importlib.reload(db_mod)
 
@@ -197,7 +197,7 @@ class TestAiServiceCoverage:
 
     def _make_ai(self):
         """Cria AiService com cliente Groq mockado."""
-        from backend.services.ai import AiService
+        from backend.application.ai import AiService
         svc = AiService.__new__(AiService)
         svc.model = "llama-3.3-70b-versatile"
         mock_client = MagicMock()
@@ -258,7 +258,7 @@ class TestAiServiceCoverage:
 
     def test_generate_response_no_client_returns_config_message(self):
         """AiService sem cliente retorna mensagem de configuração."""
-        from backend.services.ai import AiService
+        from backend.application.ai import AiService
         svc = AiService.__new__(AiService)
         svc.client = None
         svc.model = "llama-3.3-70b-versatile"
@@ -384,7 +384,7 @@ class TestOsmContourGeneration:
 
     def test_contour_features_adicionadas_ao_resultado(self):
         """Linhas 321-344: curvas de nível são convertidas e adicionadas às features."""
-        from backend.gis_core.osm import prepare_osm_compute
+        from backend.domain.osm import prepare_osm_compute
 
         lat, lon = -22.15018, -42.92185
         cache = MagicMock()
@@ -409,7 +409,7 @@ class TestOsmContourGeneration:
 
     def test_contour_com_menos_de_2_coords_ignorado(self):
         """Linha 334: curva de nível com < 2 coordenadas UTM é ignorada."""
-        from backend.gis_core.osm import prepare_osm_compute
+        from backend.domain.osm import prepare_osm_compute
 
         lat, lon = -22.15018, -42.92185
         cache = MagicMock()
@@ -437,7 +437,7 @@ class TestOsmContourGeneration:
 
     def test_elevacao_injeta_cor_por_altitude(self):
         """Linhas 310-313: elevações distintas geram cores diferentes."""
-        from backend.gis_core.osm import prepare_osm_compute
+        from backend.domain.osm import prepare_osm_compute
 
         lat, lon = -22.15018, -42.92185
         cache = MagicMock()

@@ -39,7 +39,7 @@ export default function NormaPanel({ onToast }) {
         setClasseTensao(data.classe_tensao || 'MT');
         setNumeroProcesso(data.numero_processo || '');
       })
-      .catch(() => {/* silently ignore — backend may not be ready */});
+      .catch(() => {/* silently ignore — backend may not be ready */ });
   }, []);
 
   // Atualiza info de buffer quando classe muda
@@ -63,7 +63,7 @@ export default function NormaPanel({ onToast }) {
         if (onToast && result.toast) {
           onToast(result.toast, ativar ? 'warning' : 'success');
         }
-      } catch (err) {
+      } catch {
         if (onToast) {
           onToast('Erro ao configurar norma. Verifique a conexão.', 'error');
         }
@@ -88,22 +88,20 @@ export default function NormaPanel({ onToast }) {
         <button
           onClick={() => !loading && isProdist && handleToggle(false)}
           disabled={loading || !isProdist}
-          className={`py-3 rounded-2xl text-[10px] font-bold border transition-all ${
-            !isProdist
-              ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20'
-              : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-          }`}
+          className={`py-3 rounded-2xl text-[10px] font-bold border transition-all ${!isProdist
+            ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20'
+            : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+            }`}
         >
           ABNT
         </button>
         <button
           onClick={() => !loading && !isProdist && handleToggle(true)}
           disabled={loading || isProdist}
-          className={`py-3 rounded-2xl text-[10px] font-bold border transition-all ${
-            isProdist
-              ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20'
-              : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-          }`}
+          className={`py-3 rounded-2xl text-[10px] font-bold border transition-all ${isProdist
+            ? 'bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-500/20'
+            : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+            }`}
         >
           ANEEL/PRODIST
         </button>
@@ -111,11 +109,10 @@ export default function NormaPanel({ onToast }) {
 
       {/* Status */}
       <div
-        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold ${
-          isProdist
-            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-            : 'bg-blue-50 text-blue-700 border border-blue-200'
-        }`}
+        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold ${isProdist
+          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+          : 'bg-blue-50 text-blue-700 border border-blue-200'
+          }`}
       >
         {isProdist ? (
           <>

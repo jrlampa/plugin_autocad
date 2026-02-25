@@ -19,8 +19,8 @@ import math
 import pytest
 from typing import List
 
-from backend.gis_core.topology import TopologyHealer
-from backend.models import CadFeature
+from backend.domain.topology import TopologyHealer
+from backend.domain.dto import CadFeature
 
 
 # ---------------------------------------------------------------------------

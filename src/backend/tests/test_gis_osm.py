@@ -1,8 +1,9 @@
 import pytest
 import json
 from unittest.mock import MagicMock, patch
-from backend.gis_core.osm import _parse_overpass_to_features, prepare_osm_compute
-from backend.models import CadFeature
+from backend.domain.osm import prepare_osm_compute
+from backend.domain.osm_parser import OsmParser
+from backend.domain.dto import CadFeature
 
 # --- Mock Data ---
 OVERPASS_MOCK_DATA = {
@@ -32,14 +33,14 @@ OVERPASS_MOCK_DATA = {
 
 def test_parse_overpass_to_features():
     # Test coordinates projection and parsing
-    nodes, edges = _parse_overpass_to_features(OVERPASS_MOCK_DATA, epsg_out=31983)
+    nodes, edges = OsmParser.parse_to_features(OVERPASS_MOCK_DATA, epsg_out=31983)
     
     assert len(nodes) == 1 # Only the one with tags
     assert len(edges) == 1
     assert edges[0].highway == "residential"
     assert nodes[0].highway == "street_light"
 
-@patch("backend.gis_core.osm._fetch_overpass_data")
+@patch("backend.gis_core.osm_client.OsmClient.fetch_overpass_data")
 def test_prepare_osm_compute(mock_fetch):
     mock_fetch.return_value = OVERPASS_MOCK_DATA
     

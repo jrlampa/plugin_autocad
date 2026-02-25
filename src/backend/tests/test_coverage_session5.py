@@ -53,7 +53,7 @@ class TestAbntCoverage:
 
     def test_tolerancia_escala_nao_tabelada_usa_interpolacao(self):
         """Linha 84: escala não tabelada (ex: 3000) usa interpolação 0,2mm × escala."""
-        from backend.gis_core.abnt import AbntDrawingMetadata
+        from backend.domain.abnt import AbntDrawingMetadata
 
         meta = AbntDrawingMetadata(escala=3_000)  # não está em _TOLERANCIAS_M
         tol = meta.tolerancia_m()
@@ -62,7 +62,7 @@ class TestAbntCoverage:
 
     def test_tolerancia_escala_7500_usa_interpolacao(self):
         """Linha 84: outra escala não tabelada."""
-        from backend.gis_core.abnt import AbntDrawingMetadata
+        from backend.domain.abnt import AbntDrawingMetadata
 
         meta = AbntDrawingMetadata(escala=7_500)
         tol = meta.tolerancia_m()
@@ -70,7 +70,7 @@ class TestAbntCoverage:
 
     def test_to_dxf_header_vars_retorna_dict_completo(self):
         """Linha 91: to_dxf_header_vars() retorna dict com 14 chaves."""
-        from backend.gis_core.abnt import AbntDrawingMetadata
+        from backend.domain.abnt import AbntDrawingMetadata
 
         meta = AbntDrawingMetadata()
         hv = meta.to_dxf_header_vars()
@@ -91,7 +91,7 @@ class TestExecutorCoverage:
     """Cobre as linhas de validação em services/executor.py."""
 
     def _make_executor(self):
-        from backend.services.executor import JobExecutor
+        from backend.application.executor import JobExecutor
         cache = MagicMock()
         cache.get.return_value = None
         return JobExecutor(cache_service=cache)
@@ -101,9 +101,9 @@ class TestExecutorCoverage:
 
     def test_osm_sem_latitude_falha_com_ValueError(self):
         """Linha 35: kind=osm com latitude=None deve registrar job como falha."""
-        from backend.services.jobs import init_job, get_job
-        from backend.models import PrepareJobRequest
-        from backend.core.lifecycle import SHUTDOWN_EVENT
+        from backend.application.jobs import init_job, get_job
+        from backend.domain.dto import PrepareJobRequest
+        from backend.shared.lifecycle import SHUTDOWN_EVENT
 
         executor = self._make_executor()
         bus = self._make_event_bus()
@@ -119,9 +119,9 @@ class TestExecutorCoverage:
 
     def test_geojson_sem_dados_falha_com_ValueError(self):
         """Linha 56: kind=geojson com geojson=None deve registrar job como falha."""
-        from backend.services.jobs import init_job, get_job
-        from backend.models import PrepareJobRequest
-        from backend.core.lifecycle import SHUTDOWN_EVENT
+        from backend.application.jobs import init_job, get_job
+        from backend.domain.dto import PrepareJobRequest
+        from backend.shared.lifecycle import SHUTDOWN_EVENT
 
         executor = self._make_executor()
         bus = self._make_event_bus()
@@ -137,9 +137,9 @@ class TestExecutorCoverage:
 
     def test_kind_invalido_falha_com_mensagem_clara(self):
         """Linha 66: kind='invalid' registra job como falha com mensagem 'kind inválido'."""
-        from backend.services.jobs import init_job, get_job
-        from backend.models import PrepareJobRequest
-        from backend.core.lifecycle import SHUTDOWN_EVENT
+        from backend.application.jobs import init_job, get_job
+        from backend.domain.dto import PrepareJobRequest
+        from backend.shared.lifecycle import SHUTDOWN_EVENT
 
         executor = self._make_executor()
         bus = self._make_event_bus()
@@ -165,7 +165,7 @@ class TestHealthServiceCoverage:
 
     def test_db_select_retorna_resultado_inesperado(self):
         """Linhas 25-26: SELECT 1 retorna None → status='down'."""
-        from backend.services.health import HealthService
+        from backend.application.health import HealthService
 
         svc = HealthService()
         mock_cursor = MagicMock()
@@ -185,7 +185,7 @@ class TestHealthServiceCoverage:
 
     def test_db_exception_marca_database_down(self):
         """Linhas 27-29: exceção em get_db_connection → status='down'."""
-        from backend.services.health import HealthService
+        from backend.application.health import HealthService
 
         svc = HealthService()
         with patch(
@@ -199,7 +199,7 @@ class TestHealthServiceCoverage:
 
     def test_pyproj_import_error_marca_gis_down(self):
         """Linha 84: exceção em pyproj.Proj() → gis_core_deps status='down'."""
-        from backend.services.health import HealthService
+        from backend.application.health import HealthService
 
         svc = HealthService()
 
@@ -265,7 +265,7 @@ class TestOsmRemainingCoverage:
 
     def test_exception_com_cache_fallback_inclui_cache_fallback_reason(self):
         """Linhas 165-167: fetch falha + hit cache → resultado inclui cache_fallback_reason."""
-        from backend.gis_core.osm import prepare_osm_compute
+        from backend.domain.osm import prepare_osm_compute
 
         cached_data = {"features": [], "crs_out": "EPSG:31983", "cache_hit": False}
         cache = MagicMock()
@@ -286,7 +286,7 @@ class TestOsmRemainingCoverage:
 
     def test_exception_sem_cache_levanta_503(self):
         """Linha 168: fetch falha e sem cache → HTTPException 503."""
-        from backend.gis_core.osm import prepare_osm_compute
+        from backend.domain.osm import prepare_osm_compute
         from fastapi import HTTPException
 
         cache = MagicMock()
@@ -305,7 +305,7 @@ class TestOsmRemainingCoverage:
 
     def test_highway_como_lista_usa_primeiro_elemento_no_resultado(self):
         """Linha 182: highway como lista → primeiro elemento é usado."""
-        from backend.gis_core.osm import prepare_osm_compute
+        from backend.domain.osm import prepare_osm_compute
 
         lat, lon = -22.15018, -42.92185
         data = {
@@ -322,7 +322,7 @@ class TestOsmRemainingCoverage:
         elev = self._make_elev_minimal()
 
         # Patch _OsmWayRow para retornar highway como lista
-        from backend.gis_core import osm as osm_mod
+        from backend.domain import osm as osm_mod
 
         original_OsmWayRow = osm_mod._OsmWayRow
 
@@ -349,7 +349,7 @@ class TestOsmRemainingCoverage:
 
     def test_elevation_exception_swallowed(self):
         """Linhas 347-348: exceção no bloco de elevação é swallowed."""
-        from backend.gis_core.osm import prepare_osm_compute
+        from backend.domain.osm import prepare_osm_compute
 
         lat, lon = -22.15018, -42.92185
         cache = self._make_cache_miss()
@@ -377,8 +377,8 @@ class TestDxfExportFingerprintCoverage:
 
     def test_inject_abnt_header_exception_swallowed(self):
         """Linhas 232-233: exceção ao injetar fingerprint ABNT é swallowed."""
-        from backend.services.dxf_export import _inject_abnt_metadata
-        from backend.gis_core.abnt import AbntDrawingMetadata
+        from backend.application.dxf_export import _inject_abnt_metadata
+        from backend.domain.abnt import AbntDrawingMetadata
 
         meta = AbntDrawingMetadata()
         mock_doc = MagicMock()
@@ -390,8 +390,8 @@ class TestDxfExportFingerprintCoverage:
 
     def test_inject_prodist_header_exception_swallowed(self):
         """Linhas 250-251: exceção ao injetar fingerprint PRODIST é swallowed."""
-        from backend.services.dxf_export import _inject_prodist_metadata
-        from backend.gis_core.prodist import ProdistMetadata, TensaoClasse
+        from backend.application.dxf_export import _inject_prodist_metadata
+        from backend.domain.prodist import ProdistMetadata, TensaoClasse
 
         meta = ProdistMetadata(
             concessionaria="Concessionária Teste",
@@ -452,7 +452,7 @@ class TestExportServiceCoverage:
 
     def test_srs_id_valor_invalido_usa_4326(self, tmp_path):
         """Linha 133: crs_out com EPSG inválido (não conversível) → srs_id=4326."""
-        from backend.services.export_service import ExportService
+        from backend.application.export_service import ExportService
 
         db_path = tmp_path / "test_srs.db"
         conn = sqlite3.connect(str(db_path))
@@ -485,7 +485,7 @@ class TestExportServiceCoverage:
 
     def test_export_geojson_cria_arquivo(self, tmp_path):
         """Cobre o caminho happy-path de export_project_to_geojson."""
-        from backend.services.export_service import ExportService
+        from backend.application.export_service import ExportService
 
         db_path = self._make_db(tmp_path)
         svc = ExportService(db_path=db_path)
@@ -496,8 +496,8 @@ class TestExportServiceCoverage:
 
     def test_export_dxf_prodist_branch(self, tmp_path):
         """Linha 253: branch prodist_metadata not None ao exportar DXF."""
-        from backend.services.export_service import ExportService
-        from backend.gis_core.prodist import ProdistMetadata, TensaoClasse
+        from backend.application.export_service import ExportService
+        from backend.domain.prodist import ProdistMetadata, TensaoClasse
 
         db_path = self._make_db(tmp_path)
         svc = ExportService(db_path=db_path)
@@ -517,7 +517,7 @@ class TestExportServiceCoverage:
 
     def test_export_dxf_crs_invalido_usa_epsg_padrao(self, tmp_path):
         """Linha 217: EPSG inválido em export_to_dxf → usa padrão 31983."""
-        from backend.services.export_service import ExportService
+        from backend.application.export_service import ExportService
 
         db_path = tmp_path / "bad_epsg.db"
         conn = sqlite3.connect(str(db_path))
@@ -593,12 +593,12 @@ class TestUtilsIsnanException:
 
     def test_norm_optional_str_nan_float_retorna_none(self):
         """Linha 26-27: float NaN → None."""
-        from backend.core.utils import norm_optional_str
+        from backend.shared.utils import norm_optional_str
         assert norm_optional_str(float("nan")) is None
 
     def test_norm_optional_str_isnan_exception_usa_fallback(self):
         """Linha 28: math.isnan TypeError → except pass → tenta str()."""
-        from backend.core.utils import norm_optional_str
+        from backend.shared.utils import norm_optional_str
 
         # Usa mock para simular isnan levantando durante verificação de float
         with patch("backend.core.utils.math.isnan", side_effect=TypeError("isnan fail")):

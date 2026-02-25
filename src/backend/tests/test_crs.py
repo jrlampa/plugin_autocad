@@ -8,7 +8,7 @@ Coordenadas de referência padrão (conforme MEMORY.MD):
 """
 import math
 import pytest
-from backend.gis_core.crs import (
+from backend.domain.crs import (
     utm_zone,
     sirgas2000_utm_epsg,
     latlon_to_utm,

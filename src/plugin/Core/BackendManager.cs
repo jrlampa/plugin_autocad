@@ -391,25 +391,33 @@ namespace sisRUA.Core
 
         private async void CheckHealthAsync()
         {
-             await Task.Run(() => {
-                 if (!IsBackendHealthy())
+             // Use a lock-free or try-lock approach to avoid overlapping watchdog ticks
+             if (Monitor.TryEnter(_backendLock))
+             {
+                 try
                  {
-                     Interlocked.Increment(ref _healthFailCount);
-                     Log($"[Watchdog] Backend não responde ({_healthFailCount}/3).");
-                     if (_healthFailCount >= 3)
+                     bool isHealthy = await Task.Run(() => IsBackendHealthy());
+                     if (!isHealthy)
                      {
-                         Log("[Watchdog] Backend instável. Reiniciando...");
-                         _healthFailCount = 0;
-                         // In a real scenario, trigger a restart event or callback
-                         // For now, simpler logic:
-                         Start(); // Re-initialize
+                         Interlocked.Increment(ref _healthFailCount);
+                         Log($"[Watchdog] Backend não responde ({_healthFailCount}/3).");
+                         if (_healthFailCount >= 3)
+                         {
+                             Log("[Watchdog] Backend crítico. Tentando reinício automático...");
+                             _healthFailCount = 0;
+                             InitializeBackendProcess(FindProjectRoot(Assembly.GetExecutingAssembly().Location));
+                         }
+                     }
+                     else
+                     {
+                         _healthFailCount = 0; 
                      }
                  }
-                 else
+                 finally
                  {
-                     _healthFailCount = 0; 
+                     Monitor.Exit(_backendLock);
                  }
-             });
+             }
         }
 
         // --- Helpers (Generic) ---

@@ -41,7 +41,7 @@ class TestPersistenceBuffer:
     """Testa o buffer em lote com worker thread."""
 
     def _make_buffer(self, batch_size=2, flush_interval=0.1, callback=None):
-        from backend.core.buffer import PersistenceBuffer
+        from backend.shared.buffer import PersistenceBuffer
         cb = callback or (lambda batch: None)
         return PersistenceBuffer(flush_callback=cb, batch_size=batch_size, flush_interval=flush_interval)
 
@@ -103,7 +103,7 @@ class TestHousekeeperServiceCoverage:
     """Cobre os caminhos restantes do HousekeeperService."""
 
     def _make_svc(self, retention_days=7):
-        from backend.services.housekeeper import HousekeeperService
+        from backend.application.housekeeper import HousekeeperService
         return HousekeeperService(retention_days=retention_days)
 
     def test_arquivo_antigo_e_excluido(self, tmp_path):
@@ -192,7 +192,7 @@ class TestHousekeeperServiceCoverage:
 
 def _make_project_service(with_event_bus=False, audit_raises=False):
     """Cria ProjectService com event_bus mockado."""
-    from backend.services.projects import ProjectService
+    from backend.application.projects import ProjectService
 
     event_bus = MagicMock() if with_event_bus else None
     svc = ProjectService(event_bus=event_bus)
@@ -273,7 +273,7 @@ class TestCancelJob:
 
     def test_cancel_job_em_andamento(self):
         """cancel_job retorna True quando o job existe e está em andamento."""
-        from backend.services.jobs import init_job, cancel_job, get_job
+        from backend.application.jobs import init_job, cancel_job, get_job
 
         job_id, _ = init_job(kind="osm")
         assert cancel_job(job_id) is True
@@ -284,8 +284,8 @@ class TestCancelJob:
 
     def test_cancel_job_ja_completado_retorna_false(self):
         """cancel_job retorna False quando o job já está completado."""
-        from backend.services.jobs import init_job, cancel_job, update_job
-        from backend.core.bus import InMemoryEventBus
+        from backend.application.jobs import init_job, cancel_job, update_job
+        from backend.shared.bus import InMemoryEventBus
 
         job_id, _ = init_job(kind="osm")
         bus = InMemoryEventBus()
@@ -295,7 +295,7 @@ class TestCancelJob:
 
     def test_cancel_job_inexistente_retorna_false(self):
         """cancel_job retorna False para job_id inexistente."""
-        from backend.services.jobs import cancel_job
+        from backend.application.jobs import cancel_job
         assert cancel_job("job-nao-existe-xyz") is False
 
 
@@ -308,7 +308,7 @@ class TestEventBusCoverage:
 
     def test_publish_com_idempotency_key_dedup(self):
         """Linhas 26-27: evento duplicado com mesma chave é suprimido."""
-        from backend.core.bus import InMemoryEventBus
+        from backend.shared.bus import InMemoryEventBus
 
         cache = MagicMock()
         cache.get.return_value = 1  # Simula que já foi processado
@@ -322,13 +322,13 @@ class TestEventBusCoverage:
 
     def test_publish_sem_handler_nao_falha(self):
         """publish em evento sem subscribers não lança exceção."""
-        from backend.core.bus import InMemoryEventBus
+        from backend.shared.bus import InMemoryEventBus
         bus = InMemoryEventBus()
         bus.publish("evento_sem_handler", {"x": 1})  # Não deve levantar
 
     def test_publish_handler_exception_e_swallowed(self):
         """Linha 39-40: exceção no handler é swallowed."""
-        from backend.core.bus import InMemoryEventBus
+        from backend.shared.bus import InMemoryEventBus
         bus = InMemoryEventBus()
 
         def bad_handler(payload):
@@ -339,7 +339,7 @@ class TestEventBusCoverage:
 
     def test_idempotency_key_com_cache_novo_marca_processado(self):
         """Linha 30: chave nova é armazenada no cache."""
-        from backend.core.bus import InMemoryEventBus
+        from backend.shared.bus import InMemoryEventBus
 
         cache = MagicMock()
         cache.get.return_value = None  # Chave nova
@@ -403,7 +403,7 @@ class TestOsmPipelineCoverage:
 
     def test_fetch_exception_com_cache_fallback_retorna_cache(self):
         """Linhas 162-167: quando fetch falha e há cache, retorna cache."""
-        from backend.gis_core.osm import prepare_osm_compute
+        from backend.domain.osm import prepare_osm_compute
 
         cached_data = {"features": [], "crs_out": "EPSG:31983", "cache_hit": False}
         cache = self._make_cache(hit=cached_data)
@@ -423,7 +423,7 @@ class TestOsmPipelineCoverage:
 
     def test_fetch_exception_sem_cache_levanta_http_503(self):
         """Linha 168: quando fetch falha e sem cache, levanta HTTPException 503."""
-        from backend.gis_core.osm import prepare_osm_compute
+        from backend.domain.osm import prepare_osm_compute
         from fastapi import HTTPException
 
         cache = self._make_cache(hit=None)
@@ -441,7 +441,7 @@ class TestOsmPipelineCoverage:
 
     def test_highway_tag_como_lista_usa_primeiro_elemento(self):
         """Linha 182: quando highway é lista no _OsmWayRow, usa o primeiro elemento."""
-        from backend.gis_core.osm import _OsmWayRow
+        from backend.domain.osm import _OsmWayRow
         from shapely.geometry import LineString
 
         # Cria uma via com highway como lista (edge case do pipeline)
@@ -463,7 +463,7 @@ class TestOsmPipelineCoverage:
 
     def test_check_cancel_e_chamado_durante_loop(self):
         """Linhas 177, 219: check_cancel é chamado durante o processamento."""
-        from backend.gis_core.osm import prepare_osm_compute
+        from backend.domain.osm import prepare_osm_compute
 
         cancel_calls = []
 

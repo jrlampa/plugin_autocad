@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from backend.services.projects import ProjectService, NotFoundError, ConflictError
-from backend.services.health import HealthService
-from backend.services.elevation import ElevationService
+from backend.application.projects import ProjectService, NotFoundError, ConflictError
+from backend.application.health import HealthService
+from backend.application.elevation import ElevationService
 
 # --- Project Service Tests ---
 def test_project_service_get_not_found():
@@ -130,7 +130,7 @@ def test_geojson_elevation_injection_uses_cache():
 
     with patch.object(ElevationService, "__init__", spy_init), \
          patch.object(ElevationService, "get_elevation_profile", return_value=[850.0]):
-        from backend.services.geojson import prepare_geojson_compute
+        from backend.application.geojson import prepare_geojson_compute
         result = prepare_geojson_compute(geojson)
 
     assert result is not None
@@ -188,8 +188,8 @@ def test_export_service_dxf_not_found():
     import sqlite3
     import tempfile
     from pathlib import Path
-    from backend.services.export_service import ExportService
-    from backend.services.projects import NotFoundError
+    from backend.application.export_service import ExportService
+    from backend.application.projects import NotFoundError
 
     tmp_db = Path(tempfile.mkdtemp()) / "test.db"
     conn = sqlite3.connect(tmp_db)
@@ -217,7 +217,7 @@ def test_export_service_dxf_creates_valid_file():
     import json
     from pathlib import Path
     import ezdxf
-    from backend.services.export_service import ExportService
+    from backend.application.export_service import ExportService
 
     tmp_db = Path(tempfile.mkdtemp()) / "test.db"
     conn = sqlite3.connect(tmp_db)
@@ -266,7 +266,7 @@ def test_export_service_dxf_creates_valid_file():
 
 def test_osm_way_row_module_level():
     """_OsmWayRow deve ser uma classe de módulo (não definida inline em loop)."""
-    from backend.gis_core.osm import _OsmWayRow
+    from backend.domain.osm import _OsmWayRow
 
     way = {"tags": {"highway": "residential", "name": "Rua Teste"}}
 
@@ -281,7 +281,7 @@ def test_osm_way_row_module_level():
 
 def test_osm_node_row_module_level():
     """_OsmNodeRow deve ser uma classe de módulo com atributos corretos."""
-    from backend.gis_core.osm import _OsmNodeRow
+    from backend.domain.osm import _OsmNodeRow
 
     node = {"tags": {"power": "pole", "name": "Poste"}}
     row = _OsmNodeRow(node, 714316.0, 7549084.0)

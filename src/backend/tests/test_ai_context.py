@@ -2,7 +2,7 @@
 import pytest
 import os
 from unittest.mock import MagicMock, patch
-from backend.services.ai import AiService
+from backend.application.ai import AiService
 
 class TestAiServiceContext:
     

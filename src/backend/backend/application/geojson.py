@@ -1,0 +1,217 @@
+import json
+import math
+from typing import List, Tuple, Optional, Any, Callable, Dict
+from fastapi import HTTPException
+from backend.domain.dto import CadFeature, PrepareResponse # Models
+from backend.shared.utils import (
+    norm_optional_str, 
+    project_lines_to_xy, 
+    sanitize_jsonable, 
+    get_layer_name
+)
+from backend.shared.logger import get_logger
+from backend.domain.crs import sirgas2000_utm_epsg
+
+logger = get_logger(__name__)
+
+def first_lonlat(obj) -> Tuple[float, float]:
+    if not obj:
+        return (0.0, 0.0)
+    if obj.get("type") == "FeatureCollection":
+        feats = obj.get("features") or []
+        for f in feats:
+            g = f.get("geometry") or {}
+            coords = g.get("coordinates")
+            t = g.get("type")
+            if t == "LineString" and coords and len(coords) > 0:
+                return float(coords[0][0]), float(coords[0][1])
+            if t == "MultiLineString" and coords and len(coords) > 0 and len(coords[0]) > 0:
+                return float(coords[0][0][0]), float(coords[0][0][1])
+            if t == "Point" and coords and len(coords) >= 2:
+                return float(coords[0]), float(coords[1])
+    if obj.get("type") == "Feature":
+        g = obj.get("geometry") or {}
+        coords = g.get("coordinates")
+        t = g.get("type")
+        if t == "LineString" and coords and len(coords) > 0:
+            return float(coords[0][0]), float(coords[0][1])
+        if t == "MultiLineString" and coords and len(coords) > 0 and len(coords[0]) > 0:
+            return float(coords[0][0][0]), float(coords[0][0][1])
+        if t == "Point" and coords and len(coords) >= 2:
+            return float(coords[0]), float(coords[1])
+    # fallback
+    return (0.0, 0.0)
+
+def prepare_geojson_compute(geo: Any, check_cancel: Callable[[], None] = None) -> dict:
+    if check_cancel: check_cancel()
+    from pyproj import Transformer  # type: ignore
+    from shapely.geometry import LineString  # type: ignore
+
+    if isinstance(geo, str):
+        geo = json.loads(geo)
+
+    lon0, lat0 = first_lonlat(geo)
+    if lon0 == 0.0 and lat0 == 0.0:
+        raise HTTPException(status_code=400, detail="GeoJSON inválido: não foi possível extrair coordenadas.")
+
+    epsg_out = sirgas2000_utm_epsg(lat0, lon0)
+    transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_out}", always_xy=True)
+
+    features: List[CadFeature] = [] 
+
+    def _emit_feature(layer: Optional[str], name: Optional[str], highway: Optional[str], coords_lonlat, props: Dict[str, Any]):
+        if not coords_lonlat or len(coords_lonlat) < 2:
+            return
+        line = LineString([(float(x), float(y)) for (x, y) in coords_lonlat])
+        coords_xy_list = project_lines_to_xy([line], transformer)
+        for coords_xy in coords_xy_list:
+            # Smart Layer Mapping (Brazilian Norms)
+            inferred_layer = get_layer_name(props, default="SISRUA_GEOJSON")
+            
+            features.append(
+                CadFeature(
+                    feature_type="Polyline", # Explicitly set feature_type
+                    layer=layer or inferred_layer,
+                    name=name,
+                    highway=highway,
+                    coords_xy=coords_xy,
+                    original_geojson_properties=sanitize_jsonable(props)
+                )
+            )
+
+    t = geo.get("type")
+    
+    def process_feature(props, geom):
+        gtype = geom.get("type")
+        coords = geom.get("coordinates")
+        layer = props.get("layer") or props.get("Layer")
+        name = props.get("name")
+        highway = props.get("highway")
+
+        if gtype == "LineString":
+            _emit_feature(layer, name, highway, coords, props)
+        elif gtype == "MultiLineString":
+            for part in coords or []:
+                _emit_feature(layer, name, highway, part, props)
+        elif gtype == "Point": 
+            point_lonlat = coords
+            if point_lonlat and len(point_lonlat) >= 2:
+                lon, lat = point_lonlat[0], point_lonlat[1]
+                # Project point
+                x_proj, y_proj = transformer.transform(lon, lat)
+                if math.isfinite(x_proj) and math.isfinite(y_proj):
+                    if len(features) % 50 == 0 and check_cancel: check_cancel()
+                    
+                    # Mapeamento de ativos urbanos para blocos CAD.
+                    # Expande a captura de ativos para enriquecer o banco local de infraestrutura.
+                    asset_mapping = {
+                        "street_light": "POSTE_ILUMINACAO",
+                        "pole": "POSTE_ENERGIA",
+                        "fire_hydrant": "HIDRANTE",
+                        "bench": "MOBILIARIO_BANCO",
+                        "waste_basket": "MOBILIARIO_LIXEIRA",
+                        "manhole": "INFRA_BUEIRO",
+                        "tree": "VEGETACAO_ARVORE",
+                        "bus_stop": "TRANSPORTE_PARADA_ONIBUS",
+                        "traffic_signals": "SINALIZACAO_SEMAFORO",
+                        "crossing": "SINALIZACAO_FAIXA"
+                    }
+                    
+                    # Inferred classification if not explicitly provided
+                    inferred_block = None
+                    for k, v in props.items():
+                        if v in asset_mapping:
+                            inferred_block = asset_mapping[v]
+                            break
+
+                    block_name = props.get("block_name") or props.get("BlockName") or inferred_block
+                    block_filepath = props.get("block_filepath") or props.get("BlockFilePath")
+                    
+                    # Smart Layer Mapping for Assets
+                    inferred_layer = get_layer_name(props, default="SISRUA_Infraestrutura_Pontos")
+                    
+                    features.append(
+                        CadFeature(
+                            feature_type="Point",
+                            layer=layer or inferred_layer,
+                            name=name,
+                            block_name=norm_optional_str(block_name),
+                            block_filepath=norm_optional_str(block_filepath),
+                            insertion_point_xy=[x_proj, y_proj],
+                            rotation=float(props.get("rotation") or 0.0),
+                            scale=float(props.get("scale") or 1.0),
+                            original_geojson_properties=sanitize_jsonable(props)
+                        )
+                    )
+
+    if t == "FeatureCollection":
+        for f in geo.get("features") or []:
+            props = f.get("properties") or {}
+            geom = f.get("geometry") or {}
+            process_feature(props, geom)
+
+    elif t == "Feature":
+        props = geo.get("properties") or {}
+        geom = geo.get("geometry") or {}
+        process_feature(props, geom)
+        
+    else:
+        raise HTTPException(status_code=400, detail="GeoJSON não suportado. Use Feature/FeatureCollection com LineString/MultiLineString/Point.")
+
+    # INJECT ELEVATION DATA
+    try:
+        if check_cancel: check_cancel()
+        
+        # We need to reverse calculate or if we can access the original lat/lon?
+        # For uniformity, let's reverse project from features.
+        from pyproj import Transformer
+        reverse_transformer = Transformer.from_crs(f"EPSG:{epsg_out}", "EPSG:4326", always_xy=True)
+        
+        query_points_xy = []
+        feature_indices = []
+        
+        for i, f in enumerate(features):
+            if f.feature_type == "Polyline" and f.coords_xy and len(f.coords_xy) > 0:
+                query_points_xy.append(f.coords_xy[0])
+                feature_indices.append(i)
+            elif f.feature_type == "Point" and f.insertion_point_xy:
+                query_points_xy.append(f.insertion_point_xy)
+                feature_indices.append(i)
+
+        if query_points_xy:
+            if check_cancel: check_cancel()
+            lonlat_points = list(reverse_transformer.itransform(query_points_xy))
+            latlon_query = [(p[1], p[0]) for p in lonlat_points]
+
+            from backend.application.elevation import ElevationService
+            from backend.application.cache import cache_service as _cache_svc
+            elevations = ElevationService(cache=_cache_svc).get_elevation_profile(latlon_query)
+
+            for idx, elev in zip(feature_indices, elevations):
+                if elev is not None:
+                     features[idx].elevation = elev
+
+    except Exception as e:
+        logger.warning("elevation_injection_failed_geojson", error=str(e))
+        pass
+    
+    if check_cancel: check_cancel()
+
+    # BIM-LITE: Offload geometric cleaning to backend for SaaS scalability
+    from backend.shared.utils import clean_geometry
+    features = clean_geometry(features)
+
+    payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features)
+
+    # Cache por conteúdo (ajuda em reimportações repetidas)
+    try:
+        from backend.shared.utils import cache_key
+        from backend.application.cache import cache_service
+        raw = json.dumps(geo, sort_keys=True, ensure_ascii=False)
+        key = cache_key(["prepare_geojson", raw])
+        cache_service.set(key, payload.model_dump())
+        payload.cache_hit = False 
+    except Exception:
+        pass
+    
+    return payload.model_dump()

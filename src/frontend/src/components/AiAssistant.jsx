@@ -163,7 +163,7 @@ export const AiAssistant = () => {
               disabled={isLoading}
             />
             <button style={styles.sendBtn} onClick={handleSend} disabled={isLoading}>
-              Env
+              Enviar
             </button>
           </div>
         </div>

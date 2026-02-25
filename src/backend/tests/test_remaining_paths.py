@@ -16,13 +16,13 @@ from unittest.mock import MagicMock, patch
 # ---------------------------------------------------------------------------
 
 def test_first_lonlat_falsy_obj():
-    from backend.services.geojson import first_lonlat
+    from backend.application.geojson import first_lonlat
     assert first_lonlat(None) == (0.0, 0.0)
     assert first_lonlat({}) == (0.0, 0.0)
 
 
 def test_first_lonlat_feature_collection_multilinestring():
-    from backend.services.geojson import first_lonlat
+    from backend.application.geojson import first_lonlat
     geo = {
         "type": "FeatureCollection",
         "features": [{"type": "Feature", "geometry": {
@@ -35,7 +35,7 @@ def test_first_lonlat_feature_collection_multilinestring():
 
 
 def test_first_lonlat_feature_linestring():
-    from backend.services.geojson import first_lonlat
+    from backend.application.geojson import first_lonlat
     geo = {"type": "Feature",
            "geometry": {"type": "LineString",
                         "coordinates": [[-42.9219, -22.1502], [-42.9218, -22.1503]]},
@@ -44,7 +44,7 @@ def test_first_lonlat_feature_linestring():
 
 
 def test_first_lonlat_feature_multilinestring():
-    from backend.services.geojson import first_lonlat
+    from backend.application.geojson import first_lonlat
     geo = {"type": "Feature",
            "geometry": {"type": "MultiLineString",
                         "coordinates": [[[-42.9219, -22.1502], [-42.9218, -22.1503]]]},
@@ -53,7 +53,7 @@ def test_first_lonlat_feature_multilinestring():
 
 
 def test_first_lonlat_feature_point():
-    from backend.services.geojson import first_lonlat
+    from backend.application.geojson import first_lonlat
     geo = {"type": "Feature",
            "geometry": {"type": "Point", "coordinates": [-42.9219, -22.1502]},
            "properties": {}}
@@ -63,7 +63,7 @@ def test_first_lonlat_feature_point():
 
 
 def test_prepare_geojson_single_feature_input():
-    from backend.services.geojson import prepare_geojson_compute
+    from backend.application.geojson import prepare_geojson_compute
     geo = {"type": "Feature",
            "geometry": {"type": "LineString",
                         "coordinates": [[-42.9219, -22.1502], [-42.9218, -22.1503]]},
@@ -76,7 +76,7 @@ def test_prepare_geojson_single_feature_input():
 
 def test_prepare_geojson_string_input_parsed():
     import json
-    from backend.services.geojson import prepare_geojson_compute
+    from backend.application.geojson import prepare_geojson_compute
     geo = {"type": "Feature",
            "geometry": {"type": "LineString",
                         "coordinates": [[-42.9219, -22.1502], [-42.9218, -22.1503]]},
@@ -88,7 +88,7 @@ def test_prepare_geojson_string_input_parsed():
 
 
 def test_prepare_geojson_multilinestring_geometry():
-    from backend.services.geojson import prepare_geojson_compute
+    from backend.application.geojson import prepare_geojson_compute
     geo = {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {
         "type": "MultiLineString",
         "coordinates": [
@@ -103,7 +103,7 @@ def test_prepare_geojson_multilinestring_geometry():
 
 
 def test_prepare_geojson_unsupported_root_type_raises_400():
-    from backend.services.geojson import prepare_geojson_compute
+    from backend.application.geojson import prepare_geojson_compute
     from fastapi import HTTPException
     geo = {"type": "Geometry", "coordinates": [-42.9, -22.1]}
     with pytest.raises(HTTPException) as exc_info:
@@ -112,7 +112,7 @@ def test_prepare_geojson_unsupported_root_type_raises_400():
 
 
 def test_prepare_geojson_elevation_exception_swallowed():
-    from backend.services.geojson import prepare_geojson_compute
+    from backend.application.geojson import prepare_geojson_compute
     geo = {"type": "Feature",
            "geometry": {"type": "LineString",
                         "coordinates": [[-42.9219, -22.1502], [-42.9218, -22.1503]]},
@@ -124,7 +124,7 @@ def test_prepare_geojson_elevation_exception_swallowed():
 
 
 def test_prepare_geojson_point_with_asset_mapping():
-    from backend.services.geojson import prepare_geojson_compute
+    from backend.application.geojson import prepare_geojson_compute
     geo = {"type": "FeatureCollection", "features": [{"type": "Feature",
            "geometry": {"type": "Point", "coordinates": [-42.9219, -22.1502]},
            "properties": {"amenity": "fire_hydrant"}}]}
@@ -140,7 +140,7 @@ def test_prepare_geojson_point_with_asset_mapping():
 # ---------------------------------------------------------------------------
 
 def test_health_database_exception():
-    from backend.services.health import HealthService
+    from backend.application.health import HealthService
     svc = HealthService()
     with patch("backend.services.health.get_db_connection",
                side_effect=RuntimeError("DB unreachable")):
@@ -150,7 +150,7 @@ def test_health_database_exception():
 
 
 def test_health_cache_exception():
-    from backend.services.health import HealthService
+    from backend.application.health import HealthService
     svc = HealthService()
     mock_conn = MagicMock()
     mock_conn.__enter__ = MagicMock(return_value=mock_conn)
@@ -164,7 +164,7 @@ def test_health_cache_exception():
 
 
 def test_health_overall_status_down_when_db_fails():
-    from backend.services.health import HealthService
+    from backend.application.health import HealthService
     svc = HealthService()
     with patch("backend.services.health.get_db_connection",
                side_effect=RuntimeError("fail")):
@@ -173,7 +173,7 @@ def test_health_overall_status_down_when_db_fails():
 
 
 def test_health_gis_deps_component_present():
-    from backend.services.health import HealthService
+    from backend.application.health import HealthService
     svc = HealthService()
     mock_conn = MagicMock()
     mock_conn.__enter__ = MagicMock(return_value=mock_conn)
@@ -192,7 +192,7 @@ def test_health_gis_deps_component_present():
 # ---------------------------------------------------------------------------
 
 def test_executor_invalid_kind_job_fails():
-    from backend.services.executor import JobExecutor
+    from backend.application.executor import JobExecutor
     executor = JobExecutor(cache_service=MagicMock())
     mock_bus = MagicMock()
     with patch("backend.services.executor.update_job") as mock_update, \
@@ -207,7 +207,7 @@ def test_executor_invalid_kind_job_fails():
 
 
 def test_executor_cancelled_runtime_error():
-    from backend.services.executor import JobExecutor
+    from backend.application.executor import JobExecutor
     executor = JobExecutor(cache_service=MagicMock())
     mock_bus = MagicMock()
     with patch("backend.services.executor.update_job") as mock_update, \
@@ -222,7 +222,7 @@ def test_executor_cancelled_runtime_error():
 
 
 def test_executor_shutdown_runtime_error():
-    from backend.services.executor import JobExecutor
+    from backend.application.executor import JobExecutor
     executor = JobExecutor(cache_service=MagicMock())
     mock_bus = MagicMock()
     with patch("backend.services.executor.update_job") as mock_update, \
@@ -236,7 +236,7 @@ def test_executor_shutdown_runtime_error():
 
 
 def test_executor_other_runtime_error():
-    from backend.services.executor import JobExecutor
+    from backend.application.executor import JobExecutor
     executor = JobExecutor(cache_service=MagicMock())
     mock_bus = MagicMock()
     with patch("backend.services.executor.update_job") as mock_update, \
@@ -256,7 +256,7 @@ def test_executor_other_runtime_error():
 # ---------------------------------------------------------------------------
 
 def test_retry_jitter_sleep_path_outside_testing_mode():
-    from backend.core.retry import Retry
+    from backend.shared.retry import Retry
     call_count = [0]
 
     @Retry(max_retries=1, initial_delay=0.01, jitter=True, exceptions=(ValueError,))
@@ -286,7 +286,7 @@ def _make_client(monkeypatch, tmp_path, token: str):
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     from backend import api as api_mod
     importlib.reload(api_mod)
-    import backend.core.rate_limit as rl_mod
+    import backend.shared.rate_limit as rl_mod
     rl_mod._limiters.clear()
     from fastapi.testclient import TestClient
     client = TestClient(api_mod.app, base_url="http://localhost:8000")
@@ -295,7 +295,7 @@ def _make_client(monkeypatch, tmp_path, token: str):
 
 
 def test_put_project_returns_409_on_conflict(monkeypatch, tmp_path):
-    from backend.services.projects import ConflictError
+    from backend.application.projects import ConflictError
     client, token = _make_client(monkeypatch, tmp_path, "token-proj-rp")
     with patch("backend.routes.projects.project_service.update_project",
                side_effect=ConflictError("version mismatch")):
@@ -308,7 +308,7 @@ def test_put_project_returns_409_on_conflict(monkeypatch, tmp_path):
 
 
 def test_put_project_returns_404_on_not_found(monkeypatch, tmp_path):
-    from backend.services.projects import NotFoundError
+    from backend.application.projects import NotFoundError
     client, token = _make_client(monkeypatch, tmp_path, "token-proj-nf")
     with patch("backend.routes.projects.project_service.update_project",
                side_effect=NotFoundError("not found")):

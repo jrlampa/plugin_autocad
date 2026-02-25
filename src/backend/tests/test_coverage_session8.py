@@ -117,7 +117,7 @@ class TestApiPyLineCoverage:
         Testa o bloco try/except do run_cleanup (linhas 73-75) indiretamente
         confirmando que o thread daemon foi iniciado sem erro.
         """
-        from backend.services.jobs import cleanup_expired_jobs
+        from backend.application.jobs import cleanup_expired_jobs
         # cleanup_expired_jobs deve funcionar sem erro
         result = cleanup_expired_jobs(max_age_seconds=0)
         assert result >= 0
@@ -149,7 +149,7 @@ class TestApiPyLineCoverage:
         with patch.dict(sys.modules, {"backend.core.ipc": fake_ipc}):
             # Simula o código do lifespan manualmente
             try:
-                from backend.core import ipc as ipc_mod
+                from backend.shared import ipc as ipc_mod
                 IpcServer = ipc_mod.IpcServer
                 IpcServer("fake-token")
             except ImportError as e:
@@ -192,7 +192,7 @@ class TestAuthLineCoverage:
         Quando SISRUA_AUTH_TOKEN está vazio/ausente, require_token deve
         retornar 500 (Server Authentication Not Configured).
         """
-        from backend.core.auth import require_token
+        from backend.shared.auth import require_token
         from fastapi import HTTPException
 
         old_token = os.environ.pop("SISRUA_AUTH_TOKEN", None)
@@ -219,7 +219,7 @@ class TestCacheLineCoverage:
         Fecha o cache com um diskcache simulado que lança exceção.
         Garante que o close() não propaga a exceção.
         """
-        from backend.services.cache import CacheService
+        from backend.application.cache import CacheService
         svc = CacheService()
 
         # O CacheService usa _diskcache internamente — verificamos que get() funciona
@@ -240,8 +240,8 @@ class TestDxfExportLineCoverage:
         Quando shapely não está disponível, generate_prodist_buffer_features retorna [].
         (Linha 67-69: except ImportError → return [])
         """
-        from backend.gis_core.prodist import ProdistMetadata, TensaoClasse
-        from backend.models import CadFeature
+        from backend.domain.prodist import ProdistMetadata, TensaoClasse
+        from backend.domain.dto import CadFeature
 
         # Cria uma feature polyline de teste
         feature = CadFeature(
@@ -261,7 +261,7 @@ class TestDxfExportLineCoverage:
             if "backend.services.dxf_export" in sys.modules:
                 del sys.modules["backend.services.dxf_export"]
             try:
-                from backend.services import dxf_export as dxf_mod
+                from backend.application import dxf_export as dxf_mod
                 importlib.reload(dxf_mod)
                 result = dxf_mod.generate_prodist_buffer_features([feature], metadata)
                 # Quando shapely não disponível → lista vazia
@@ -286,7 +286,7 @@ class TestElevationLineCoverage:
         DEM com todos os valores NaN → get_contours retorna [].
         (Linha 145 — array com valores inválidos)
         """
-        from backend.services.elevation import ElevationService
+        from backend.application.elevation import ElevationService
 
         svc = ElevationService(cache=None)
 
@@ -304,7 +304,7 @@ class TestElevationLineCoverage:
         import rasterio
         import rasterio.transform
         import tempfile
-        from backend.services.elevation import ElevationService
+        from backend.application.elevation import ElevationService
 
         svc = ElevationService(cache=None)
 
@@ -346,7 +346,7 @@ class TestElevationLineCoverage:
         import rasterio
         import rasterio.transform
         import tempfile
-        from backend.services.elevation import ElevationService
+        from backend.application.elevation import ElevationService
 
         svc = ElevationService(cache=None)
 
@@ -395,7 +395,7 @@ class TestLoggerLineCoverage:
         set_trace_id define o contexto de trace e o logger estruturado o inclui.
         (Linha 23 — set do ContextVar)
         """
-        from backend.core.logger import set_trace_id, get_logger
+        from backend.shared.logger import set_trace_id, get_logger
 
         set_trace_id("test-trace-session8")
         logger = get_logger("test")
@@ -404,7 +404,7 @@ class TestLoggerLineCoverage:
 
     def test_set_trace_id_empty_string(self):
         """set_trace_id com string vazia — deve funcionar sem exceção."""
-        from backend.core.logger import set_trace_id
+        from backend.shared.logger import set_trace_id
         set_trace_id("")
         assert True
 
@@ -421,7 +421,7 @@ class TestOsmLineCoverage:
         Dados OSM sem nós/geometria válidos → processa sem lançar.
         (Linha 219, 223 — skip de geometria None em nodes)
         """
-        from backend.gis_core.osm import _parse_overpass_to_features
+        from backend.domain.osm import _parse_overpass_to_features
 
         # Dados OSM mínimos sem elementos
         empty_data = {"elements": []}

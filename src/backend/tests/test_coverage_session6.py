@@ -51,7 +51,7 @@ class TestGeocodeCoverage:
 
     def test_utm_easting_fora_do_intervalo_retorna_none(self):
         """Linha 77: easting > 999_000 → _try_parse_utm retorna None."""
-        from backend.services.geocode import _try_parse_utm
+        from backend.application.geocode import _try_parse_utm
 
         # easting 2_000_000 está fora do intervalo válido (100_000–999_000)
         result = _try_parse_utm("2000000 7634925")
@@ -59,14 +59,14 @@ class TestGeocodeCoverage:
 
     def test_utm_easting_muito_pequeno_retorna_none(self):
         """Linha 77: easting < 100_000 → _try_parse_utm retorna None."""
-        from backend.services.geocode import _try_parse_utm
+        from backend.application.geocode import _try_parse_utm
 
         result = _try_parse_utm("50000 7634925")
         assert result is None
 
     def test_utm_latlon_resultante_invalido_retorna_none(self):
         """Linha 97: utm_to_latlon retorna coordenadas fora de (-90..90 / -180..180) → None."""
-        from backend.services.geocode import _try_parse_utm
+        from backend.application.geocode import _try_parse_utm
 
         with patch("backend.gis_core.crs.utm_to_latlon", return_value=(999.0, 999.0)):
             # Texto UTM válido: easting 788547, northing 7634925 (zona 23K)
@@ -75,7 +75,7 @@ class TestGeocodeCoverage:
 
     def test_utm_exception_em_conversao_retorna_none(self):
         """Linha 97: utm_to_latlon levanta exceção → _try_parse_utm retorna None."""
-        from backend.services.geocode import _try_parse_utm
+        from backend.application.geocode import _try_parse_utm
 
         with patch("backend.gis_core.crs.utm_to_latlon", side_effect=ValueError("proj error")):
             result = _try_parse_utm("23K 788547 7634925")
@@ -83,7 +83,7 @@ class TestGeocodeCoverage:
 
     def test_geocode_cai_em_nominatim_quando_nao_e_latlon_nem_utm(self):
         """Linha 183: geocode() com endereço textual chama _nominatim_geocode."""
-        from backend.services import geocode as geocode_mod
+        from backend.application import geocode as geocode_mod
 
         mock_result = {"latitude": -22.15018, "longitude": -42.92185, "source": "nominatim"}
         with patch.object(geocode_mod, "_nominatim_geocode", return_value=mock_result) as mock_nom:
@@ -93,7 +93,7 @@ class TestGeocodeCoverage:
 
     def test_geocode_query_vazia_retorna_none(self):
         """geocode('') retorna None sem chamar Nominatim."""
-        from backend.services import geocode as geocode_mod
+        from backend.application import geocode as geocode_mod
 
         with patch.object(geocode_mod, "_nominatim_geocode") as mock_nom:
             result = geocode_mod.geocode("")
@@ -102,7 +102,7 @@ class TestGeocodeCoverage:
 
     def test_geocode_query_sanitizada_para_vazia_retorna_none(self):
         """Linha 183: query com apenas chars perigosos → _sanitize_query → '' → return None."""
-        from backend.services import geocode as geocode_mod
+        from backend.application import geocode as geocode_mod
 
         # Caracteres que são todos removidos por _sanitize_query
         result = geocode_mod.geocode("<script>alert('xss')</script>")
@@ -134,7 +134,7 @@ class TestGeoJsonServiceCoverage:
 
     def test_emit_feature_com_menos_de_2_coords_retorna_cedo(self):
         """Linha 64: _emit_feature com < 2 coordenadas → return cedo (não cria feature)."""
-        from backend.services.geojson import prepare_geojson_compute
+        from backend.application.geojson import prepare_geojson_compute
 
         # LineString com apenas 1 ponto → _emit_feature retorna cedo (linha 64)
         geo = {
@@ -157,7 +157,7 @@ class TestGeoJsonServiceCoverage:
 
     def test_emit_feature_com_coords_validas_cria_feature(self):
         """Linha 65: _emit_feature com ≥2 coordenadas cria uma CadFeature."""
-        from backend.services.geojson import prepare_geojson_compute
+        from backend.application.geojson import prepare_geojson_compute
 
         geo = self._minimal_linestring_fc()
         result = prepare_geojson_compute(geo)
@@ -168,7 +168,7 @@ class TestGeoJsonServiceCoverage:
     def test_tipo_geojson_desconhecido_levanta_400(self):
         """Linha 159: tipo GeoJSON desconhecido → HTTPException 400."""
         from fastapi import HTTPException
-        from backend.services import geojson as geojson_mod
+        from backend.application import geojson as geojson_mod
 
         # Mock first_lonlat to return valid coords so we pass the early check
         with patch.object(geojson_mod, "first_lonlat", return_value=(-42.92185, -22.15018)):
@@ -197,8 +197,8 @@ class TestAuditLoggerChmod:
             patch.dict(os.environ, {"LOCALAPPDATA": str(tmp_path)}),
             patch("os.chmod", side_effect=PermissionError("acesso negado")),
         ):
-            from backend.core.audit import AuditLogger
-            import backend.core.audit as audit_mod
+            from backend.shared.audit import AuditLogger
+            import backend.shared.audit as audit_mod
 
             logger_mock = MagicMock()
             with patch.object(audit_mod, "logger", logger_mock):
@@ -214,8 +214,8 @@ class TestAuditLoggerChmod:
             patch.dict(os.environ, {"LOCALAPPDATA": str(tmp_path)}),
             patch("os.chmod"),
         ):
-            from backend.core.audit import AuditLogger
-            import backend.core.audit as audit_mod
+            from backend.shared.audit import AuditLogger
+            import backend.shared.audit as audit_mod
 
             logger_mock = MagicMock()
             with patch.object(audit_mod, "logger", logger_mock):
@@ -234,7 +234,7 @@ class TestCircuitBreakerHalfOpen:
 
     def test_falha_em_half_open_reabre_o_circuito(self):
         """Linhas 68-69: falha em estado HALF_OPEN → circuito volta para OPEN."""
-        from backend.core.circuit_breaker import CircuitBreaker, CircuitState
+        from backend.shared.circuit_breaker import CircuitBreaker, CircuitState
 
         cb = CircuitBreaker(failure_threshold=3, recovery_timeout=1.0)
         cb.state = CircuitState.HALF_OPEN  # forçar estado
@@ -246,7 +246,7 @@ class TestCircuitBreakerHalfOpen:
 
     def test_sucesso_em_half_open_fecha_o_circuito(self):
         """Sucesso em HALF_OPEN → estado volta para CLOSED."""
-        from backend.core.circuit_breaker import CircuitBreaker, CircuitState
+        from backend.shared.circuit_breaker import CircuitBreaker, CircuitState
 
         cb = CircuitBreaker(failure_threshold=3, recovery_timeout=1.0)
         cb.state = CircuitState.HALF_OPEN
@@ -258,7 +258,7 @@ class TestCircuitBreakerHalfOpen:
 
     def test_falhas_suficientes_em_closed_abrem_circuito(self):
         """failure_threshold falhas em CLOSED → OPEN."""
-        from backend.core.circuit_breaker import CircuitBreaker, CircuitState
+        from backend.shared.circuit_breaker import CircuitBreaker, CircuitState
 
         cb = CircuitBreaker(failure_threshold=2, recovery_timeout=1.0)
         cb._on_failure()
@@ -278,7 +278,7 @@ class TestDatabaseConfigException:
         """Linhas 178-179: se init_schema falha, a exceção é logada e a conexão ainda é retornada."""
         db_path = tmp_path / "test.db"
 
-        from backend.core import database as db_mod
+        from backend.shared import database as db_mod
 
         with patch.object(db_mod, "init_schema", side_effect=RuntimeError("schema error")):
             conn = db_mod.get_db_connection(str(db_path))
@@ -293,7 +293,7 @@ class TestDatabaseConfigException:
         """Linhas 178-179: se init_geopackage falha, a exceção é logada e a conexão é retornada."""
         db_path = tmp_path / "test2.db"
 
-        from backend.core import database as db_mod
+        from backend.shared import database as db_mod
 
         with patch.object(db_mod, "init_geopackage", side_effect=RuntimeError("gpkg error")):
             conn = db_mod.get_db_connection(str(db_path))
@@ -370,7 +370,7 @@ class TestExportServiceGpkg:
 
     def test_epsg_invalido_usa_srs_id_4326(self, tmp_path):
         """Linha 133: crs_out com parte não numérica → srs_id=4326."""
-        from backend.services.export_service import ExportService
+        from backend.application.export_service import ExportService
 
         project_id = "proj-srs-test"
         db_path = tmp_path / "db.db"
@@ -382,7 +382,7 @@ class TestExportServiceGpkg:
 
     def test_gpkg_contents_e_geometry_columns_inseridos(self, tmp_path):
         """Linhas 142, 151: banco com tabelas GPKG → INSERT OR REPLACE executado."""
-        from backend.services.export_service import ExportService
+        from backend.application.export_service import ExportService
 
         project_id = "proj-gpkg-test"
         db_path = tmp_path / "db.db"
@@ -456,7 +456,7 @@ class TestEnterpriseRouteCoverage:
     def test_export_dxf_prodist_projeto_nao_encontrado_retorna_404(self):
         """Linha 239: projeto inexistente em export_dxf_prodist → 404."""
         import backend.api as api_mod
-        from backend.services.projects import NotFoundError as ProjNotFound
+        from backend.application.projects import NotFoundError as ProjNotFound
 
         c, _ = _make_enterprise_client()
         self._ativar_prodist(c)
@@ -501,7 +501,7 @@ class TestEnterpriseRouteCoverage:
     def test_export_geopackage_projeto_nao_encontrado_retorna_404(self):
         """export_geopackage com projeto inexistente → 404."""
         import backend.api as api_mod
-        from backend.services.projects import NotFoundError as ProjNotFound
+        from backend.application.projects import NotFoundError as ProjNotFound
 
         c, _ = _make_enterprise_client()
         with patch.object(
@@ -515,7 +515,7 @@ class TestEnterpriseRouteCoverage:
     def test_export_geojson_projeto_nao_encontrado_retorna_404(self):
         """export_geojson com projeto inexistente → 404."""
         import backend.api as api_mod
-        from backend.services.projects import NotFoundError as ProjNotFound
+        from backend.application.projects import NotFoundError as ProjNotFound
 
         c, _ = _make_enterprise_client()
         with patch.object(
@@ -529,7 +529,7 @@ class TestEnterpriseRouteCoverage:
     def test_export_dxf_projeto_nao_encontrado_retorna_404(self):
         """export_dxf com projeto inexistente → 404."""
         import backend.api as api_mod
-        from backend.services.projects import NotFoundError as ProjNotFound
+        from backend.application.projects import NotFoundError as ProjNotFound
 
         c, _ = _make_enterprise_client()
         with patch.object(
@@ -577,7 +577,7 @@ class TestProjectsRouteConflict:
     def test_update_projeto_com_versao_errada_retorna_409(self):
         """Linha 74: ConflictError → HTTP 409."""
         import backend.api as api_mod
-        from backend.services.projects import ConflictError
+        from backend.application.projects import ConflictError
 
         c, token = _make_enterprise_client()
 
@@ -607,7 +607,7 @@ class TestProjectsRouteConflict:
 
     def test_update_projeto_inexistente_retorna_404(self):
         """NotFoundError no update → HTTP 404."""
-        from backend.services.projects import NotFoundError
+        from backend.application.projects import NotFoundError
         from backend.routes import deps as deps_mod
 
         c, token = _make_enterprise_client()
@@ -731,7 +731,7 @@ class TestEnterpriseHappyPath:
     def test_export_dxf_prodist_not_found_retorna_404(self):
         """Linha 245: NotFoundError em export_dxf_prodist → 404."""
         import backend.api as api_mod
-        from backend.services.projects import NotFoundError as ProjNotFound
+        from backend.application.projects import NotFoundError as ProjNotFound
 
         c, _ = _make_enterprise_client()
         self._ativar_prodist(c)

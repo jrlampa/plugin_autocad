@@ -1,0 +1,14 @@
+; Script de verificação 2.5D para accoreconsole
+; Cria uma linha 3D e verifica se o plugin a achatou (simulado)
+(princ "\nIniciando Teste 2.5D...\n")
+LINE 0,0,10 10,10,20 
+; Aqui o plugin deveria interceptar ou o usuário deve rodar o comando de achatamento
+; Como é headless, verificamos as propriedades da entidade via LISP
+(seteq ent (entlast))
+(seteq p1 (cdr (assoc 10 (entget ent))))
+(seteq p2 (cdr (assoc 11 (entget ent))))
+(if (/= (caddr p1) (caddr p2))
+  (princ "\nERRO: Linha nao esta em 2.5D (Z inicial != Z final)\n")
+  (princ "\nSUCESSO: Linha verificada em 2.5D.\n")
+)
+QUIT Y

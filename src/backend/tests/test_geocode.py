@@ -23,7 +23,7 @@ from fastapi.testclient import TestClient
 
 os.environ.setdefault("SISRUA_TESTING", "true")
 
-from backend.services.geocode import (
+from backend.application.geocode import (
     _sanitize_query,
     _try_parse_latlon,
     _try_parse_utm,

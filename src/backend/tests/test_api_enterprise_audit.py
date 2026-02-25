@@ -144,7 +144,7 @@ def test_audit_verify_invalid_signature(client, auth_headers, api_mod, tmp_path)
     audit_id = post_r.json()["audit_id"]
 
     # Adultera a signature diretamente no banco
-    from backend.core.database import get_db_connection
+    from backend.shared.database import get_db_connection
     conn = get_db_connection()
     conn.execute(
         "UPDATE AuditLog SET signature = 'tampered_bad_signature' WHERE audit_id = ?",
@@ -307,7 +307,7 @@ def _mock_export_service_for(api_mod, method: str, return_value):
 
 def test_export_geopackage_not_found(client, auth_headers, api_mod, tmp_path):
     """GET /api/v1/export/geopackage/{id} com projeto inexistente → 404."""
-    from backend.services.projects import NotFoundError
+    from backend.application.projects import NotFoundError
     import backend.api as _api_module
     mock_svc = MagicMock()
     mock_svc.export_project_to_geopackage.side_effect = NotFoundError("não encontrado")
@@ -343,7 +343,7 @@ def test_export_geopackage_500(client, auth_headers, api_mod):
 
 def test_export_dxf_not_found(client, auth_headers, api_mod):
     """GET /api/v1/export/dxf/{id} com projeto inexistente → 404."""
-    from backend.services.projects import NotFoundError
+    from backend.application.projects import NotFoundError
     import backend.api as _api_module
     mock_svc = MagicMock()
     mock_svc.export_project_to_dxf.side_effect = NotFoundError("não encontrado")
@@ -379,7 +379,7 @@ def test_export_dxf_500(client, auth_headers, api_mod):
 
 def test_export_geojson_not_found(client, auth_headers, api_mod):
     """GET /api/v1/export/geojson/{id} com projeto inexistente → 404."""
-    from backend.services.projects import NotFoundError
+    from backend.application.projects import NotFoundError
     import backend.api as _api_module
     mock_svc = MagicMock()
     mock_svc.export_project_to_geojson.side_effect = NotFoundError("não encontrado")

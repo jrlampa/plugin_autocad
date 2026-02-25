@@ -32,7 +32,7 @@ class TestActiveJobRegistry:
     """Cobre as linhas 12-50 de core/lifecycle.py."""
 
     def _make_registry(self):
-        from backend.core.lifecycle import ActiveJobRegistry
+        from backend.shared.lifecycle import ActiveJobRegistry
         return ActiveJobRegistry()
 
     def test_add_and_remove(self):
@@ -138,12 +138,12 @@ class TestActiveJobRegistry:
 
     def test_global_job_registry_exists(self):
         """O singleton job_registry deve ser exportado pelo módulo."""
-        from backend.core.lifecycle import job_registry, ActiveJobRegistry
+        from backend.shared.lifecycle import job_registry, ActiveJobRegistry
         assert isinstance(job_registry, ActiveJobRegistry)
 
     def test_shutdown_event_is_threading_event(self):
         """SHUTDOWN_EVENT é uma instância de threading.Event."""
-        from backend.core.lifecycle import SHUTDOWN_EVENT
+        from backend.shared.lifecycle import SHUTDOWN_EVENT
         assert isinstance(SHUTDOWN_EVENT, threading.Event)
 
 
@@ -156,7 +156,7 @@ class TestIpcServer:
 
     def test_start_noop_when_win32_unavailable(self):
         """start() deve ser no-op em Linux (_WIN32_AVAILABLE=False)."""
-        from backend.core.ipc import IpcServer
+        from backend.shared.ipc import IpcServer
         server = IpcServer("test-token-ipc")
         with patch("backend.core.ipc._WIN32_AVAILABLE", False):
             server.start()
@@ -165,7 +165,7 @@ class TestIpcServer:
 
     def test_stop_sets_running_false(self):
         """stop() deve definir running=False mesmo sem thread ativa."""
-        from backend.core.ipc import IpcServer
+        from backend.shared.ipc import IpcServer
         server = IpcServer("test-token-stop")
         server.running = True
         # No Linux, stop() tenta abrir o pipe e falha silenciosamente
@@ -174,7 +174,7 @@ class TestIpcServer:
 
     def test_stop_open_pipe_exception_silenced(self):
         """stop() silencia qualquer exceção ao tentar abrir o pipe."""
-        from backend.core.ipc import IpcServer
+        from backend.shared.ipc import IpcServer
         server = IpcServer("test-token-exc")
         server.running = True
         # Forçar exceção no open() — deve ser silenciada pelo bare `except`
@@ -184,7 +184,7 @@ class TestIpcServer:
 
     def test_start_with_win32_mocked(self):
         """start() inicia thread quando _WIN32_AVAILABLE=True (win32 mockado)."""
-        from backend.core.ipc import IpcServer
+        from backend.shared.ipc import IpcServer
 
         # Mock dos módulos win32
         fake_win32pipe = MagicMock()
@@ -208,10 +208,10 @@ class TestIpcServer:
 
     def test_ipc_server_pipe_name(self):
         """PIPE_NAME deve ser o caminho correto do named pipe do sisRUA."""
-        from backend.core.ipc import IpcServer
+        from backend.shared.ipc import IpcServer
         assert IpcServer.PIPE_NAME == r"\\.\pipe\sisrua_backend"
 
     def test_ipc_server_buffer_size(self):
         """BUFFER_SIZE deve ser 4096."""
-        from backend.core.ipc import IpcServer
+        from backend.shared.ipc import IpcServer
         assert IpcServer.BUFFER_SIZE == 4096

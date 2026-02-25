@@ -91,7 +91,7 @@ class TestCacheServiceRedisPaths:
 
     def _make_cache(self, tmp_path: Path, redis_mock=None):
         """Instancia CacheService com redis mockado."""
-        from backend.services.cache import CacheService
+        from backend.application.cache import CacheService
         svc = CacheService.__new__(CacheService)
         svc.file_cache_dir = tmp_path / "sisRUA" / "cache"
         svc.file_cache_dir.mkdir(parents=True, exist_ok=True)
@@ -183,7 +183,7 @@ class TestDxfExportErrorPaths:
     """Cobre os caminhos de erro/edge que estão descobertos em dxf_export.py."""
 
     def _make_aneel_line(self, layer="SISRUA_ANEEL_MT", n_coords=2):
-        from backend.models import CadFeature
+        from backend.domain.dto import CadFeature
         base_e, base_n = 714316.0, 7549084.0
         coords = [[base_e + i * 10, base_n] for i in range(n_coords)]
         return CadFeature(
@@ -193,12 +193,12 @@ class TestDxfExportErrorPaths:
         )
 
     def _prodist_meta(self):
-        from backend.gis_core.prodist import build_prodist_metadata, TensaoClasse
+        from backend.domain.prodist import build_prodist_metadata, TensaoClasse
         return build_prodist_metadata("Concessionária Teste", TensaoClasse.MT)
 
     def test_shapely_import_error_returns_empty(self):
         """Linhas 67-69: quando shapely não está disponível, retorna lista vazia."""
-        from backend.services import dxf_export as dxf_mod
+        from backend.application import dxf_export as dxf_mod
         feat = self._make_aneel_line()
         meta = self._prodist_meta()
 
@@ -216,8 +216,8 @@ class TestDxfExportErrorPaths:
 
     def test_buffer_feature_with_one_coord_skipped(self):
         """Linha 88: feature com < 2 coordenadas é ignorada."""
-        from backend.services.dxf_export import generate_prodist_buffer_features
-        from backend.models import CadFeature
+        from backend.application.dxf_export import generate_prodist_buffer_features
+        from backend.domain.dto import CadFeature
         feat = CadFeature(
             feature_type="Polyline",
             layer="SISRUA_ANEEL_MT",
@@ -229,7 +229,7 @@ class TestDxfExportErrorPaths:
 
     def test_buffer_exterior_less_than_3_skipped(self):
         """Linha 99: quando buffer.exterior tem < 3 pontos, feature é ignorada."""
-        from backend.services.dxf_export import generate_prodist_buffer_features
+        from backend.application.dxf_export import generate_prodist_buffer_features
 
         feat = self._make_aneel_line()
         meta = self._prodist_meta()
@@ -244,8 +244,8 @@ class TestDxfExportErrorPaths:
 
     def test_ezdxf_import_error_raises(self):
         """Linhas 155-156: quando ezdxf não está disponível, lança ImportError claro."""
-        from backend.services import dxf_export as dxf_mod
-        from backend.models import CadFeature
+        from backend.application import dxf_export as dxf_mod
+        from backend.domain.dto import CadFeature
 
         feat = CadFeature(
             feature_type="Polyline",
@@ -260,8 +260,8 @@ class TestDxfExportErrorPaths:
     def test_inject_abnt_header_exception_swallowed(self, tmp_path):
         """Linhas 232-233: exceção ao gravar $FINGERPRINTGUID não interrompe exportação."""
         import ezdxf
-        from backend.services.dxf_export import _inject_abnt_metadata
-        from backend.gis_core.abnt import build_default_metadata
+        from backend.application.dxf_export import _inject_abnt_metadata
+        from backend.domain.abnt import build_default_metadata
 
         doc = ezdxf.new("R2010")
         meta = build_default_metadata(31983)
@@ -273,7 +273,7 @@ class TestDxfExportErrorPaths:
     def test_inject_prodist_header_exception_swallowed(self):
         """Linhas 250-251: exceção ao gravar fingerprint PRODIST não interrompe exportação."""
         import ezdxf
-        from backend.services.dxf_export import _inject_prodist_metadata
+        from backend.application.dxf_export import _inject_prodist_metadata
 
         doc = ezdxf.new("R2010")
         meta = self._prodist_meta()
@@ -283,9 +283,9 @@ class TestDxfExportErrorPaths:
 
     def test_export_with_explicit_abnt_metadata(self, tmp_path):
         """Cobre o caminho onde metadata explícita é fornecida (não None)."""
-        from backend.services.dxf_export import export_features_to_dxf
-        from backend.models import CadFeature
-        from backend.gis_core.abnt import build_default_metadata
+        from backend.application.dxf_export import export_features_to_dxf
+        from backend.domain.dto import CadFeature
+        from backend.domain.abnt import build_default_metadata
 
         feat = CadFeature(
             feature_type="Polyline",

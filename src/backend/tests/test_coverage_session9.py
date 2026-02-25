@@ -54,7 +54,7 @@ class TestGeocodeLineCoverage:
         Query composta apenas de caracteres perigosos → _sanitize_query retorna ''
         → geocode retorna None (linha 183: if not clean: return None).
         """
-        from backend.services.geocode import geocode
+        from backend.application.geocode import geocode
 
         # Caracteres que _sanitize_query remove completamente: < > " ' ` ; \
         result = geocode('<script>"alert"</script>')
@@ -62,14 +62,14 @@ class TestGeocodeLineCoverage:
 
     def test_geocode_query_only_semicolons_and_quotes(self):
         """Query com apenas ponto-e-vírgula e aspas → clean vazio → None."""
-        from backend.services.geocode import geocode
+        from backend.application.geocode import geocode
 
         result = geocode(';;;\'"')
         assert result is None
 
     def test_geocode_query_backtick_and_angle_brackets(self):
         """Query com backtick e angle brackets → clean vazio → None (linha 183)."""
-        from backend.services.geocode import geocode
+        from backend.application.geocode import geocode
 
         result = geocode('<>`')
         assert result is None
@@ -100,7 +100,7 @@ class TestCacheLineCoverage:
         Quando a leitura do arquivo de cache lança Exception, o get() retorna None.
         (Linha 49: except Exception: pass → return None)
         """
-        from backend.services.cache import CacheService
+        from backend.application.cache import CacheService
 
         svc = CacheService()
 
@@ -123,7 +123,7 @@ class TestCacheLineCoverage:
         """
         get() com chave inexistente retorna None sem lançar exceção.
         """
-        from backend.services.cache import CacheService
+        from backend.application.cache import CacheService
         svc = CacheService()
         result = svc.get("__nonexistent_key_s9_test__")
         assert result is None
@@ -132,7 +132,7 @@ class TestCacheLineCoverage:
         """
         set() e get() funcionam corretamente para um valor simples.
         """
-        from backend.services.cache import CacheService
+        from backend.application.cache import CacheService
         svc = CacheService()
         key = "__s9_roundtrip__"
         svc.set(key, {"elevation_m": 850.0, "lat": -22.15018}, ttl=60)
@@ -152,7 +152,7 @@ class TestOsmLineCoverage:
         """
         _parse_overpass_to_features com elementos sem geometry → skip (linha 219: continue).
         """
-        from backend.gis_core.osm import _parse_overpass_to_features
+        from backend.domain.osm import _parse_overpass_to_features
 
         # Dados OSM mínimos com way válido mas sem nós de interesse
         data = {
@@ -180,7 +180,7 @@ class TestOsmLineCoverage:
         _parse_overpass_to_features com elements=[] → retorna listas vazias sem lançar.
         (Cobre o caminho dos loops for quando não há elementos)
         """
-        from backend.gis_core.osm import _parse_overpass_to_features
+        from backend.domain.osm import _parse_overpass_to_features
 
         try:
             result = _parse_overpass_to_features({"elements": []}, epsg_out=31984)
@@ -224,7 +224,7 @@ class TestElevationLineCoverage:
         import rasterio.transform
         import math
 
-        from backend.services.elevation import ElevationService
+        from backend.application.elevation import ElevationService
 
         svc = ElevationService(cache=None)
 
@@ -267,7 +267,7 @@ class TestElevationLineCoverage:
         import rasterio
         import rasterio.transform
 
-        from backend.services.elevation import ElevationService
+        from backend.application.elevation import ElevationService
 
         svc = ElevationService(cache=None)
 
@@ -314,7 +314,7 @@ class TestModelsLineCoverage:
         """
         Ponto com 0 elementos → ValidationError (linha 95).
         """
-        from backend.models import ElevationProfileRequest
+        from backend.domain.dto import ElevationProfileRequest
         import pydantic
 
         with pytest.raises(pydantic.ValidationError):
@@ -324,7 +324,7 @@ class TestModelsLineCoverage:
         """
         Ponto com apenas 1 elemento → ValidationError.
         """
-        from backend.models import ElevationProfileRequest
+        from backend.domain.dto import ElevationProfileRequest
         import pydantic
 
         with pytest.raises(pydantic.ValidationError):
@@ -334,7 +334,7 @@ class TestModelsLineCoverage:
         """
         Ponto com 2 elementos → válido.
         """
-        from backend.models import ElevationProfileRequest
+        from backend.domain.dto import ElevationProfileRequest
 
         req = ElevationProfileRequest(
             path=[[-22.15018, -42.92185], [-22.14018, -42.91185]]
@@ -351,7 +351,7 @@ class TestLoggerLineCoverage:
 
     def test_set_trace_id_sets_context(self):
         """set_trace_id define o trace ID no contexto estruturado."""
-        from backend.core.logger import set_trace_id, get_logger
+        from backend.shared.logger import set_trace_id, get_logger
 
         set_trace_id("trace-s9-test-123")
         logger = get_logger("test_s9")
@@ -360,7 +360,7 @@ class TestLoggerLineCoverage:
     def test_set_trace_id_with_uuid(self):
         """set_trace_id com UUID real funciona sem exceção."""
         import uuid
-        from backend.core.logger import set_trace_id
+        from backend.shared.logger import set_trace_id
 
         trace_id = str(uuid.uuid4())
         set_trace_id(trace_id)

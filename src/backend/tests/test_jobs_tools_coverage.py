@@ -31,7 +31,7 @@ os.environ.setdefault("SISRUA_AUTH_TOKEN", "test-token-jobs")
 
 def _reload_jobs_mod():
     """Return a fresh backend.services.jobs module (clears job_store/idempotency_map)."""
-    import backend.services.jobs as m
+    import backend.application.jobs as m
     importlib.reload(m)
     return m
 
@@ -46,7 +46,7 @@ class TestJobsServiceBranches:
 
     def test_init_job_stale_idempotency_key(self):
         """Line 83: stale key in idempotency_map (job_id not in job_store) → removed, new job created."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         stale_key = "stale-key-abc"
@@ -62,7 +62,7 @@ class TestJobsServiceBranches:
 
     def test_update_job_on_cancelled_job_is_noop(self):
         """Line 122-123: updating a cancelled job returns immediately without changes."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         job_id, _ = jmod.init_job("geojson")
@@ -79,7 +79,7 @@ class TestJobsServiceBranches:
 
     def test_update_job_nonexistent_job_is_noop(self):
         """Line 122: updating a job that doesn't exist returns immediately."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         bus = MagicMock()
@@ -88,7 +88,7 @@ class TestJobsServiceBranches:
 
     def test_check_cancellation_raises_for_cancelled_job(self):
         """Line 158-159: check_cancellation raises RuntimeError when job is cancelled."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         job_id, _ = jmod.init_job("osm")
@@ -99,7 +99,7 @@ class TestJobsServiceBranches:
 
     def test_check_cancellation_noop_for_active_job(self):
         """check_cancellation does nothing for a running (non-cancelled) job."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         job_id, _ = jmod.init_job("osm")
@@ -107,7 +107,7 @@ class TestJobsServiceBranches:
 
     def test_cancel_job_already_completed_returns_false(self):
         """Line 169-170: cancel_job returns False for completed jobs."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         job_id, _ = jmod.init_job("geojson")
@@ -118,7 +118,7 @@ class TestJobsServiceBranches:
 
     def test_cancel_job_already_failed_returns_false(self):
         """cancel_job returns False for already-failed jobs."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         job_id, _ = jmod.init_job("geojson")
@@ -129,7 +129,7 @@ class TestJobsServiceBranches:
 
     def test_cancel_job_nonexistent_returns_false(self):
         """cancel_job returns False for nonexistent job_id."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         result = jmod.cancel_job("does-not-exist")
@@ -137,7 +137,7 @@ class TestJobsServiceBranches:
 
     def test_cleanup_expired_jobs_removes_idempotency_key(self):
         """Lines 191-193: cleanup removes idempotency_map entry for expired jobs."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         idem_key = "cleanup-test-key"
@@ -155,7 +155,7 @@ class TestJobsServiceBranches:
 
     def test_cleanup_expired_jobs_keeps_recent_jobs(self):
         """cleanup_expired_jobs leaves recently completed jobs alone."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         job_id, _ = jmod.init_job("geojson")
@@ -168,7 +168,7 @@ class TestJobsServiceBranches:
 
     def test_persist_jobs_batch_exception_handled(self, tmp_path, monkeypatch):
         """Lines 61-62: _persist_jobs_batch swallows DB exceptions gracefully."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         def bad_conn():
@@ -182,7 +182,7 @@ class TestJobsServiceBranches:
 
     def test_update_job_publishes_event_on_status_change(self):
         """Line 136: update_job publishes event when status transitions."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         job_id, _ = jmod.init_job("geojson")
@@ -196,7 +196,7 @@ class TestJobsServiceBranches:
 
     def test_update_job_no_event_for_same_status(self):
         """No event published when transitioning to the same status."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         job_id, _ = jmod.init_job("geojson")
@@ -230,7 +230,7 @@ class TestToolsRouteErrorPaths:
         client, token = _make_tools_client(monkeypatch, tmp_path)
 
         import backend.routes.tools as tools_mod
-        import backend.services.elevation as elev_mod
+        import backend.application.elevation as elev_mod
 
         class _BadElevValError:
             def __init__(self, *a, **kw): pass
@@ -252,7 +252,7 @@ class TestToolsRouteErrorPaths:
         """Line 42-44: generic Exception in ElevationService → 500."""
         client, token = _make_tools_client(monkeypatch, tmp_path)
 
-        import backend.services.elevation as elev_mod
+        import backend.application.elevation as elev_mod
 
         class _BadElevGeneric:
             def __init__(self, *a, **kw): pass
@@ -273,7 +273,7 @@ class TestToolsRouteErrorPaths:
         """Line 62-63: ValueError in profile ElevationService → 400."""
         client, token = _make_tools_client(monkeypatch, tmp_path)
 
-        import backend.services.elevation as elev_mod
+        import backend.application.elevation as elev_mod
 
         class _BadProfileValError:
             def __init__(self, *a, **kw): pass
@@ -294,7 +294,7 @@ class TestToolsRouteErrorPaths:
         """Line 64-66: generic Exception in profile → 500."""
         client, token = _make_tools_client(monkeypatch, tmp_path)
 
-        import backend.services.elevation as elev_mod
+        import backend.application.elevation as elev_mod
 
         class _BadProfileGeneric:
             def __init__(self, *a, **kw): pass
@@ -326,7 +326,7 @@ class TestJobsRouteBranches:
         from backend import api as api_mod
         importlib.reload(api_mod)
         # Clear rate limiter state so tests don't interfere with each other
-        import backend.core.rate_limit as rl_mod
+        import backend.shared.rate_limit as rl_mod
         rl_mod._limiters.clear()
         from fastapi.testclient import TestClient
         client = TestClient(api_mod.app, base_url="http://localhost:8000")
@@ -373,7 +373,7 @@ class TestJobsRouteBranches:
 
     def test_cancel_completed_job_returns_ok(self, monkeypatch, tmp_path):
         """cancel_job_endpoint returns 200 when cancel_job returns False for completed job (job still exists)."""
-        import backend.services.jobs as jmod
+        import backend.application.jobs as jmod
         importlib.reload(jmod)
 
         client, token = self._make_jobs_client(monkeypatch, tmp_path)

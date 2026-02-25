@@ -21,12 +21,12 @@ import pytest
 os.environ.setdefault("SISRUA_TESTING", "true")
 os.environ.setdefault("SISRUA_AUTH_TOKEN", "test-token-123")
 
-from backend.services.geocode import _nominatim_geocode, _try_parse_utm, geocode
-from backend.services.dxf_export import (
+from backend.application.geocode import _nominatim_geocode, _try_parse_utm, geocode
+from backend.application.dxf_export import (
     export_features_to_dxf,
     generate_prodist_buffer_features,
 )
-from backend.models import CadFeature
+from backend.domain.dto import CadFeature
 
 # ──────────────────────────────────────────────
 # Coordenadas de referência (conforme MEMORY.MD)
@@ -371,7 +371,7 @@ class TestProdistBufferExceptionPath:
     """Testa o caminho de exceção do gerador de buffers PRODIST."""
 
     def _prodist_meta(self, classe_str="MT"):
-        from backend.gis_core.prodist import build_prodist_metadata, TensaoClasse
+        from backend.domain.prodist import build_prodist_metadata, TensaoClasse
         return build_prodist_metadata("Light S.A.", TensaoClasse(classe_str))
 
     def test_shapely_nao_disponivel_retorna_lista_vazia(self):
@@ -385,7 +385,7 @@ class TestProdistBufferExceptionPath:
         with patch.dict("sys.modules", {"shapely": None, "shapely.geometry": None}):
             import importlib
             # Reimporta o módulo para forçar o ImportError path
-            import backend.services.dxf_export as dxf_mod
+            import backend.application.dxf_export as dxf_mod
             with patch.object(dxf_mod, "generate_prodist_buffer_features") as mock_gen:
                 mock_gen.return_value = []
                 result = dxf_mod.generate_prodist_buffer_features([feat], meta)

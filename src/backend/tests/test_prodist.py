@@ -16,7 +16,7 @@ import os
 import pytest
 from pathlib import Path
 
-from backend.gis_core.prodist import (
+from backend.domain.prodist import (
     TensaoClasse,
     ProdistMetadata,
     buffer_de_seguranca_m,
@@ -221,7 +221,7 @@ class TestDxfExportWithProdist:
     REF_N = 7549084.0
 
     def _make_mt_line(self):
-        from backend.models import CadFeature
+        from backend.domain.dto import CadFeature
         return CadFeature(
             feature_type="Polyline",
             layer="SISRUA_ANEEL_MT",
@@ -236,8 +236,8 @@ class TestDxfExportWithProdist:
     def test_dxf_with_prodist_metadata_generated(self, tmp_path):
         """DXF gerado com ProdistMetadata deve conter FINGERPRINTGUID PRODIST."""
         import ezdxf
-        from backend.services.dxf_export import export_features_to_dxf
-        from backend.gis_core.prodist import build_prodist_metadata, TensaoClasse
+        from backend.application.dxf_export import export_features_to_dxf
+        from backend.domain.prodist import build_prodist_metadata, TensaoClasse
 
         feat = self._make_mt_line()
         prodist_meta = build_prodist_metadata(
@@ -259,7 +259,7 @@ class TestDxfExportWithProdist:
     def test_dxf_without_prodist_uses_abnt(self, tmp_path):
         """DXF sem ProdistMetadata deve usar ABNT no FINGERPRINTGUID."""
         import ezdxf
-        from backend.services.dxf_export import export_features_to_dxf
+        from backend.application.dxf_export import export_features_to_dxf
 
         feat = self._make_mt_line()
         out_path = tmp_path / "test_abnt.dxf"
@@ -273,8 +273,8 @@ class TestDxfExportWithProdist:
     def test_dxf_prodist_has_correct_layer(self, tmp_path):
         """Feature com camada ANEEL deve ser preservada no DXF."""
         import ezdxf
-        from backend.services.dxf_export import export_features_to_dxf
-        from backend.gis_core.prodist import build_prodist_metadata, TensaoClasse
+        from backend.application.dxf_export import export_features_to_dxf
+        from backend.domain.prodist import build_prodist_metadata, TensaoClasse
 
         feat = self._make_mt_line()
         prodist_meta = build_prodist_metadata(classe_tensao=TensaoClasse.MT)

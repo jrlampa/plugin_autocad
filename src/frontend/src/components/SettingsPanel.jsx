@@ -38,7 +38,7 @@ export default function SettingsPanel({
               </span>
             </span>
             <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">
-              Generative Urban Design
+              Design Urbano Generativo
             </p>
           </div>
           <button

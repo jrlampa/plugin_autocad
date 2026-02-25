@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 
 def _mock_project_service():
     """Returns a ProjectService with mocked audit logger."""
-    from backend.services.projects import ProjectService
+    from backend.application.projects import ProjectService
     svc = ProjectService()
     svc.audit = MagicMock()
     svc.audit.log.return_value = 1
@@ -141,7 +141,7 @@ def test_project_service_delete_success(tmp_path):
 
 def test_project_service_delete_not_found(tmp_path):
     import pytest
-    from backend.services.projects import NotFoundError
+    from backend.application.projects import NotFoundError
     with patch("backend.services.projects.get_db_connection") as mock_gdc:
         db_path = tmp_path / "del_nf.db"
         conn_main = sqlite3.connect(str(db_path))
@@ -232,7 +232,7 @@ def test_project_service_update_success(tmp_path):
 
 def test_project_service_update_not_found(tmp_path):
     import pytest
-    from backend.services.projects import NotFoundError
+    from backend.application.projects import NotFoundError
     with patch("backend.services.projects.get_db_connection") as mock_gdc:
         db_path = tmp_path / "upd_nf.db"
         conn_main = sqlite3.connect(str(db_path))
@@ -258,14 +258,14 @@ def test_project_service_update_not_found(tmp_path):
 
 def test_webhook_register_url():
     os.environ.pop("WEBHOOK_URL", None)
-    from backend.services.webhooks import WebhookService
+    from backend.application.webhooks import WebhookService
     svc = WebhookService()
     svc.register_url("http://example.com/hook")
     assert "http://example.com/hook" in svc.urls
 
 
 def test_webhook_register_url_no_duplicate():
-    from backend.services.webhooks import WebhookService
+    from backend.application.webhooks import WebhookService
     svc = WebhookService()
     svc.register_url("http://example.com/hook")
     svc.register_url("http://example.com/hook")
@@ -273,7 +273,7 @@ def test_webhook_register_url_no_duplicate():
 
 
 def test_webhook_broadcast_no_urls():
-    from backend.services.webhooks import WebhookService
+    from backend.application.webhooks import WebhookService
     svc = WebhookService()
     svc.urls.clear()
     # Should not raise even with no registered URLs
@@ -281,7 +281,7 @@ def test_webhook_broadcast_no_urls():
 
 
 def test_webhook_broadcast_submits_to_executor():
-    from backend.services.webhooks import WebhookService
+    from backend.application.webhooks import WebhookService
     svc = WebhookService()
     svc.urls = ["http://example.com/hook"]
     mock_executor = MagicMock()
@@ -291,7 +291,7 @@ def test_webhook_broadcast_submits_to_executor():
 
 
 def test_webhook_deliver_success():
-    from backend.services.webhooks import WebhookService
+    from backend.application.webhooks import WebhookService
     svc = WebhookService()
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -301,7 +301,7 @@ def test_webhook_deliver_success():
 
 
 def test_webhook_deliver_http_error():
-    from backend.services.webhooks import WebhookService
+    from backend.application.webhooks import WebhookService
     svc = WebhookService()
     mock_response = MagicMock()
     mock_response.status_code = 500
@@ -311,7 +311,7 @@ def test_webhook_deliver_http_error():
 
 
 def test_webhook_deliver_network_exception():
-    from backend.services.webhooks import WebhookService
+    from backend.application.webhooks import WebhookService
     svc = WebhookService()
     with patch("backend.services.webhooks.requests.post", side_effect=ConnectionError("refused")):
         # Should not raise
@@ -320,7 +320,7 @@ def test_webhook_deliver_network_exception():
 
 def test_webhook_static_url_from_env(monkeypatch):
     monkeypatch.setenv("WEBHOOK_URL", "http://static-hook.example.com/webhook")
-    from backend.services import webhooks as wh_mod
+    from backend.application import webhooks as wh_mod
     import importlib
     importlib.reload(wh_mod)
     svc = wh_mod.WebhookService()

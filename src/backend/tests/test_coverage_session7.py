@@ -54,7 +54,7 @@ class TestElevationContoursRequest:
     """Valida regras de validação do modelo ElevationContoursRequest."""
 
     def test_valid_request_ref2_bbox(self):
-        from backend.models import ElevationContoursRequest
+        from backend.domain.dto import ElevationContoursRequest
         req = ElevationContoursRequest(
             min_lat=-22.16, min_lon=-42.93,
             max_lat=-22.14, max_lon=-42.91,
@@ -65,7 +65,7 @@ class TestElevationContoursRequest:
         assert req.interval == 10.0
 
     def test_valid_request_100m_area(self):
-        from backend.models import ElevationContoursRequest
+        from backend.domain.dto import ElevationContoursRequest
         # Área pequena (~100m × 100m) ao redor de REF_2
         req = ElevationContoursRequest(
             min_lat=-22.15068, min_lon=-42.92235,
@@ -76,7 +76,7 @@ class TestElevationContoursRequest:
         assert req.count if hasattr(req, "count") else True  # model only
 
     def test_max_lat_must_be_greater_than_min_lat(self):
-        from backend.models import ElevationContoursRequest
+        from backend.domain.dto import ElevationContoursRequest
         import pydantic
         with pytest.raises(pydantic.ValidationError):
             ElevationContoursRequest(
@@ -86,7 +86,7 @@ class TestElevationContoursRequest:
             )
 
     def test_max_lon_must_be_greater_than_min_lon(self):
-        from backend.models import ElevationContoursRequest
+        from backend.domain.dto import ElevationContoursRequest
         import pydantic
         with pytest.raises(pydantic.ValidationError):
             ElevationContoursRequest(
@@ -96,7 +96,7 @@ class TestElevationContoursRequest:
             )
 
     def test_equal_lat_rejected(self):
-        from backend.models import ElevationContoursRequest
+        from backend.domain.dto import ElevationContoursRequest
         import pydantic
         with pytest.raises(pydantic.ValidationError):
             ElevationContoursRequest(
@@ -106,7 +106,7 @@ class TestElevationContoursRequest:
             )
 
     def test_interval_gt_zero(self):
-        from backend.models import ElevationContoursRequest
+        from backend.domain.dto import ElevationContoursRequest
         import pydantic
         with pytest.raises(pydantic.ValidationError):
             ElevationContoursRequest(
@@ -116,7 +116,7 @@ class TestElevationContoursRequest:
             )
 
     def test_interval_le_1000(self):
-        from backend.models import ElevationContoursRequest
+        from backend.domain.dto import ElevationContoursRequest
         import pydantic
         with pytest.raises(pydantic.ValidationError):
             ElevationContoursRequest(
@@ -126,7 +126,7 @@ class TestElevationContoursRequest:
             )
 
     def test_lat_out_of_range(self):
-        from backend.models import ElevationContoursRequest
+        from backend.domain.dto import ElevationContoursRequest
         import pydantic
         with pytest.raises(pydantic.ValidationError):
             ElevationContoursRequest(
@@ -136,7 +136,7 @@ class TestElevationContoursRequest:
             )
 
     def test_default_interval(self):
-        from backend.models import ElevationContoursRequest
+        from backend.domain.dto import ElevationContoursRequest
         req = ElevationContoursRequest(
             min_lat=-22.16, min_lon=-42.93,
             max_lat=-22.14, max_lon=-42.91,
@@ -150,13 +150,13 @@ class TestElevationContoursRequest:
 
 class TestContourLineModel:
     def test_valid_contour_line(self):
-        from backend.models import ContourLine
+        from backend.domain.dto import ContourLine
         cl = ContourLine(elevation=50.0, geometry=[[-22.15, -42.92], [-22.16, -42.93]])
         assert cl.elevation == 50.0
         assert len(cl.geometry) == 2
 
     def test_contours_response(self):
-        from backend.models import ContourLine, ElevationContoursResponse
+        from backend.domain.dto import ContourLine, ElevationContoursResponse
         cl = ContourLine(elevation=100.0, geometry=[[-22.15, -42.92]])
         resp = ElevationContoursResponse(contours=[cl], interval=10.0, count=1)
         assert resp.count == 1
@@ -348,7 +348,7 @@ class TestApiLifespanEdgePaths:
         O loop de cleanup no lifespan captura exceções e imprime erro.
         Aqui testamos diretamente a função cleanup_expired_jobs com DB inválido.
         """
-        from backend.services.jobs import cleanup_expired_jobs
+        from backend.application.jobs import cleanup_expired_jobs
         # Chamar com banco não inicializado não deve levantar (erro interno capturado)
         try:
             result = cleanup_expired_jobs(max_age_seconds=0)
@@ -359,14 +359,14 @@ class TestApiLifespanEdgePaths:
 
     def test_housekeeper_run_daily_cleanup_nonexistent_dirs(self, tmp_path):
         """run_daily_cleanup com diretórios inexistentes retorna 0 sem erro."""
-        from backend.services.housekeeper import HousekeeperService
+        from backend.application.housekeeper import HousekeeperService
         svc = HousekeeperService(retention_days=0)
         result = svc.run_daily_cleanup([tmp_path / "nonexistent1", tmp_path / "nonexistent2"])
         assert result == 0
 
     def test_housekeeper_scan_failure_returns_zero(self, tmp_path):
         """Quando o scan de diretório falha (permissão), retorna 0."""
-        from backend.services.housekeeper import HousekeeperService
+        from backend.application.housekeeper import HousekeeperService
         svc = HousekeeperService(retention_days=0)
         # Provoca falha na iteração simulando rglob com erro
         with patch.object(Path, "rglob", side_effect=PermissionError("denied")):
@@ -390,14 +390,14 @@ class TestModelCoveragePaths:
 
     def test_elevation_profile_request_point_too_short(self):
         """Ponto com menos de 2 elementos → ValidationError (linha 95)."""
-        from backend.models import ElevationProfileRequest
+        from backend.domain.dto import ElevationProfileRequest
         import pydantic
         with pytest.raises(pydantic.ValidationError):
             ElevationProfileRequest(path=[[]])  # ponto com 0 elementos
 
     def test_webhook_url_without_hostname(self):
         """URL sem hostname → ValidationError (linha 125)."""
-        from backend.models import WebhookRegistrationRequest
+        from backend.domain.dto import WebhookRegistrationRequest
         import pydantic
         with pytest.raises(pydantic.ValidationError):
             # Esquema válido mas sem hostname real
@@ -405,12 +405,12 @@ class TestModelCoveragePaths:
 
     def test_webhook_events_empty_strings_filtered(self):
         """Eventos vazios após strip devem ser filtrados → None."""
-        from backend.models import WebhookRegistrationRequest
+        from backend.domain.dto import WebhookRegistrationRequest
         req = WebhookRegistrationRequest(url="https://example.com", events=["  ", ""])
         assert req.events is None
 
     def test_webhook_events_none_stays_none(self):
         """events=None → permanece None (linha 131)."""
-        from backend.models import WebhookRegistrationRequest
+        from backend.domain.dto import WebhookRegistrationRequest
         req = WebhookRegistrationRequest(url="https://example.com", events=None)
         assert req.events is None

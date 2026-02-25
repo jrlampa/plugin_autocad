@@ -77,7 +77,7 @@ def test_jobs_require_token(client):
     assert r.status_code == 401
 
 def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
-    import backend.gis_core.osm as osm_core
+    import backend.domain.osm as osm_core
     
     class MockElevation:
         def get_elevation_profile(self, latlons): return [10.0] * len(latlons)
@@ -95,7 +95,7 @@ def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
     
     monkeypatch.setattr(osm_core, "_fetch_overpass_data", lambda *args, **kwargs: mock_raw_data)
     
-    import backend.services.executor as executor_mod
+    import backend.application.executor as executor_mod
     monkeypatch.setattr(executor_mod, "ElevationService", lambda *args, **kwargs: MockElevation())
     
     payload = {
@@ -267,7 +267,7 @@ def test_delete_project_not_found(client):
     """DELETE /api/v1/projects/{id} deve retornar 404 para projeto inexistente."""
     from unittest.mock import patch
     import backend.routes.deps as deps
-    from backend.services.projects import NotFoundError
+    from backend.application.projects import NotFoundError
 
     with patch.object(
         deps.project_service, "delete_project",

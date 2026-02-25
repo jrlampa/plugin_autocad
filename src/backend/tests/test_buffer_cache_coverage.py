@@ -39,7 +39,7 @@ class TestPersistenceBuffer:
         def callback(batch):
             flushed.extend(batch)
 
-        from backend.core.buffer import PersistenceBuffer
+        from backend.shared.buffer import PersistenceBuffer
         buf = PersistenceBuffer(flush_callback=callback, batch_size=3, flush_interval=10.0)
         buf.add(1)
         buf.add(2)
@@ -56,7 +56,7 @@ class TestPersistenceBuffer:
         def callback(batch):
             flushed.extend(batch)
 
-        from backend.core.buffer import PersistenceBuffer
+        from backend.shared.buffer import PersistenceBuffer
         buf = PersistenceBuffer(flush_callback=callback, batch_size=100, flush_interval=10.0)
         buf.add("item_a")
         buf.add("item_b")
@@ -66,7 +66,7 @@ class TestPersistenceBuffer:
 
     def test_stop_sends_sentinel_and_joins_thread(self):
         """stop() sinaliza sentinel (None) e aguarda a thread (linhas 32-34)."""
-        from backend.core.buffer import PersistenceBuffer
+        from backend.shared.buffer import PersistenceBuffer
         buf = PersistenceBuffer(flush_callback=lambda b: None, batch_size=10, flush_interval=5.0)
         thread = buf._thread
         assert thread.is_alive()
@@ -82,7 +82,7 @@ class TestPersistenceBuffer:
             call_count[0] += 1
             raise ValueError("Flush failed!")
 
-        from backend.core.buffer import PersistenceBuffer
+        from backend.shared.buffer import PersistenceBuffer
         buf = PersistenceBuffer(flush_callback=bad_callback, batch_size=1, flush_interval=10.0)
         buf.add("trigger_flush")
         time.sleep(0.2)
@@ -99,7 +99,7 @@ class TestPersistenceBuffer:
         def callback(batch):
             flushed.extend(batch)
 
-        from backend.core.buffer import PersistenceBuffer
+        from backend.shared.buffer import PersistenceBuffer
         buf = PersistenceBuffer(flush_callback=callback, batch_size=100, flush_interval=0.1)
         buf.add("time_flush_item")
         time.sleep(0.5)  # Aguardar flush por tempo
@@ -116,7 +116,7 @@ class TestCacheServiceRedis:
 
     def _make_svc(self, tmp_path: Path):
         os.environ["LOCALAPPDATA"] = str(tmp_path)
-        from backend.services.cache import CacheService
+        from backend.application.cache import CacheService
         return CacheService()
 
     def test_redis_get_hit_returns_cached_value(self, tmp_path):

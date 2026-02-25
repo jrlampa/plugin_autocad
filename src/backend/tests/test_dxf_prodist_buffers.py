@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import pytest
 
-from backend.models import CadFeature
-from backend.services.dxf_export import (
+from backend.domain.dto import CadFeature
+from backend.application.dxf_export import (
     export_features_to_dxf,
     generate_prodist_buffer_features,
 )
@@ -37,7 +37,7 @@ REF1_N = 7634925.0
 # ---------------------------------------------------------------------------
 
 def _prodist_meta(classe_str: str = "MT"):
-    from backend.gis_core.prodist import build_prodist_metadata, TensaoClasse
+    from backend.domain.prodist import build_prodist_metadata, TensaoClasse
     return build_prodist_metadata(
         concessionaria="Light S.A.",
         classe_tensao=TensaoClasse(classe_str),
@@ -175,14 +175,14 @@ class TestGenerateProdistBuffers:
 
     def test_buffer_layer_nome_max_31_chars(self):
         """Camadas de buffer devem ter ≤ 31 chars (compatibilidade DXF R14+)."""
-        from backend.gis_core.prodist import TensaoClasse, camada_buffer_aneel
+        from backend.domain.prodist import TensaoClasse, camada_buffer_aneel
         for classe in TensaoClasse:
             layer = camada_buffer_aneel(classe)
             assert len(layer) <= 31, f"Layer muito longo: {layer!r}"
 
     def test_buffer_layer_usa_prefixo_aneel(self):
         """Camadas de buffer devem usar o prefixo SISRUA_ANEEL_BUFFER_."""
-        from backend.gis_core.prodist import TensaoClasse, camada_buffer_aneel
+        from backend.domain.prodist import TensaoClasse, camada_buffer_aneel
         for classe in TensaoClasse:
             assert camada_buffer_aneel(classe).startswith("SISRUA_ANEEL_BUFFER_")
 
@@ -215,7 +215,7 @@ class TestDxfExportComBuffersProdist:
     def test_dxf_com_buffers_prodist_100m(self, tmp_path):
         """DXF com buffers PRODIST deve ter camadas BUFFER e features de rede (100 m)."""
         import ezdxf
-        from backend.gis_core.prodist import build_prodist_metadata, TensaoClasse
+        from backend.domain.prodist import build_prodist_metadata, TensaoClasse
 
         feat = _aneel_line("SISRUA_ANEEL_MT", 100.0)
         meta = build_prodist_metadata("Concessionária Teste", TensaoClasse.MT)
@@ -235,7 +235,7 @@ class TestDxfExportComBuffersProdist:
     def test_dxf_com_buffers_prodist_500m(self, tmp_path):
         """DXF com buffers PRODIST deve ter features para rede de 500 m."""
         import ezdxf
-        from backend.gis_core.prodist import build_prodist_metadata, TensaoClasse
+        from backend.domain.prodist import build_prodist_metadata, TensaoClasse
 
         feat = _aneel_line("SISRUA_ANEEL_MT", 500.0)
         meta = build_prodist_metadata("Concessionária Teste", TensaoClasse.MT)
@@ -254,7 +254,7 @@ class TestDxfExportComBuffersProdist:
     def test_dxf_com_buffers_prodist_1km(self, tmp_path):
         """DXF com buffers PRODIST deve funcionar para rede AT de 1 km."""
         import ezdxf
-        from backend.gis_core.prodist import build_prodist_metadata, TensaoClasse
+        from backend.domain.prodist import build_prodist_metadata, TensaoClasse
 
         feat = _aneel_line("SISRUA_ANEEL_AT", 1000.0)
         meta = build_prodist_metadata("Concessionária Teste", TensaoClasse.AT)
@@ -272,7 +272,7 @@ class TestDxfExportComBuffersProdist:
     def test_dxf_sem_buffers_nao_inclui_buffer_layers(self, tmp_path):
         """Quando include_prodist_buffers=False, camadas BUFFER não devem existir."""
         import ezdxf
-        from backend.gis_core.prodist import build_prodist_metadata, TensaoClasse
+        from backend.domain.prodist import build_prodist_metadata, TensaoClasse
 
         feat = _aneel_line("SISRUA_ANEEL_MT", 100.0)
         meta = build_prodist_metadata("Concessionária Teste", TensaoClasse.MT)
@@ -290,7 +290,7 @@ class TestDxfExportComBuffersProdist:
     def test_dxf_fingerprint_prodist_presente(self, tmp_path):
         """DXF PRODIST deve ter o $FINGERPRINTGUID com identificador sisRUA/PRODIST."""
         import ezdxf
-        from backend.gis_core.prodist import build_prodist_metadata, TensaoClasse
+        from backend.domain.prodist import build_prodist_metadata, TensaoClasse
 
         feat = _aneel_line("SISRUA_ANEEL_MT", 100.0)
         meta = build_prodist_metadata("Light S.A.", TensaoClasse.MT)
@@ -303,7 +303,7 @@ class TestDxfExportComBuffersProdist:
     def test_dxf_buffer_ref1_campo_100m(self, tmp_path):
         """DXF buffer deve ser gerado para coord de campo REF_1 (23K) com rede 100 m."""
         import ezdxf
-        from backend.gis_core.prodist import build_prodist_metadata, TensaoClasse
+        from backend.domain.prodist import build_prodist_metadata, TensaoClasse
 
         feat = _aneel_line("SISRUA_ANEEL_MT", 100.0, origin_e=REF1_E, origin_n=REF1_N)
         meta = build_prodist_metadata("Concessionária Teste", TensaoClasse.MT)
@@ -321,7 +321,7 @@ class TestDxfExportComBuffersProdist:
     def test_dxf_bt_buffer_1m_ref2_500m(self, tmp_path):
         """DXF BT buffer (1 m) deve ser gerado para rede de 500 m na coord REF_2."""
         import ezdxf
-        from backend.gis_core.prodist import build_prodist_metadata, TensaoClasse
+        from backend.domain.prodist import build_prodist_metadata, TensaoClasse
 
         feat = _aneel_line("SISRUA_ANEEL_BT", 500.0)
         meta = build_prodist_metadata("Enel Distribuição Rio", TensaoClasse.BT)

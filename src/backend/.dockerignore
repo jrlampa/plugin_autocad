@@ -1,0 +1,28 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+ENV/
+env/
+.env
+
+# AutoCAD/C# artifacts
+bin/
+obj/
+*.dwg
+*.dxf
+# Runtime artifacts
+logs/
+cache/
+backend/logs/
+backend/cache/
+*.db
+*.audit_secret
+
+# System files
+.DS_Store
+Thumbs.db

@@ -18,8 +18,8 @@ from typing import List
 
 import pytest
 
-from backend.models import CadFeature
-from backend.services.dxf_export import (
+from backend.domain.dto import CadFeature
+from backend.application.dxf_export import (
     APPID_SISRUA,
     export_features_to_dxf,
 )
@@ -338,7 +338,7 @@ def test_dxf_crs_pipeline_integration():
     features com coordenadas UTM corretas ao passar pelo serviço geojson.
     """
     import json
-    from backend.services.geojson import prepare_geojson_compute
+    from backend.application.geojson import prepare_geojson_compute
 
     # Coordenadas de referência: -22.15018°, -42.92185°
     geojson = {
@@ -417,7 +417,7 @@ def test_dxf_ref1_coord_geojson_pipeline():
     Integração CRS: lat/lon de REF_1 (-22.15018°, -42.92185°) com raio 500m/1km.
     O easting da feature convertida deve ser próximo de REF_E (714316 m).
     """
-    from backend.services.geojson import prepare_geojson_compute
+    from backend.application.geojson import prepare_geojson_compute
 
     # Linha de ~500m partindo de REF_1
     geojson = {

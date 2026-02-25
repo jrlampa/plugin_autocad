@@ -5,10 +5,10 @@ from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 
 # Import dependencies for mocking
-import backend.services.elevation
-import backend.services.ai
-import backend.services.export_service
-import backend.services.webhooks
+import backend.application.elevation
+import backend.application.ai
+import backend.application.export_service
+import backend.application.webhooks
 import backend.api
 
 # Fixture to setup the API with authentication
@@ -60,7 +60,7 @@ def test_rate_limiting_jobs(client):
 def test_malformed_input_jobs(client):
     """Test resilience against broken payloads."""
     # Patch RateLimiter to avoid 429 from previous tests
-    from backend.core.rate_limit import RateLimiter
+    from backend.shared.rate_limit import RateLimiter
     with patch.object(RateLimiter, "__call__", return_value=None):
         # 1. Missing required field (Async validation pattern)
         # "geojson" is optional in Pydantic model, so this returns 200 OK, 

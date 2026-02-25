@@ -29,7 +29,7 @@ os.environ.setdefault("SISRUA_AUTH_TOKEN", "test-elev-cov")
 # ---------------------------------------------------------------------------
 
 def _make_svc(tmp_path: Path) -> "ElevationService":
-    from backend.services.elevation import ElevationService
+    from backend.application.elevation import ElevationService
     cache = MagicMock()
     cache.get.return_value = None  # cache miss by default
     return ElevationService(cache=cache, cache_dir=str(tmp_path))
@@ -183,8 +183,8 @@ def _reset_download_grid_cb():
     function closure introspection and resets it without reloading the module (which
     would break other tests that hold class references).
     """
-    from backend.services.elevation import ElevationService
-    from backend.core.circuit_breaker import CircuitBreaker, CircuitState
+    from backend.application.elevation import ElevationService
+    from backend.shared.circuit_breaker import CircuitBreaker, CircuitState
 
     fn = ElevationService._download_grid
     closure = getattr(fn, "__closure__", None) or []

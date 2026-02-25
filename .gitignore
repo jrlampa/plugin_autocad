@@ -91,6 +91,12 @@ PRINT_ERROS/
 test-results/
 playwright-report/
 logs/
+backend/logs/
+backend/cache/
 *_output.txt
 *_output_*.txt
+
+# ===== Docker =====
+.docker/
+docker-volumes/
 

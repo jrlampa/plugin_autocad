@@ -23,7 +23,7 @@ from unittest.mock import MagicMock
 def test_cache_dir_creates_directory(tmp_path, monkeypatch):
     """cache_dir() deve criar o diretório e retornar o Path correto."""
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
-    from backend.core import utils
+    from backend.shared import utils
     import importlib
     importlib.reload(utils)
     result = utils.cache_dir()
@@ -35,7 +35,7 @@ def test_cache_dir_creates_directory(tmp_path, monkeypatch):
 def test_cache_dir_without_localappdata(tmp_path, monkeypatch):
     """cache_dir() sem LOCALAPPDATA usa Path.home()."""
     monkeypatch.delenv("LOCALAPPDATA", raising=False)
-    from backend.core import utils
+    from backend.shared import utils
     result = utils.cache_dir()
     assert result.exists()
 
@@ -47,7 +47,7 @@ def test_cache_dir_without_localappdata(tmp_path, monkeypatch):
 def test_sanitize_jsonable_pydantic_model():
     """sanitize_jsonable(BaseModel()) deve chamar model_dump()."""
     from pydantic import BaseModel
-    from backend.core.utils import sanitize_jsonable
+    from backend.shared.utils import sanitize_jsonable
 
     class SampleModel(BaseModel):
         name: str = "test"
@@ -63,7 +63,7 @@ def test_sanitize_jsonable_pydantic_model():
 
 def test_sanitize_jsonable_unknown_type():
     """sanitize_jsonable de tipo desconhecido cai no fallback str()."""
-    from backend.core.utils import sanitize_jsonable
+    from backend.shared.utils import sanitize_jsonable
 
     class WeirdObj:
         def __str__(self):
@@ -75,13 +75,13 @@ def test_sanitize_jsonable_unknown_type():
 
 def test_sanitize_jsonable_nan_float():
     """sanitize_jsonable(float('nan')) deve retornar None."""
-    from backend.core.utils import sanitize_jsonable
+    from backend.shared.utils import sanitize_jsonable
     assert sanitize_jsonable(float("nan")) is None
 
 
 def test_sanitize_jsonable_inf_float():
     """sanitize_jsonable(float('inf')) deve retornar None."""
-    from backend.core.utils import sanitize_jsonable
+    from backend.shared.utils import sanitize_jsonable
     assert sanitize_jsonable(float("inf")) is None
 
 
@@ -91,14 +91,14 @@ def test_sanitize_jsonable_inf_float():
 
 def test_to_linestrings_none():
     """to_linestrings(None) → []."""
-    from backend.core.utils import to_linestrings
+    from backend.shared.utils import to_linestrings
     assert to_linestrings(None) == []
 
 
 def test_to_linestrings_linestring():
     """to_linestrings(LineString) → [LineString]."""
     from shapely.geometry import LineString
-    from backend.core.utils import to_linestrings
+    from backend.shared.utils import to_linestrings
     ls = LineString([(0, 0), (1, 1)])
     result = to_linestrings(ls)
     assert len(result) == 1
@@ -108,7 +108,7 @@ def test_to_linestrings_linestring():
 def test_to_linestrings_multilinestring():
     """to_linestrings(MultiLineString) → list of geoms."""
     from shapely.geometry import LineString, MultiLineString
-    from backend.core.utils import to_linestrings
+    from backend.shared.utils import to_linestrings
     mls = MultiLineString([[(0, 0), (1, 1)], [(2, 2), (3, 3)]])
     result = to_linestrings(mls)
     assert len(result) == 2
@@ -116,7 +116,7 @@ def test_to_linestrings_multilinestring():
 
 def test_to_linestrings_other_type():
     """to_linestrings(non-geometry) → []."""
-    from backend.core.utils import to_linestrings
+    from backend.shared.utils import to_linestrings
     assert to_linestrings("not a geometry") == []
 
 
@@ -127,7 +127,7 @@ def test_to_linestrings_other_type():
 def test_project_lines_to_xy_filters_infinite_coords():
     """project_lines_to_xy deve ignorar coordenadas com inf ou nan."""
     from shapely.geometry import LineString
-    from backend.core.utils import project_lines_to_xy
+    from backend.shared.utils import project_lines_to_xy
 
     class _FakeTransformer:
         def transform(self, x, y):
@@ -143,7 +143,7 @@ def test_project_lines_to_xy_filters_infinite_coords():
 def test_project_lines_to_xy_valid_coords():
     """project_lines_to_xy com coordenadas válidas retorna lista de coords."""
     from shapely.geometry import LineString
-    from backend.core.utils import project_lines_to_xy
+    from backend.shared.utils import project_lines_to_xy
 
     class _IdentityTransformer:
         def transform(self, x, y):
@@ -161,37 +161,37 @@ def test_project_lines_to_xy_valid_coords():
 
 def test_get_color_equal_z_min_max():
     """z_min == z_max retorna branco."""
-    from backend.core.utils import get_color_from_elevation
+    from backend.shared.utils import get_color_from_elevation
     assert get_color_from_elevation(5.0, 5.0, 5.0) == "255,255,255"
 
 
 def test_get_color_band_blue():
     """ratio < 0.25 → '5' (azul)."""
-    from backend.core.utils import get_color_from_elevation
+    from backend.shared.utils import get_color_from_elevation
     assert get_color_from_elevation(0.0, 0.0, 100.0) == "5"
 
 
 def test_get_color_band_cyan():
     """0.25 ≤ ratio < 0.5 → '4' (ciano)."""
-    from backend.core.utils import get_color_from_elevation
+    from backend.shared.utils import get_color_from_elevation
     assert get_color_from_elevation(30.0, 0.0, 100.0) == "4"
 
 
 def test_get_color_band_green():
     """0.5 ≤ ratio < 0.75 → '3' (verde)."""
-    from backend.core.utils import get_color_from_elevation
+    from backend.shared.utils import get_color_from_elevation
     assert get_color_from_elevation(60.0, 0.0, 100.0) == "3"
 
 
 def test_get_color_band_yellow():
     """0.75 ≤ ratio < 0.9 → '2' (amarelo)."""
-    from backend.core.utils import get_color_from_elevation
+    from backend.shared.utils import get_color_from_elevation
     assert get_color_from_elevation(80.0, 0.0, 100.0) == "2"
 
 
 def test_get_color_band_red():
     """ratio ≥ 0.9 → '1' (vermelho)."""
-    from backend.core.utils import get_color_from_elevation
+    from backend.shared.utils import get_color_from_elevation
     assert get_color_from_elevation(95.0, 0.0, 100.0) == "1"
 
 
@@ -201,7 +201,7 @@ def test_get_color_band_red():
 
 def test_get_layer_config_reads_valid_json(tmp_path, monkeypatch):
     """get_layer_config lê layers.json quando arquivo existe no caminho de produção."""
-    from backend.core import utils as utils_mod
+    from backend.shared import utils as utils_mod
     import importlib
 
     custom_config = {"highway": {"test_road": {"layer": "TEST_LAYER", "aci": 99}}}
@@ -225,7 +225,7 @@ def test_get_layer_config_reads_valid_json(tmp_path, monkeypatch):
 
 def test_get_layer_config_fallback_when_no_file():
     """get_layer_config retorna configuração hardcoded quando layers.json não existe."""
-    from backend.core.utils import get_layer_config
+    from backend.shared.utils import get_layer_config
     config = get_layer_config()
     assert "highway" in config
     assert "residential" in config["highway"]
@@ -249,7 +249,7 @@ def _make_feature(layer, name, highway, feature_type, coords_xy=None, insertion_
 
 def test_clean_geometry_removes_duplicate():
     """clean_geometry remove feature duplicado pelo hash."""
-    from backend.core.utils import clean_geometry
+    from backend.shared.utils import clean_geometry
 
     f1 = _make_feature("ROADS", "Rua A", "residential", "Polyline",
                         coords_xy=[[0.0, 0.0], [1.0, 0.0]])
@@ -262,7 +262,7 @@ def test_clean_geometry_removes_duplicate():
 
 def test_clean_geometry_keeps_distinct_features():
     """clean_geometry mantém features distintos."""
-    from backend.core.utils import clean_geometry
+    from backend.shared.utils import clean_geometry
 
     f1 = _make_feature("ROADS", "Rua A", "residential", "Polyline",
                         coords_xy=[[0.0, 0.0], [1.0, 0.0]])
@@ -275,7 +275,7 @@ def test_clean_geometry_keeps_distinct_features():
 
 def test_clean_geometry_simplifies_long_polyline():
     """clean_geometry simplifica polylines com > 2 pontos."""
-    from backend.core.utils import clean_geometry
+    from backend.shared.utils import clean_geometry
 
     coords = [[float(i), 0.0] for i in range(10)]  # 10 colinear points
     f = _make_feature("ROADS", "Rua Longa", "primary", "Polyline", coords_xy=coords)
@@ -288,7 +288,7 @@ def test_clean_geometry_simplifies_long_polyline():
 
 def test_clean_geometry_point_feature():
     """clean_geometry trata feature não-Polyline (ex: inserção de bloco)."""
-    from backend.core.utils import clean_geometry
+    from backend.shared.utils import clean_geometry
 
     f = _make_feature("BLOCKS", "Poste", None, "Block",
                        insertion_point_xy=[100.0, 200.0])
@@ -303,7 +303,7 @@ def test_clean_geometry_point_feature():
 
 def test_snap_to_edge_closes_near_closed_polygon():
     """snap_to_edge deve fechar polígonos cujo último vértice está muito próximo do primeiro."""
-    from backend.gis_core.geometry import snap_to_edge
+    from backend.domain.geometry import snap_to_edge
 
     precision = 6
     tol = (10 ** -precision) * 2 * 0.5  # within threshold
@@ -321,7 +321,7 @@ def test_snap_to_edge_closes_near_closed_polygon():
 
 def test_snap_to_edge_no_snap_when_far():
     """snap_to_edge NÃO deve fechar polígono quando último vértice está longe do primeiro."""
-    from backend.gis_core.geometry import snap_to_edge
+    from backend.domain.geometry import snap_to_edge
 
     coords = [
         [0.0, 0.0],
@@ -336,7 +336,7 @@ def test_snap_to_edge_no_snap_when_far():
 
 def test_snap_to_edge_deterministic_rounding():
     """snap_to_edge aplica arredondamento determinístico."""
-    from backend.gis_core.geometry import snap_to_edge
+    from backend.domain.geometry import snap_to_edge
 
     coords = [[1.123456789, 2.987654321], [3.141592653, 0.000000001]]
     result = snap_to_edge(coords, precision=6)
@@ -350,7 +350,7 @@ def test_snap_to_edge_deterministic_rounding():
 
 def test_get_bounding_offset_uses_insertion_point():
     """get_bounding_offset usa insertion_point_xy quando coords_xy não está presente."""
-    from backend.gis_core.geometry import get_bounding_offset
+    from backend.domain.geometry import get_bounding_offset
 
     f = SimpleNamespace(insertion_point_xy=[500.0, 300.0])
     ox, oy = get_bounding_offset([f])
@@ -360,7 +360,7 @@ def test_get_bounding_offset_uses_insertion_point():
 
 def test_get_bounding_offset_prefers_coords_xy():
     """get_bounding_offset usa coords_xy quando disponível."""
-    from backend.gis_core.geometry import get_bounding_offset
+    from backend.domain.geometry import get_bounding_offset
 
     f = SimpleNamespace(coords_xy=[[100.0, 200.0], [110.0, 210.0]])
     ox, oy = get_bounding_offset([f])
@@ -370,7 +370,7 @@ def test_get_bounding_offset_prefers_coords_xy():
 
 def test_get_bounding_offset_empty_features():
     """get_bounding_offset retorna (0.0, 0.0) para lista vazia."""
-    from backend.gis_core.geometry import get_bounding_offset
+    from backend.domain.geometry import get_bounding_offset
 
     ox, oy = get_bounding_offset([])
     assert ox == 0.0

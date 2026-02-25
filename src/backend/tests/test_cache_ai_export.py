@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 def test_cache_set_and_get_filesystem(tmp_path):
     os.environ["LOCALAPPDATA"] = str(tmp_path)
-    from backend.services.cache import CacheService
+    from backend.application.cache import CacheService
     svc = CacheService()
     svc.set("test:key", {"answer": 42})
     result = svc.get("test:key")
@@ -25,7 +25,7 @@ def test_cache_set_and_get_filesystem(tmp_path):
 
 def test_cache_get_missing_returns_none(tmp_path):
     os.environ["LOCALAPPDATA"] = str(tmp_path)
-    from backend.services.cache import CacheService
+    from backend.application.cache import CacheService
     svc = CacheService()
     result = svc.get("nonexistent:key")
     assert result is None
@@ -33,7 +33,7 @@ def test_cache_get_missing_returns_none(tmp_path):
 
 def test_cache_set_overwrite(tmp_path):
     os.environ["LOCALAPPDATA"] = str(tmp_path)
-    from backend.services.cache import CacheService
+    from backend.application.cache import CacheService
     svc = CacheService()
     svc.set("overwrite:key", {"v": 1})
     svc.set("overwrite:key", {"v": 2})
@@ -43,7 +43,7 @@ def test_cache_set_overwrite(tmp_path):
 
 def test_cache_key_sanitization(tmp_path):
     os.environ["LOCALAPPDATA"] = str(tmp_path)
-    from backend.services.cache import CacheService
+    from backend.application.cache import CacheService
     svc = CacheService()
     # Keys with special characters should still work
     svc.set("key/with/slashes:and?query=params", {"safe": True})
@@ -53,7 +53,7 @@ def test_cache_key_sanitization(tmp_path):
 
 def test_cache_redis_set_skipped_when_none(tmp_path):
     os.environ["LOCALAPPDATA"] = str(tmp_path)
-    from backend.services.cache import CacheService
+    from backend.application.cache import CacheService
     svc = CacheService()
     svc.redis = None  # no Redis configured
     # Should not raise
@@ -62,7 +62,7 @@ def test_cache_redis_set_skipped_when_none(tmp_path):
 
 def test_cache_redis_get_skipped_when_none(tmp_path):
     os.environ["LOCALAPPDATA"] = str(tmp_path)
-    from backend.services.cache import CacheService
+    from backend.application.cache import CacheService
     svc = CacheService()
     svc.redis = None
     svc.set("key_for_redis_test", {"v": 99})
@@ -72,7 +72,7 @@ def test_cache_redis_get_skipped_when_none(tmp_path):
 
 def test_cache_redis_fallback_on_exception(tmp_path):
     os.environ["LOCALAPPDATA"] = str(tmp_path)
-    from backend.services.cache import CacheService
+    from backend.application.cache import CacheService
     svc = CacheService()
     # Simulate a Redis client that raises on get
     mock_redis = MagicMock()
@@ -93,7 +93,7 @@ def test_cache_redis_fallback_on_exception(tmp_path):
 
 def test_ai_no_api_key_returns_message():
     os.environ.pop("GROQ_API_KEY", None)
-    from backend.services.ai import AiService
+    from backend.application.ai import AiService
     svc = AiService()
     AiService._notified_missing_key = False
     svc.client = None
@@ -103,7 +103,7 @@ def test_ai_no_api_key_returns_message():
 
 def test_ai_with_api_key_calls_groq():
     with patch.dict(os.environ, {"GROQ_API_KEY": "test-key"}):
-        from backend.services.ai import AiService
+        from backend.application.ai import AiService
         with patch("backend.services.ai.Groq") as mock_groq:
             mock_client = MagicMock()
             mock_groq.return_value = mock_client
@@ -119,7 +119,7 @@ def test_ai_with_api_key_calls_groq():
 
 def test_ai_groq_exception_returns_fallback():
     with patch.dict(os.environ, {"GROQ_API_KEY": "test-key"}):
-        from backend.services.ai import AiService
+        from backend.application.ai import AiService
         with patch("backend.services.ai.Groq") as mock_groq:
             mock_client = MagicMock()
             mock_groq.return_value = mock_client
@@ -133,7 +133,7 @@ def test_ai_groq_exception_returns_fallback():
 
 def test_ai_rag_context_with_job_id():
     with patch.dict(os.environ, {"GROQ_API_KEY": "test-key"}):
-        from backend.services.ai import AiService
+        from backend.application.ai import AiService
         with patch("backend.services.ai.Groq") as mock_groq, \
              patch("backend.services.jobs.get_job") as mock_get_job:
             mock_client = MagicMock()
@@ -154,7 +154,7 @@ def test_ai_rag_context_with_job_id():
 
 def test_ai_audit_rag_context():
     with patch.dict(os.environ, {"GROQ_API_KEY": "test-key"}):
-        from backend.services.ai import AiService
+        from backend.application.ai import AiService
         with patch("backend.services.ai.Groq") as mock_groq, \
              patch("backend.core.audit.get_audit_logger") as mock_get_al:
             mock_client = MagicMock()
@@ -212,7 +212,7 @@ def _make_export_db(tmp_path: Path, project_id: str = "proj-1") -> Path:
 
 
 def test_export_geojson_empty_project(tmp_path):
-    from backend.services.export_service import ExportService
+    from backend.application.export_service import ExportService
     db_path = _make_export_db(tmp_path, "geoj-1")
     svc = ExportService(db_path=db_path)
     path = svc.export_project_to_geojson("geoj-1")
@@ -225,8 +225,8 @@ def test_export_geojson_empty_project(tmp_path):
 
 def test_export_geojson_not_found(tmp_path):
     import pytest
-    from backend.services.export_service import ExportService
-    from backend.services.projects import NotFoundError
+    from backend.application.export_service import ExportService
+    from backend.application.projects import NotFoundError
     db_path = _make_export_db(tmp_path, "geoj-exists")
     svc = ExportService(db_path=db_path)
     with pytest.raises(NotFoundError):
@@ -234,7 +234,7 @@ def test_export_geojson_not_found(tmp_path):
 
 
 def test_export_geojson_with_features(tmp_path):
-    from backend.services.export_service import ExportService
+    from backend.application.export_service import ExportService
     db_path = _make_export_db(tmp_path, "geoj-2")
     conn = sqlite3.connect(str(db_path))
     conn.execute(
@@ -260,7 +260,7 @@ def test_export_geojson_with_features(tmp_path):
 
 
 def test_export_geopackage_empty_project(tmp_path):
-    from backend.services.export_service import ExportService
+    from backend.application.export_service import ExportService
     db_path = _make_export_db(tmp_path, "gpkg-1")
     svc = ExportService(db_path=db_path)
     path = svc.export_project_to_geopackage("gpkg-1")
@@ -270,8 +270,8 @@ def test_export_geopackage_empty_project(tmp_path):
 
 def test_export_geopackage_not_found(tmp_path):
     import pytest
-    from backend.services.export_service import ExportService
-    from backend.services.projects import NotFoundError
+    from backend.application.export_service import ExportService
+    from backend.application.projects import NotFoundError
     db_path = _make_export_db(tmp_path, "gpkg-exists")
     svc = ExportService(db_path=db_path)
     with pytest.raises(NotFoundError):
@@ -279,7 +279,7 @@ def test_export_geopackage_not_found(tmp_path):
 
 
 def test_export_dxf_empty_project(tmp_path):
-    from backend.services.export_service import ExportService
+    from backend.application.export_service import ExportService
     db_path = _make_export_db(tmp_path, "dxf-1")
     svc = ExportService(db_path=db_path)
     path = svc.export_project_to_dxf("dxf-1", escala=1000)
@@ -289,8 +289,8 @@ def test_export_dxf_empty_project(tmp_path):
 
 def test_export_dxf_not_found(tmp_path):
     import pytest
-    from backend.services.export_service import ExportService
-    from backend.services.projects import NotFoundError
+    from backend.application.export_service import ExportService
+    from backend.application.projects import NotFoundError
     db_path = _make_export_db(tmp_path, "dxf-exists")
     svc = ExportService(db_path=db_path)
     with pytest.raises(NotFoundError):
@@ -298,7 +298,7 @@ def test_export_dxf_not_found(tmp_path):
 
 
 def test_export_dxf_with_polyline_feature(tmp_path):
-    from backend.services.export_service import ExportService
+    from backend.application.export_service import ExportService
     db_path = _make_export_db(tmp_path, "dxf-feat")
     conn = sqlite3.connect(str(db_path))
     conn.execute(
