@@ -1,5 +1,5 @@
 """
-backend/gis_core/prodist.py
+backend.domain/prodist.py
 Conformidade ANEEL/PRODIST — Procedimentos de Distribuição de Energia Elétrica.
 
 Normas aplicáveis:

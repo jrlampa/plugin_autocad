@@ -1,5 +1,5 @@
 """
-backend/gis_core/abnt.py
+backend.domain/abnt.py
 Conformidade com normas técnicas ABNT para levantamentos urbanos e cartografia.
 
 Normas aplicáveis:

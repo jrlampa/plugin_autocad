@@ -1,157 +1,117 @@
-[webhooks] Service initialized. Static listeners: 0
-DEBUG: Full failed job result: {
-  "job_id": "4dd806e7-be64-4c84-822b-66cb6f0a7ea0",
-  "kind": "osm",
-  "status": "failed",
-  "progress": 1.0,
-  "message": "Falhou.",
-  "result": null,
-  "error": "1 validation error for CadFeature\ncoords_xy\n  Instance is frozen [type=frozen_instance, input_value=[[0.0, 0.0], [51.060322, 45.077801]], input_type=list]\n    For further information visit https://errors.pydantic.dev/2.12/v/frozen_instance",
-  "created_at": 1770946317.8216836,
-  "updated_at": 1770946335.1434703
-}
-F
+============================= test session starts =============================
+platform win32 -- Python 3.12.10, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\jonat\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend
+configfile: pytest.ini
+plugins: anyio-4.12.1, Faker-40.4.0, cov-7.0.0, html-4.2.0, metadata-3.1.1, timeout-2.4.0
+timeout: 30.0s
+timeout method: thread
+timeout func_only: False
+collected 3 items
+
+src\backend\tests\test_security_hardening.py FFF
+ERROR: Coverage failure: total of 30 is less than fail-under=80
+                                                                         [100%]
+
 ================================== FAILURES ===================================
-________________ test_create_prepare_job_osm_blocks_completes _________________
+________________________ test_security_radius_overload ________________________
 
-client = <starlette.testclient.TestClient object at 0x0000026834B7D8A0>
-api_mod = <module 'backend.api' from 'C:\\Users\\Jonatas Lampa\\OneDrive - IM3 Brasil\\utils\\myworld\\plugin_autocad\\src\\backend\\backend\\api.py'>
-monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000026834B7D7E0>
+    def test_security_radius_overload():
+        # Attempting to request a massive radius should be blocked by our new security limit
+        headers = {"X-SisRua-Token": AUTH_TOKEN}
+        response = client.post(
+            "/api/v1/prepare/osm",
+            json={"latitude": -23.55, "longitude": -46.63, "radius": 100000}, # 100km!
+            headers=headers
+        )
+>       assert response.status_code == 400
+E       assert 422 == 400
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
 
-    def test_create_prepare_job_osm_blocks_completes(client, api_mod, monkeypatch):
-        # Mock _fetch_overpass_data since we don't want real network calls in CI
-        import backend.gis_core.osm as osm_core
-    
-        mock_raw_data = {
-            "elements": [
-                {"type": "node", "id": 1, "lat": -21.7634, "lon": -41.3235, "tags": {"highway": "street_light", "name": "Poste A"}},
-                {"type": "node", "id": 2, "lat": -21.7630, "lon": -41.3230, "tags": {"power": "pole", "name": "Poste B"}},
-                {"type": "node", "id": 3, "lat": -21.7632, "lon": -41.3232, "tags": {"amenity": "bench", "name": "Banco C"}},
-                {"type": "way", "id": 4, "nodes": [1, 2], "tags": {"highway": "residential", "name": "Rua D"}}
-            ]
-        }
-    
-        monkeypatch.setattr(osm_core, "_fetch_overpass_data", lambda *args, **kwargs: mock_raw_data)
-    
-        # Mock elevation_service to avoid real calls
-        class MockElevation:
-            def get_elevation_profile(self, latlons): return [10.0] * len(latlons)
-            def get_contours(self, *args): return []
-    
-        # In jobs.py, it likely gets the service from di or similar.
-        # For simplicity, we just ensure it doesn't crash.
-    
-    
-        # Latitude/Longitude em área que deve conter street_lights/poles
-        payload = {
-            "kind": "osm",
-            "latitude": -21.7634,
-            "longitude": -41.3235,
-            "radius": 100
-        }
-    
-        r = client.post("/api/v1/jobs/prepare", json=payload, headers={"X-SisRua-Token": "test-token-123"})
-        assert r.status_code == 200
-        job = r.json()
-        job_id = job["job_id"]
-    
-        deadline = time.time() + 30 # Increased timeout for mock/slow disk
-        last = None
-        while time.time() < deadline:
-            r2 = client.get(f"/api/v1/jobs/{job_id}", headers={"X-SisRua-Token": "test-token-123"})
-            assert r2.status_code == 200
-            last = r2.json()
-            if last["status"] in ("completed", "failed"):
-                break
-            time.sleep(0.1)
-    
-        assert last is not None
-        if last["status"] == "failed":
-            import json
-            print(f"DEBUG: Full failed job result: {json.dumps(last, indent=2)}")
-            error_msg = last.get("error", "Unknown error")
-            message = last.get("message", "No message")
->           pytest.fail(f"OSM Job Failed. Error: {error_msg}, Message: {message}")
-E           Failed: OSM Job Failed. Error: 1 validation error for CadFeature
-E           coords_xy
-E             Instance is frozen [type=frozen_instance, input_value=[[0.0, 0.0], [51.060322, 45.077801]], input_type=list]
-E               For further information visit https://errors.pydantic.dev/2.12/v/frozen_instance, Message: Falhou.
+src\backend\tests\test_security_hardening.py:16: AssertionError
+_____________________ test_security_malformed_coordinates _____________________
 
-src\backend\tests\test_api_auth_and_jobs.py:152: Failed
------------------------------ Captured log setup ------------------------------
-WARNING  backend.services.ai:ai.py:15 GROQ_API_KEY not set. AI features will be disabled/mocked.
-WARNING  backend.services.ai:ai.py:15 GROQ_API_KEY not set. AI features will be disabled/mocked.
------------------------------- Captured log call ------------------------------
-WARNING  backend.core.retry:retry.py:45 {"function": "_download_grid", "attempts": 4, "error": "401 Client Error: 401 for url: https://portal.opentopography.org/API/globaldem?demtype=SRTMGL3&south=-21.7634&north=-41.3235&west=-21.762999999999998&east=-41.323&outputFormat=GTiff", "event": "retry_gave_up", "trace_id": "f3e4cda2-8eab-4462-8592-ae0f954d1f17", "level": "warning", "timestamp": "2026-02-13T01:32:15.139421Z"}
-WARNING  backend.services.elevation:elevation.py:83 {"error": "401 Client Error: 401 for url: https://portal.opentopography.org/API/globaldem?demtype=SRTMGL3&south=-21.7634&north=-41.3235&west=-21.762999999999998&east=-41.323&outputFormat=GTiff", "event": "dem_download_failed_fallback_local", "trace_id": "f3e4cda2-8eab-4462-8592-ae0f954d1f17", "level": "warning", "timestamp": "2026-02-13T01:32:15.139421Z"}
-ERROR    backend.gis_core.osm:osm.py:334 {"error": "invalid path or file: None", "event": "elevation_injection_failed", "trace_id": "f3e4cda2-8eab-4462-8592-ae0f954d1f17", "level": "error", "timestamp": "2026-02-13T01:32:15.143470Z"}
-============================== warnings summary ===============================
-..\..\..\..\..\..\sisrua_build\.venv-backend-build\lib\site-packages\_pytest\config\__init__.py:1428
-  C:\sisrua_build\.venv-backend-build\lib\site-packages\_pytest\config\__init__.py:1428: PytestConfigWarning: Unknown config option: timeout
-  
-    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+    def test_security_malformed_coordinates():
+        headers = {"X-SisRua-Token": AUTH_TOKEN}
+        response = client.post(
+            "/api/v1/prepare/osm",
+            json={"latitude": 1000, "longitude": -46.63, "radius": 100},
+            headers=headers
+        )
+>       assert response.status_code == 400
+E       assert 422 == 400
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
 
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:9: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
-    status: str = Field(..., description="Operational status of the API", example="ok")
+src\backend\tests\test_security_hardening.py:26: AssertionError
+_________________ test_security_unauthenticated_private_path __________________
 
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:26: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
-    latitude: float = Field(..., description="Target latitude (EPSG:4326)", example=-21.7634)
+    def test_security_unauthenticated_private_path():
+        # Health is public, but prepare is private
+        response = client.post("/api/v1/prepare/osm", json={})
+>       assert response.status_code == 403 # Forbidden due to lack of token or origin
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       assert 401 == 403
+E        +  where 401 = <Response [401 Unauthorized]>.status_code
 
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:27: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
-    longitude: float = Field(..., description="Target longitude (EPSG:4326)", example=-41.3235)
+src\backend\tests\test_security_hardening.py:31: AssertionError
+=============================== tests coverage ================================
+______________ coverage: platform win32, python 3.12.10-final-0 _______________
 
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:28: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
-    radius: float = Field(..., description="Search radius in meters", example=500.0)
-
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:64: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
-    crs_out: Optional[str] = Field(None, description="Projected Coordinate Reference System", example="EPSG:31983")
-
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:95: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
-    url: str = Field(..., description="Target URL to receive webhook events", example="https://example.com/webhook")
-
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\models.py:99: PydanticDeprecatedSince20: Using extra keyword arguments on `Field` is deprecated and will be removed. Use `json_schema_extra` instead. (Extra keys: 'example'). Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
-    event_type: str = Field(..., description="Type of the internal event", example="project_saved")
-
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\api.py:270: DeprecationWarning: 
-          on_event is deprecated, use lifespan event handlers instead.
-  
-          Read more about it in the
-          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
-          
-    @app.on_event("startup")
-
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-  C:\sisrua_build\.venv-backend-build\lib\site-packages\fastapi\applications.py:4573: DeprecationWarning: 
-          on_event is deprecated, use lifespan event handlers instead.
-  
-          Read more about it in the
-          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
-          
-    return self.router.on_event(event_type)
-
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-tests/test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-  C:\Users\Jonatas Lampa\OneDrive - IM3 Brasil\utils\myworld\plugin_autocad\src\backend\backend\api.py:415: DeprecationWarning: 
-          on_event is deprecated, use lifespan event handlers instead.
-  
-          Read more about it in the
-          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
-          
-    @app.on_event("shutdown")
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+Name                                             Stmts   Miss  Cover
+--------------------------------------------------------------------
+src\backend\backend\__init__.py                      1      0   100%
+src\backend\backend\api.py                         171     66    61%
+src\backend\backend\audit_routes.py                108     76    30%
+src\backend\backend\core\audit.py                   87     58    33%
+src\backend\backend\core\auth.py                    30     11    63%
+src\backend\backend\core\buffer.py                  46     21    54%
+src\backend\backend\core\bus.py                     30     13    57%
+src\backend\backend\core\circuit_breaker.py         58     31    47%
+src\backend\backend\core\database.py                46     36    22%
+src\backend\backend\core\interfaces.py               4      0   100%
+src\backend\backend\core\logger.py                  50      8    84%
+src\backend\backend\core\rate_limit.py              36     22    39%
+src\backend\backend\core\retry.py                   36     18    50%
+src\backend\backend\core\utils.py                  138    120    13%
+src\backend\backend\gis_core\__init__.py             0      0   100%
+src\backend\backend\gis_core\abnt.py                41     41     0%
+src\backend\backend\gis_core\crs.py                 24     17    29%
+src\backend\backend\gis_core\engine_mock.py         19     19     0%
+src\backend\backend\gis_core\geometry.py            18     13    28%
+src\backend\backend\gis_core\osm.py                151    136    10%
+src\backend\backend\gis_core\osm_client.py          17      9    47%
+src\backend\backend\gis_core\osm_parser.py          48     32    33%
+src\backend\backend\gis_core\prodist.py             47     47     0%
+src\backend\backend\gis_core\topology.py            80     65    19%
+src\backend\backend\models.py                      147     35    76%
+src\backend\backend\routes\__init__.py               0      0   100%
+src\backend\backend\routes\ai_routes.py             23      7    70%
+src\backend\backend\routes\deps.py                  21      0   100%
+src\backend\backend\routes\enterprise.py           132    101    23%
+src\backend\backend\routes\health.py                28     10    64%
+src\backend\backend\routes\jobs.py                  57     35    39%
+src\backend\backend\routes\prepare.py               16      3    81%
+src\backend\backend\routes\projects.py              35     18    49%
+src\backend\backend\routes\tools.py                 51     33    35%
+src\backend\backend\routes\webhooks.py              15      6    60%
+src\backend\backend\services\__init__.py             0      0   100%
+src\backend\backend\services\ai.py                  50     34    32%
+src\backend\backend\services\cache.py               52     34    35%
+src\backend\backend\services\dxf_export.py         120    120     0%
+src\backend\backend\services\elevation.py          141    118    16%
+src\backend\backend\services\executor.py            47     35    26%
+src\backend\backend\services\export_service.py     104     87    16%
+src\backend\backend\services\geocode.py             89     75    16%
+src\backend\backend\services\geojson.py            134    123     8%
+src\backend\backend\services\health.py              65     56    14%
+src\backend\backend\services\housekeeper.py         46     46     0%
+src\backend\backend\services\jobs.py               107     86    20%
+src\backend\backend\services\projects.py            95     77    19%
+src\backend\backend\services\webhooks.py            34     16    53%
+--------------------------------------------------------------------
+TOTAL                                             2895   2014    30%
+FAIL Required test coverage of 80% not reached. Total coverage: 30.43%
 =========================== short test summary info ===========================
-FAILED src\backend\tests\test_api_auth_and_jobs.py::test_create_prepare_job_osm_blocks_completes
-1 failed, 16 warnings in 17.97s
+FAILED src\backend\tests\test_security_hardening.py::test_security_radius_overload
+FAILED src\backend\tests\test_security_hardening.py::test_security_malformed_coordinates
+FAILED src\backend\tests\test_security_hardening.py::test_security_unauthenticated_private_path
+============================== 3 failed in 2.75s ==============================

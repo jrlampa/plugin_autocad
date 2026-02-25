@@ -1,5 +1,5 @@
 """
-backend/gis_core/crs.py
+backend.domain/crs.py
 Utilitários de Sistema de Referência de Coordenadas (CRS).
 
 Responsabilidade única: EPSG detection + transformação de coordenadas

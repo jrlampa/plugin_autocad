@@ -1,9 +1,9 @@
-import math
 from typing import List, Optional, Callable, Any
 from fastapi import HTTPException
-from backend.models import CadFeature, PrepareResponse
-from backend.core.interfaces import ICache
-from backend.core.utils import (
+import math
+from backend.domain.dto import CadFeature, PrepareResponse
+from backend.shared.interfaces import ICache
+from backend.shared.utils import (
     cache_key,
     norm_optional_str,
     to_linestrings,
@@ -12,134 +12,37 @@ from backend.core.utils import (
     sanitize_jsonable,
     get_layer_name
 )
-from backend.core.circuit_breaker import CircuitBreaker
-from backend.core.retry import Retry
-from backend.gis_core.crs import sirgas2000_utm_epsg
-from backend.core.logger import get_logger
-from backend.gis_core.topology import TopologyHealer
-from backend.gis_core.geometry import apply_local_offset, snap_to_edge, get_bounding_offset
+from backend.domain.crs import sirgas2000_utm_epsg
+from backend.shared.logger import get_logger
+from backend.domain.topology import TopologyHealer
+from backend.domain.geometry import apply_local_offset, snap_to_edge, get_bounding_offset
+from backend.infrastructure.osm_client import OsmClient
+from backend.domain.osm_parser import OsmParser, OsmWayRow, OsmNodeRow
 
 logger = get_logger(__name__)
 
-
-class _OsmWayRow:
-    """Representação de uma via OSM projetada para UTM (uso interno do pipeline)."""
-
-    __slots__ = ("geometry", "highway", "name", "tags")
-
-    def __init__(self, way: dict, projected_geom: Any) -> None:
-        tags = way.get("tags", {})
-        self.geometry = projected_geom
-        self.highway: Optional[str] = tags.get("highway")
-        self.name: Optional[str] = tags.get("name")
-        self.tags: dict = tags
-
-    def _asdict(self) -> dict:
-        return self.tags
-
-
-class _OsmNodeRow:
-    """Representação de um nó OSM projetado para UTM (uso interno do pipeline)."""
-
-    __slots__ = ("geometry", "highway", "power", "amenity", "name", "tags")
-
-    def __init__(self, node: dict, proj_x: float, proj_y: float) -> None:
-        from shapely.geometry import Point  # type: ignore
-
-        tags = node.get("tags", {})
-        self.geometry = Point(proj_x, proj_y)
-        self.highway: Optional[str] = tags.get("highway")
-        self.power: Optional[str] = tags.get("power")
-        self.amenity: Optional[str] = tags.get("amenity")
-        self.name: Optional[str] = tags.get("name")
-        self.tags: dict = tags
-
-    def _asdict(self) -> dict:
-        return self.tags
-
-def _fetch_overpass_data(lat: float, lon: float, radius: float, check_cancel: Callable = None):
-    """
-    Fetches raw OSM data using the Overpass API without heavy libraries.
-    """
-    import requests
-    from shapely.geometry import Point, LineString, mapping
-    
-    # Overpass QL query: Fetch all ways and nodes within radius
-    # We use a degree-based bounding box for the query
-    delta = radius / 111320.0 # Approximate degrees per meter
-    s, w, n, e = lat - delta, lon - delta, lat + delta, lon + delta
-    
-    query = f"""
-    [out:json][timeout:30];
-    (
-      way["highway"]({s},{w},{n},{e});
-      node["highway"~"street_light|bus_stop|traffic_signals|crossing"]({s},{w},{n},{e});
-      node["power"="pole"]({s},{w},{n},{e});
-      node["amenity"~"fire_hydrant|bench|waste_basket"]({s},{w},{n},{e});
-      node["man_made"="manhole"]({s},{w},{n},{e});
-      node["natural"="tree"]({s},{w},{n},{e});
-    );
-    out body;
-    >;
-    out skel qt;
-    """
-    
-    if check_cancel: check_cancel()
-    response = requests.post("https://overpass-api.de/api/interpreter", data={"data": query}, timeout=30)
-    response.raise_for_status()
-    data = response.json()
-    if check_cancel: check_cancel()
-    
-    return data
-
-def _parse_overpass_to_features(data: dict, epsg_out: int):
-    """
-    Parses Overpass JSON into a simplified structure compatible with the rest of the pipeline.
-    """
-    from pyproj import Transformer
-    from shapely.geometry import LineString
-
-    nodes = {n["id"]: n for n in data.get("elements", []) if n["type"] == "node"}
-    ways = [w for w in data.get("elements", []) if w["type"] == "way"]
-
-    transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_out}", always_xy=True)
-
-    parsed_edges = []
-    parsed_nodes = []
-    
-    # Process Ways
-    for way in ways:
-        way_nodes = [nodes.get(node_id) for node_id in way.get("nodes", [])]
-        way_nodes = [n for n in way_nodes if n]
-        if len(way_nodes) < 2: continue
-
-        coords = [(n["lon"], n["lat"]) for n in way_nodes]
-
-        # Project geometry
-        projected_coords = [transformer.transform(lon, lat) for lon, lat in coords]
-        projected_geom = LineString(projected_coords)
-
-        parsed_edges.append(_OsmWayRow(way, projected_geom))
-
-    # Process Points
-    for node_id, node in nodes.items():
-        tags = node.get("tags", {})
-        if not tags: continue  # Skip bare topology nodes that are only part of ways
-
-        lon, lat = node["lon"], node["lat"]
-        proj_x, proj_y = transformer.transform(lon, lat)
-        parsed_nodes.append(_OsmNodeRow(node, proj_x, proj_y))
-        
-    return parsed_nodes, parsed_edges
+MAX_RADIUS_M = 5000.0
 
 def prepare_osm_compute(
     latitude: float, 
     longitude: float, 
     radius: float, 
-    cache_service: ICache,
-    elevation_service: Any,
-    check_cancel: Callable[[], None] = None
-) -> dict:
+    cache_service: ICache = None,
+    elevation_service: Any = None,
+    check_cancel: Callable = None
+) -> PrepareResponse:
+    # 0. Validate Inputs (Security & DoS Protection)
+    if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+        raise HTTPException(status_code=400, detail="Invalid coordinates.")
+    
+    if radius <= 0:
+        raise HTTPException(status_code=400, detail="Radius must be positive.")
+    
+    if radius > MAX_RADIUS_M:
+        logger.warning("security_radius_exceeded", requested=radius, allowed=MAX_RADIUS_M)
+        raise HTTPException(status_code=400, detail=f"Radius too large. Max allowed: {MAX_RADIUS_M}m")
+
+    # 1. Check Cache
     if check_cancel: check_cancel()
     
     from pyproj import Transformer
@@ -153,11 +56,11 @@ def prepare_osm_compute(
     epsg_out = sirgas2000_utm_epsg(latitude, longitude)
     
     try:
-        # 1. Fetch data from Overpass
-        raw_data = _fetch_overpass_data(latitude, longitude, radius, check_cancel)
+        # 1. Fetch data from Overpass via Modular Client
+        raw_data = OsmClient.fetch_overpass_data(latitude, longitude, radius, check_cancel)
         
-        # 2. Parse and Project
-        nodes_list, edges_list = _parse_overpass_to_features(raw_data, epsg_out)
+        # 2. Parse and Project via Modular Parser
+        nodes_list, edges_list = OsmParser.parse_to_features(raw_data, epsg_out)
         
     except Exception as e:
         cached = cache_service.get(key)
@@ -371,7 +274,7 @@ def prepare_osm_compute(
             f.insertion_point_xy = [f.insertion_point_xy[0] - origin_x, f.insertion_point_xy[1] - origin_y]
 
     # BIM-LITE: Offload geometric cleaning to backend for SaaS scalability
-    from backend.core.utils import clean_geometry
+    from backend.shared.utils import clean_geometry
     features = clean_geometry(features)
 
     payload = PrepareResponse(crs_out=f"EPSG:{epsg_out}", features=features)

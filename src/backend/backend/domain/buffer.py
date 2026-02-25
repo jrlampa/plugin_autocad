@@ -2,7 +2,7 @@ import queue
 import threading
 import time
 from typing import List, Any, Callable
-from backend.core.logger import get_logger
+from backend.shared.logger import get_logger
 
 logger = get_logger(__name__)
 
