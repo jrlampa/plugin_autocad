@@ -131,6 +131,11 @@ namespace sisRUA
                 {
                     LayerTable lt =
                         (LayerTable)tr.GetObject(database.LayerTableId, OpenMode.ForRead);
+                    BlockTable bt =
+                        (BlockTable)tr.GetObject(database.BlockTableId, OpenMode.ForRead);
+                    BlockTableRecord ms =
+                        (BlockTableRecord)tr.GetObject(
+                            bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
 
                     // Extrai origem (SIRGAS 2000 offset) da primeira feature com propriedade sys_sisrua_origin
                     double originX = 0, originY = 0;
@@ -171,17 +176,32 @@ namespace sisRUA
                                         : 0.0
                                 )).ToList();
 
-                                double? widthUnits = TryGetRoadWidthUnits(f, metersToDrawingUnits);
-                                Engine.DrawPolyline(
-                                    pts, layerName,
-                                    widthUnits.HasValue && widthUnits.Value > 0.05
-                                        ? widthUnits : null,
-                                    f.Elevation.HasValue
-                                        ? (double?)(f.Elevation.Value * metersToDrawingUnits)
-                                        : null,
-                                    f.Color,
-                                    ExtractMetadata(f));
+                                // Cria a polilinha de eixo diretamente na transação corrente
+                                // para que possamos gerar as bordas de meio-fio no mesmo contexto.
+                                var centerPline = sisRUA.Engine.CadFeatureFactory.CreatePolyline(pts, false);
+                                centerPline.Layer = layerName;
+                                if (f.Elevation.HasValue)
+                                    centerPline.Elevation = f.Elevation.Value * metersToDrawingUnits;
+                                if (!string.IsNullOrWhiteSpace(f.Color))
+                                    centerPline.Color = ParseColor(f.Color);
+                                ms.AppendEntity(centerPline);
+                                tr.AddNewlyCreatedDBObject(centerPline, true);
+                                var centerMeta = ExtractMetadata(f);
+                                if (centerMeta.Count > 0)
+                                    sisRUA.Engine.CadFeatureFactory.AttachMetadata(centerPline, centerMeta, tr);
                                 createdPolylines++;
+
+                                // MEIO-FIO: gera as bordas laterais ("de meio-fio a meio-fio").
+                                // Aplicado a vias (highway) com largura de via definida.
+                                double? widthUnits = TryGetRoadWidthUnits(f, metersToDrawingUnits);
+                                if (!string.IsNullOrWhiteSpace(f.Highway) &&
+                                    widthUnits.HasValue && widthUnits.Value > 0.05)
+                                {
+                                    const string meiofioLayer = "SISRUA_MEIO_FIO";
+                                    EnsureLayer(tr, database, lt, meiofioLayer, aci: 4); // ACI 4 = Cyan
+                                    TryAppendOffsetRoadEdges(tr, ms, centerPline,
+                                        widthUnits.Value / 2.0, meiofioLayer);
+                                }
                                 break;
 
                             case CadFeatureDtoType.Point:
