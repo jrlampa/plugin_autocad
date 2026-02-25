@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { api } from '../api';
 
 export function useFileProcessing() {
   const [isDraggingFile, setIsDraggingFile] = useState(false);
@@ -26,20 +27,16 @@ export function useFileProcessing() {
           // App.jsx usually handles auth. We focus on FILES here.
 
           if (message.action === 'FILE_DROPPED_KML' && message.data.content) {
-            console.log('KML content received from C# host. Converting...');
+            console.log('KML content received from C# host. Offloading to backend...');
             try {
-              const { kml } = await import('@mapbox/togeojson');
-              const parser = new DOMParser();
-              const kmlDoc = parser.parseFromString(message.data.content, 'text/xml');
-              const converted = kml(kmlDoc);
-
-              if (converted && converted.type && (converted.features || converted.geometry)) {
-                setPreviewGeoJson(converted);
+              const res = await api.convertKml(message.data.content);
+              if (res && res.type === 'FeatureCollection') {
+                setPreviewGeoJson(res);
               } else {
-                showError('Arquivo KMZ/KML inválido. Conversão falhou.');
+                showError('Falha na conversão do KML pelo backend.');
               }
             } catch (err) {
-              showError(`Erro ao processar KML: ${err.message}`);
+              showError(`Erro ao processar KML no backend: ${err.message}`);
             }
           } else if (message.action === 'FILE_DROPPED_GEOJSON' && message.data.content) {
             console.log('GeoJSON received from C# host.');
@@ -79,20 +76,32 @@ export function useFileProcessing() {
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
+      const isKml = file.name.toLowerCase().endsWith('.kml');
       setPreviewGeoJson(null);
 
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
+        const content = event.target.result;
         try {
-          const content = event.target.result;
-          const parsed = JSON.parse(content);
-          if (parsed && parsed.type && (parsed.features || parsed.geometry)) {
-            setPreviewGeoJson(parsed);
+          if (isKml) {
+            console.log('KML file dropped in browser. Offloading to backend...');
+            const res = await api.convertKml(content);
+            if (res && res.type === 'FeatureCollection') {
+              setPreviewGeoJson(res);
+            } else {
+              showError('Falha na conversão do KML pelo backend.');
+            }
           } else {
-            showError('Arquivo inválido. Use um GeoJSON válido.');
+            // Assume GeoJSON
+            const parsed = JSON.parse(content);
+            if (parsed && parsed.type && (parsed.features || parsed.geometry)) {
+              setPreviewGeoJson(parsed);
+            } else {
+              showError('Arquivo inválido. Use um GeoJSON válido ou KML.');
+            }
           }
         } catch (error) {
-          showError(`Erro ao ler arquivo: ${error.message}`);
+          showError(`Erro ao processar arquivo: ${error.message}`);
         }
       };
       reader.readAsText(file);

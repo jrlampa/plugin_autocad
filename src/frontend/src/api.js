@@ -186,4 +186,19 @@ export const api = {
       });
     });
   },
+
+  /**
+   * GIS: Converte conteúdo KML para GeoJSON via backend.
+   * @param {string} content - Conteúdo XML do arquivo KML
+   */
+  convertKml: async (content) => {
+    return await ResilienceService.executeWithTracing('CONVERT_KML', async (context) => {
+      const response = await axios.post(
+        `${API_BASE}/gis/convert/kml`,
+        { content },
+        { headers: { 'X-Trace-ID': context.traceId } }
+      );
+      return response.data;
+    });
+  },
 };

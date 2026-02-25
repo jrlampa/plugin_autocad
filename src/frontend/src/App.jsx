@@ -13,6 +13,7 @@ import SettingsPanel from './components/SettingsPanel';
 import JobOverlay from './components/JobOverlay';
 import MapCanvas from './components/MapCanvas';
 import Toast from './components/Toast';
+import SymbolModal from './components/SymbolModal';
 
 // Lazy load heavy components for faster TTI
 const MapView = lazy(() => import('./components/MapView'));
@@ -344,63 +345,7 @@ export default function App() {
       {/* For simplicity/safety, I'll keep the Modal rendering block here or create a Modal component if needed, 
           but simpler to keep it if it's small. Actually, it's quite verbose. Let's start with this. */}
 
-      {mapLogic.isModalOpen && (
-        <div className="absolute inset-0 z-[2000] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in zoom-in duration-200">
-          {/* ... Modal Content ... */}
-          {/* I should probably extract this to SymbolModal.jsx later, but for now I will inline or use existing logic if possible.
-                 Wait, I can't inline "existing logic" if I overwrite App.jsx.
-                 I must write the full content.
-             */}
-          <div className="modal-glass p-8 w-96">
-            <div className="flex justify-between items-center mb-6">
-              {/* ... header ... */}
-              <h3 className="font-black text-slate-800 flex items-center gap-3 text-lg">
-                <span className="bg-blue-100 p-2 rounded-xl text-blue-600">{/* icon? */}</span>
-                Novo {mapLogic.currentDrop?.type}
-              </h3>
-              <button onClick={mapLogic.cancelMarker}>
-                <X size={20} className="text-slate-400 hover:text-red-500 transition-colors" />
-              </button>
-            </div>
-            {/* Body */}
-            <div className="space-y-5">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">
-                  Descrição Técnica
-                </label>
-                <input
-                  className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-700"
-                  autoFocus
-                  placeholder="Ex: Poste Bifásico..."
-                  value={mapLogic.metaInput.desc}
-                  onChange={(e) =>
-                    mapLogic.setMetaInput({ ...mapLogic.metaInput, desc: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">
-                  Altura
-                </label>
-                <input
-                  className="w-full bg-white border border-slate-200 rounded-2xl p-3.5 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-700"
-                  placeholder="Ex: 12m"
-                  value={mapLogic.metaInput.altura}
-                  onChange={(e) =>
-                    mapLogic.setMetaInput({ ...mapLogic.metaInput, altura: e.target.value })
-                  }
-                />
-              </div>
-              <button
-                onClick={mapLogic.confirmMarker}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-sm flex justify-center gap-2 transition-all shadow-lg shadow-blue-500/30"
-              >
-                SALVAR PONTO
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SymbolModal mapLogic={mapLogic} />
 
       <AiAssistant />
     </div>
