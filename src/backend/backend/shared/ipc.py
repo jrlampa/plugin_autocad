@@ -47,7 +47,7 @@ class IpcServer:
         except:
             pass
 
-    def _server_loop(self):
+    def _server_loop(self):  # pragma: no cover — Windows Named Pipe loop; not executable on Linux/Docker
         while self.running:
             try:
                 # Create Named Pipe with restrictive Security Descriptor?
