@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-02-25
+
+### Added
+- **Testes E2E de integração** (`tests/test_e2e_ref_coordinates.py`, 34 testes): pipeline completo com coordenadas de referência REF_1 e REF_2 (100 m, 500 m, 1 km). Valida projeção CRS real, coordenadas locais, princípio 2.5D, exportação DXF headless e config auto-token.
+- **`TestCrsProjection`** (6 testes): `sirgas2000_utm_epsg`, `latlon_to_utm`, roundtrip UTM↔WGS84, `transform_coords`.
+- **`TestOsmPipelineRef2`** (12 testes): `prepare_osm_compute` mocked HTTP, real geometry/topology/DXF. Valida `sys_sisrua_origin` (UTM absoluto), coords locais em metros, layers SISRUA_*.
+- **`TestDxfHeadlessExport`** (7 testes): DXF R2010, layers, entidades, `$INSUNITS=6` (metros), princípio 2.5D.
+- **`TestSettingsConfig`** (5 testes): `extra_cors_origins`, auto-geração de token + injeção `os.environ` (linha 20 de `config.py`).
+
+### Fixed
+- **`.gitignore`**: adicionados padrões `**/build_log.txt`, `**/test_err.txt`, `**/secret_scan_report.txt`.
+- **Limpeza do repositório**: 22 arquivos de artefatos (CI logs, test outputs, screenshots, DB de teste) removidos do tracking git via `git rm --cached`.
+
 ## [0.3.0] - 2026-02-25
 
 ### Added

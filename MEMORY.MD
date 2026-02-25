@@ -2325,3 +2325,46 @@ Continuar melhorias: modularizar `BackendManager.cs` (577L > limite 500L), corri
 1. **Volume errado no docker-compose original**: `./src/backend:/app/backend` sobrescrevia o pacote Python `backend/` com o diretório `src/backend/` (que contém `backend/`, `tests/`, `requirements.txt`). O correto é montar `src/backend/` em `/app/`.
 2. **C# partial class**: funciona perfeitamente para dividir uma classe grande em múltiplos arquivos sem alterar a interface pública ou os testes existentes (GeometryCleanerTests.cs e ProjectRepositoryTests.cs não precisaram de alteração).
 3. **nginx + React SPA**: `style-src 'unsafe-inline'` é necessário para componentes com estilos inline (Material-UI, Tailwind JIT, etc.). Documentado com comentário para revisão futura.
+
+---
+
+## 🏗️ Sessão 2026-02-25 — Limpeza de Artefatos + Testes E2E + Cobertura 100%
+
+### Baseline da Sessão
+- Backend: 861/861 testes, 100% cobertura
+- Frontend: 362/362 testes
+
+### Objetivo
+Limpar artefatos do repositório; adicionar testes E2E com coordenadas de referência; cobrir 100% do config.py.
+
+### Mudanças Implementadas
+
+**Limpeza de Artefatos (git rm --cached)**:
+- Removidos 22 arquivos de saída de CI/testes que estavam trackeados pelo git
+- Padrões adicionados ao `.gitignore`: `**/build_log.txt`, `**/test_err.txt`, `**/secret_scan_report.txt`
+- Arquivos removidos: `all_files.txt` (1.5MB), `ci_output_*.txt`, `group*_output.txt`, `specialized_tests_output*.txt`, `test_out.txt`, `test_concurrency.db`, `PRINT_ERROS/`, `logs/`, `src/backend/test_err.txt`, `src/plugin/build_log.txt`, `tools/secret_scan_report.txt`
+
+**Testes E2E de Integração (`tests/test_e2e_ref_coordinates.py`, 34 novos testes)**:
+- `TestCrsProjection` (6): EPSG detection, roundtrip UTM, transform_coords batch
+- `TestOsmPipelineRef2` (12): pipeline completo com REF_2 em 100m/500m/1000m; coords locais, 2.5D, layers, sys_sisrua_origin, cache
+- `TestInputValidation` (4): lat/lon/radius inválidos → HTTP 400
+- `TestDxfHeadlessExport` (7): DXF criado, R2010 válido, entidades, layers, tmp file, INSUNITS=6, 2.5D constraint
+- `TestSettingsConfig` (5): CORS origins, auto-geração de token + injeção em os.environ
+
+**Descoberta importante — Local Offset Strategy**:
+- O pipeline aplica `apply_local_offset(coords_xy, origin_x, origin_y)` antes de retornar as features
+- `coords_xy` na resposta são LOCAIS (relativos ao centro do bbox), não coordenadas UTM absolutas
+- A origem UTM absoluta fica em `original_geojson_properties['sys_sisrua_origin']`
+- Isso mantém números CAD pequenos e precisos (evita erros de ponto flutuante em grandes coords)
+
+### Resultado Final da Sessão
+- **Backend**: **895/895 testes passando** (+34 novos E2E), **100.00% cobertura**
+- **Frontend**: 362/362 testes (sem mudanças)
+- **Total**: **1257/1257 testes passando**
+- **CodeQL**: 0 alertas Python
+
+### Regras Aplicadas
+- "NÃO USAR DADOS MOCKADOS" → apenas o transport layer HTTP é mockado; projeção/geometria/DXF são reais
+- "Testes unit teste & E2E" → E2E com coordenadas de campo REF_1 e REF_2 (100m, 500m, 1km)
+- "Coord para teste: REF_2: -22.15018, -42.92185" → cobertura total nos testes E2E
+- "Docker first / Clean Code / Segurança" → artefatos limpos do git

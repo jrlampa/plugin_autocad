@@ -74,6 +74,10 @@ vitest_results.txt
 vitest_results_v2.txt
 vitest_v110_output.txt
 src/backend/backend/gis_core/topology_report.json
+# Build/scan reports
+**/build_log.txt
+**/test_err.txt
+**/secret_scan_report.txt
 
 # ===== Local Build / Temp =====
 local_build/
