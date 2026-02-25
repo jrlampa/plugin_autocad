@@ -118,6 +118,69 @@ def generate_prodist_buffer_features(
     return buffer_features
 
 
+# Camada CAD para guias/meio-fios (curb-to-curb — ABNT NBR 14166:1998)
+_LAYER_MEIO_FIO = "SISRUA_MEIO_FIO"
+
+
+def generate_street_curb_features(features: List[CadFeature]) -> List[CadFeature]:
+    """
+    Gera polylines de guia/meio-fio (curb-to-curb) para cada via com largura definida.
+
+    Implementa o conceito de desenho "de meio-fio a meio-fio": para cada
+    polilinha de via com ``width_m`` definido, gera duas polylines paralelas
+    (guia esquerda e guia direita) na camada ``SISRUA_MEIO_FIO``.
+
+    Princípio 2.5D: as polylines de meio-fio são 2D (Z=0). A elevação da via
+    original é propagada como atributo ``elevation`` via XDATA.
+
+    Conformidade:
+        - ABNT NBR 14166:1998 §5: representação de limites de logradouros
+        - Escala primária 1:1000 (sisRUA default)
+
+    Args:
+        features: Lista de CadFeature de origem.
+
+    Returns:
+        Lista de CadFeature representando as guias esquerda e direita de cada via.
+    """
+    from backend.gis_core.geometry import generate_street_curbs
+
+    curb_features: List[CadFeature] = []
+
+    for feat in features:
+        if feat.feature_type != "Polyline":
+            continue
+        if not feat.width_m or feat.width_m <= 0:
+            continue
+        coords = feat.coords_xy
+        if not coords or len(coords) < 2:
+            continue
+
+        try:
+            left_coords, right_coords = generate_street_curbs(coords, feat.width_m)
+
+            for side_coords in (left_coords, right_coords):
+                if len(side_coords) >= 2:
+                    curb_features.append(
+                        CadFeature(
+                            feature_type="Polyline",
+                            layer=_LAYER_MEIO_FIO,
+                            name=feat.name,
+                            coords_xy=side_coords,
+                            elevation=feat.elevation,
+                        )
+                    )
+        except Exception as exc:
+            logger.warning("street_curb_failed", name=feat.name, error=str(exc))
+
+    logger.info(
+        "street_curbs_generated",
+        input_features=len(features),
+        curb_features=len(curb_features),
+    )
+    return curb_features
+
+
 def export_features_to_dxf(
     features: List[CadFeature],
     output_path: Optional[Path] = None,
@@ -126,6 +189,7 @@ def export_features_to_dxf(
     epsg: int = 31983,
     prodist_metadata: Optional[ProdistMetadata] = None,
     include_prodist_buffers: bool = False,
+    include_street_curbs: bool = False,
 ) -> Path:
     """
     Converte uma lista de CadFeature em um arquivo DXF R2010.
@@ -145,6 +209,9 @@ def export_features_to_dxf(
         include_prodist_buffers: Quando True e `prodist_metadata` não é None,
                                 gera faixas de segurança geométricas (NR-10:2016)
                                 nas camadas SISRUA_ANEEL_BUFFER_*.
+        include_street_curbs:   Quando True, gera as guias/meio-fios de cada via
+                                como polylines paralelas na camada SISRUA_MEIO_FIO
+                                (desenho "de meio-fio a meio-fio" conforme ABNT NBR 14166).
 
     Returns:
         Path para o arquivo .dxf gerado.
@@ -190,6 +257,12 @@ def export_features_to_dxf(
         buffer_feats = generate_prodist_buffer_features(features, prodist_metadata)
         all_features.extend(buffer_feats)
         _ensure_layers(doc, buffer_feats)
+
+    # Gera guias de meio-fio (curb-to-curb) quando solicitado
+    if include_street_curbs:
+        curb_feats = generate_street_curb_features(features)
+        all_features.extend(curb_feats)
+        _ensure_layers(doc, curb_feats)
 
     for feat in all_features:
         if feat.feature_type == "Polyline":

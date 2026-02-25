@@ -2054,3 +2054,63 @@ Continuar cobrindo branches e statements não cobertos, eliminar arquivos de con
 2. **`vi.stubEnv('NODE_ENV', 'production')`** + `vi.useFakeTimers()` + `vi.runAllTimersAsync()` é a combinação correta para testar código que usa `process.env.NODE_ENV` em combinação com `setTimeout`. Sempre chamar `vi.unstubAllEnvs()` + `vi.useRealTimers()` no `finally`.
 3. **Bug HealthDashboard**: `latency_ms.toFixed(1)` sem optional chaining causa crash quando status é `unhealthy` (latency é null). Padrão correto: `latency_ms?.toFixed(1)` — deixa o span vazio quando null sem quebrar o render.
 4. **Separação de grupos no coverage**: após excluir todos os arquivos de configuração, o coverage report fica limpo com apenas os grupos: `src`, `src/components`, `src/hooks`, `src/sdk`, `src/services`. Isso facilita identificar arquivos problemáticos.
+
+
+---
+
+## ⚡ Sessão 2026-02-25 — Refatoração backend.domain + Meio-fio a Meio-fio
+
+### Baseline
+79 testes backend falhando (ModuleNotFoundError: `backend.domain`).
+
+### Problema / Objetivo
+Testes importavam de `backend.domain.*` mas o pacote não existia.
+Requisito do projeto: desenho de ruas "de meio-fio a meio-fio" na escala 1:1000.
+
+### Implementações
+
+**`backend/domain/`** — Pacote de compatibilidade criado:
+- `__init__.py` — pacote raiz
+- `dto.py` → re-exporta todos os DTOs/modelos de `backend.models`
+- `osm.py` → re-exporta `prepare_osm_compute`, `_parse_overpass_to_features`, etc. de `backend.gis_core.osm`
+- `osm_parser.py` → classe `OsmParser` com método estático `parse_to_features(data, epsg_out)` (wrap de `_parse_overpass_to_features`)
+- `geometry.py` → re-exporta funções de `backend.gis_core.geometry`
+- `crs.py` → re-exporta funções de `backend.gis_core.crs`
+- `abnt.py` → re-exporta de `backend.gis_core.abnt`
+- `prodist.py` → re-exporta de `backend.gis_core.prodist`
+- `topology.py` → re-exporta `TopologyHealer` de `backend.gis_core.topology`
+- `engine_mock.py` → re-exporta `AutoCADMock` de `backend.gis_core.engine_mock`
+- `buffer.py` → re-exporta `PersistenceBuffer` de `backend.core.buffer`
+
+**`backend/gis_core/osm_client.py`** — Shim criado:
+- Re-exporta `OsmClient` de `backend.infrastructure.osm_client`
+- Permite patching de testes via `backend.gis_core.osm_client.OsmClient.fetch_overpass_data`
+
+**`backend/gis_core/osm.py`** — Modificado:
+- `_fetch_overpass_data()` agora delega para `OsmClient.fetch_overpass_data()` (testabilidade)
+
+**`backend/shared/buffer.py`** — Shim criado:
+- Re-exporta `PersistenceBuffer` de `backend.core.buffer`
+
+**`backend/gis_core/geometry.py`** — Nova função:
+- `generate_street_curbs(centerline_coords, width_m)` → gera guias esquerda/direita de meio-fio
+- Implementa conceito "de meio-fio a meio-fio" usando `shapely.LineString.offset_curve`
+- Princípio 2.5D preservado: polylines são 2D (Z=0)
+
+**`backend/services/dxf_export.py`** — Implementação de meio-fio:
+- Nova função `generate_street_curb_features(features)` → gera CadFeatures de guias
+- Nova camada `SISRUA_MEIO_FIO` para guias/meio-fios (ABNT NBR 14166:1998)
+- Parâmetro `include_street_curbs=True` em `export_features_to_dxf()`
+- Elevação propagada para guias via XDATA (princípio 2.5D)
+
+### Resultado
+- **79 → 71 falhas** (8 testes corrigidos)
+- **656 → 664 passando**
+- Novos testes: `test_gis_osm.py` (3 testes) e módulos do domínio passam
+
+### Arquitetura de camadas sisRUA (MEIO-FIO)
+```
+OSM centerline (width_m) → generate_street_curbs() → left/right offset polylines
+                                                    → SISRUA_MEIO_FIO layer
+                                                    → elevation as XDATA (2.5D)
+```

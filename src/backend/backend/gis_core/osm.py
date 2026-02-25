@@ -59,38 +59,11 @@ class _OsmNodeRow:
 
 def _fetch_overpass_data(lat: float, lon: float, radius: float, check_cancel: Callable = None):
     """
-    Fetches raw OSM data using the Overpass API without heavy libraries.
+    Fetches raw OSM data using the Overpass API.
+    Delegates to OsmClient.fetch_overpass_data for testability.
     """
-    import requests
-    from shapely.geometry import Point, LineString, mapping
-    
-    # Overpass QL query: Fetch all ways and nodes within radius
-    # We use a degree-based bounding box for the query
-    delta = radius / 111320.0 # Approximate degrees per meter
-    s, w, n, e = lat - delta, lon - delta, lat + delta, lon + delta
-    
-    query = f"""
-    [out:json][timeout:30];
-    (
-      way["highway"]({s},{w},{n},{e});
-      node["highway"~"street_light|bus_stop|traffic_signals|crossing"]({s},{w},{n},{e});
-      node["power"="pole"]({s},{w},{n},{e});
-      node["amenity"~"fire_hydrant|bench|waste_basket"]({s},{w},{n},{e});
-      node["man_made"="manhole"]({s},{w},{n},{e});
-      node["natural"="tree"]({s},{w},{n},{e});
-    );
-    out body;
-    >;
-    out skel qt;
-    """
-    
-    if check_cancel: check_cancel()
-    response = requests.post("https://overpass-api.de/api/interpreter", data={"data": query}, timeout=30)
-    response.raise_for_status()
-    data = response.json()
-    if check_cancel: check_cancel()
-    
-    return data
+    from backend.gis_core.osm_client import OsmClient
+    return OsmClient.fetch_overpass_data(lat, lon, radius, check_cancel)
 
 def _parse_overpass_to_features(data: dict, epsg_out: int):
     """

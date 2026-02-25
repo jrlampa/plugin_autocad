@@ -35,3 +35,64 @@ def get_bounding_offset(features: List[Any]) -> Tuple[float, float]:
         if hasattr(f, "insertion_point_xy") and f.insertion_point_xy:
             return f.insertion_point_xy[0], f.insertion_point_xy[1]
     return 0.0, 0.0
+
+
+def generate_street_curbs(
+    centerline_coords: List[List[float]],
+    width_m: float,
+) -> Tuple[List[List[float]], List[List[float]]]:
+    """
+    Gera as polilinhas de meio-fio (guias) esquerda e direita a partir
+    da linha de eixo de uma via (centerline).
+
+    Implementa o conceito de desenho "de meio-fio a meio-fio" (curb-to-curb):
+    em vez de representar apenas o eixo da via com largura visual (const_width),
+    gera duas polylines paralelas separadas, cada uma a ``width_m / 2`` do eixo,
+    representando a borda física da calçada/guia conforme ABNT NBR 14166.
+
+    Princípio 2.5D: as polilinhas geradas são 2D (Z=0). A elevação é atributo.
+
+    Args:
+        centerline_coords: Lista de pares [X, Y] em coordenadas UTM.
+        width_m:           Largura total da via em metros (de meio-fio a meio-fio).
+
+    Returns:
+        Tupla ``(left_coords, right_coords)`` onde cada elemento é uma lista
+        de pares [X, Y] representando a guia esquerda e direita, respectivamente.
+        Retorna listas vazias se a geometria for inválida.
+    """
+    if not centerline_coords or len(centerline_coords) < 2 or width_m <= 0:
+        return [], []
+
+    try:
+        from shapely.geometry import LineString  # type: ignore
+
+        line = LineString([(float(x), float(y)) for x, y in centerline_coords])
+        half_w = width_m / 2.0
+
+        # offset_curve: positivo = esquerda, negativo = direita (convenção Shapely)
+        left_geom = line.offset_curve(half_w)
+        right_geom = line.offset_curve(-half_w)
+
+        left_coords: List[List[float]] = []
+        right_coords: List[List[float]] = []
+
+        if left_geom is not None and not left_geom.is_empty:
+            left_coords = [
+                [float(x), float(y)]
+                for x, y in left_geom.coords
+                if math.isfinite(x) and math.isfinite(y)
+            ]
+
+        if right_geom is not None and not right_geom.is_empty:
+            right_coords = [
+                [float(x), float(y)]
+                for x, y in right_geom.coords
+                if math.isfinite(x) and math.isfinite(y)
+            ]
+
+        return left_coords, right_coords
+
+    except Exception:
+        return [], []
+
