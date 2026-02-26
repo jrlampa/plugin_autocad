@@ -58,6 +58,18 @@ vi.mock('./api', () => ({
     convertKml: vi.fn(() =>
       Promise.resolve({ type: 'FeatureCollection', features: [{ type: 'Feature' }] })
     ),
+    listBlocks: vi.fn(() =>
+      Promise.resolve({
+        blocos: [
+          { nome: 'POSTE_CONCRETO_BF', descricao: 'Poste de concreto bifásico 9m', tipo: 'poste', tensao: 'BT', layer: 'SISRUA_BT' },
+          { nome: 'TRAFO_AEREO_MF', descricao: 'Transformador aéreo monofásico', tipo: 'transformador', tensao: 'MULTI', layer: 'SISRUA_ANEEL_MT' },
+        ],
+        total: 2,
+      })
+    ),
+    getBlock: vi.fn((nome) =>
+      Promise.resolve({ nome, descricao: `Bloco ${nome}`, tipo: 'poste', tensao: 'BT', layer: 'SISRUA_BT' })
+    ),
   },
 }));
 

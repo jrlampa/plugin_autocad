@@ -201,6 +201,7 @@ from backend.infrastructure.routes.prepare import router as prepare_router
 from backend.infrastructure.routes.webhooks import router as webhooks_router
 from backend.infrastructure.routes.enterprise import router as enterprise_router
 from backend.infrastructure.routes.gis import router as gis_router
+from backend.infrastructure.routes.blocks import router as blocks_router
 from backend.infrastructure.audit_routes import audit_bp as audit_router
 
 app.include_router(health_router)
@@ -212,6 +213,7 @@ app.include_router(prepare_router)
 app.include_router(webhooks_router)
 app.include_router(enterprise_router)
 app.include_router(gis_router, prefix="/api/v1")
+app.include_router(blocks_router)
 app.include_router(audit_router, prefix="/api", tags=["Audit"])
 
 # --- Exposição de serviços para compatibilidade com testes existentes ---

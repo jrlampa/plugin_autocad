@@ -15,8 +15,8 @@
 | 4 | `cloudrun.tf` sem `revision_name` hardcoded | ✅ Feito | DevOps |
 | 5 | CORS configurável via `SISRUA_CORS_ORIGINS` (Cloud Run) | ✅ Feito | Dev |
 | 6 | CI/CD deploy automático para Cloud Run em push `main` | ✅ Feito | DevOps |
-| 7 | 935 backend tests · 100% cobertura | ✅ Feito | QA |
-| 8 | 362 frontend tests · 99.35% cobertura | ✅ Feito | QA |
+| 7 | 983 backend tests · 100% cobertura | ✅ Feito | QA |
+| 8 | 395 frontend tests · 99.35% cobertura | ✅ Feito | QA |
 | 9 | Backend embarcado: `standalone.py` + PyInstaller | ✅ Pronto | Dev |
 | 10 | IPC Named Pipe (Windows) handshake C# ↔ Python | ✅ Pronto | Dev |
 | 11 | Build do frontend React (`npm run build`) sem erros | ✅ Pronto | Dev |
@@ -66,7 +66,7 @@ Plugin C# leve → HTTPS → Cloud Run (sisrua-backend)
 ## 🗺️ Fases Pós-Alpha
 
 ### v0.4.0 — Beta Fechado (primeiros 5 projetistas)
-- [ ] Onboarding guiado dentro do AutoCAD (wizard de primeira instalação)
+- [x] Onboarding guiado dentro do AutoCAD (wizard de primeira instalação) — `OnboardingWizard.jsx` 4 etapas
 - [x] Exportação DXF headless via `ezdxf` (sem AutoCAD aberto) — `export_features_to_dxf()`
 - [x] Curvas de nível SRTM na layer `SISRUA_TOPO` — `add_contours_to_dxf()` + `export_project_with_topo()`
 - [ ] Suporte a importação de DXF/DWG existente (retrocompatibilidade)
@@ -75,7 +75,7 @@ Plugin C# leve → HTTPS → Cloud Run (sisrua-backend)
 - [ ] App de campo PWA offline (`sisDRONE` integrado)
 - [ ] Drag & drop GeoJSON de campo → CAD
 - [x] XData BIM-LITE completo: "uma rua sabe que é uma rua" — `_build_bim_xdata()` com class/highway/name/width/elevation/slope/layer
-- [ ] Blocos CAD completos: postes, medidores, caixas de passagem, transformadores
+- [x] Blocos CAD completos: postes, medidores, caixas de passagem, transformadores — `blocks.py` + `define_electrical_blocks()`
 
 ### v1.0.0 — Release Público
 - [ ] Integração `sisCQT`: cálculo de queda de tensão MT/BT (normativa Light)

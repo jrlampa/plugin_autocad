@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.2] - 2026-02-25
+## [0.3.3] - 2026-02-26
+
+### Added
+- **Biblioteca de blocos CAD** (`backend/domain/blocks.py`): catálogo de 16 blocos de infraestrutura elétrica de distribuição MT/BT conforme normas brasileiras (Light/Enel). Inclui postes (concreto BF/TF/MT, madeira, metálico), transformadores (aéreo MF/TF, cabina), medidores (caixa UC, coletivo), chaves (faca MT, seccionadora, religadora/recloser), caixas de passagem (BT, MT) e proteção (para-raios ZnO, aterramento). Cada bloco é um `BlocoDefinicao` frozen dataclass com metadados BIM-LITE serializáveis (`to_dict`). Filtros disponíveis por `TipoBloco` e `TensaoBloco`.
+- **Definições DXF de blocos elétricos** (`define_electrical_blocks(doc)` em `dxf_export.py`): função headless que cria 16 definições de bloco 2D no documento ezdxf. Símbolos técnicos padronizados (círculo + cruz para postes BF, losango para chaves, triângulo para para-raios, símbolo IEEE para aterramento, etc.). Função idempotente — não redefine blocos já existentes.
+- **Endpoint REST de blocos** (`backend/infrastructure/routes/blocks.py`): `GET /api/v1/blocks` com filtros `tipo` e `tensao`, `GET /api/v1/blocks/names` (lista de nomes para autocomplete), `GET /api/v1/blocks/{nome}` (metadados de bloco específico). 422 para filtros inválidos, 404 para bloco inexistente.
+- **Frontend: `OnboardingWizard`** (`src/frontend/src/components/OnboardingWizard.jsx`): assistente de primeira utilização em 4 etapas — boas-vindas com visão geral, coordenadas de referência (WGS84 com validação), modo de operação (Cloud Run LT / Backend Local Full) e confirmação com resumo. Exporta `_parseCoordsInput`, `isOnboardingDone` e `resetOnboarding` como utilitários testáveis. Persistência via `localStorage` (flag `sisrua_onboarding_done`). Acessibilidade: `role="dialog"`, `aria-modal`, `aria-label`, `role="alert"`.
+- **Frontend: Medidor e Transformador no Sidebar** (`src/frontend/src/components/Sidebar.jsx`): adicionados `MEDIDOR_CAIXA` (ícone Gauge, cor sky-400, desc "Medição BT") e `TRAFO_AEREO_TF` (ícone Cpu, cor violet-400, desc "Transformador MT/BT") como ferramentas arrastáveis — completa a paleta de infraestrutura elétrica BT/MT.
+- **Frontend: `api.listBlocks` e `api.getBlock`** (`src/frontend/src/api.js`): métodos REST para consultar o catálogo de blocos com filtros opcionais.
+- **Tests: `test_blocks_library.py`** (48 testes): cobertura completa de `blocks.py` (enums, BlocoDefinicao, listar_blocos, obter_bloco, nomes_disponiveis), `define_electrical_blocks` (idempotência, geometria por bloco, APPID SISRUA) e endpoints REST (`/api/v1/blocks`, `/api/v1/blocks/names`, `/api/v1/blocks/{nome}`).
+- **Tests: `OnboardingWizard.test.jsx`** (33 testes): `_parseCoordsInput` (10 casos), `isOnboardingDone`/`resetOnboarding` (3), navegação do wizard etapa 1→4 (20), `onComplete` com config completo, `localStorage`, acessibilidade ARIA.
+
+### Fixed
+- **`setupTests.js`**: mocks de `api.listBlocks` e `api.getBlock` adicionados para evitar falhas nos testes que importam `api`.
+
+
 
 ### Added
 - **BIM-LITE XData completo** (`_build_bim_xdata`): cada entidade CAD agora armazena em XDATA todos os campos semânticos do esquema BIM-LITE — `sisrua:class` (street/block/point/polyline), `sisrua:highway`, `sisrua:name`, `sisrua:width_m`, `sisrua:elevation`, `sisrua:slope`, `sisrua:layer`. Implementa o requisito "Half-way BIM: uma rua sabe que é uma rua".
