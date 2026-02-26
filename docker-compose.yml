@@ -1,15 +1,19 @@
 services:
   backend:
     build:
-      context: .
-      dockerfile: src/backend/Dockerfile
+      context: ./src/backend
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:
-      - ./src/backend:/app/backend
+      - ./src/backend:/app
+      - backend_logs:/app/logs
+      - backend_cache:/app/cache
     environment:
       - PYTHONUNBUFFERED=1
-      - SISRUA_AUTH_TOKEN=${SISRUA_AUTH_TOKEN:-test-token}
+      # SISRUA_AUTH_TOKEN: se vazio, o backend gera um UUID aleatório na inicialização (seguro).
+      # Em produção, defina explicitamente via arquivo .env para IPC entre plugin e backend.
+      - SISRUA_AUTH_TOKEN=${SISRUA_AUTH_TOKEN:-}
       - SENTRY_DSN=${SENTRY_DSN:-}
       - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
       - OPENTOPOGRAPHY_API_KEY=${OPENTOPOGRAPHY_API_KEY:-}
@@ -20,16 +24,18 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 20s
     restart: unless-stopped
     depends_on:
       redis:
         condition: service_healthy
 
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -51,3 +57,8 @@ services:
       - VITE_API_URL=/api
       - VITE_SENTRY_DSN=${VITE_SENTRY_DSN:-}
     restart: unless-stopped
+
+volumes:
+  backend_logs:
+  backend_cache:
+  redis_data:

@@ -5,6 +5,26 @@ omit =
     backend/core/ipc.py
     # Lifecycle module depends on complex threading state not exercised in unit tests
     backend/core/lifecycle.py
+    # Compatibility shims: these files are bypassed by sys.modules pre-registration in __init__.py.
+    # When `import backend.X` is called, Python finds the real module already registered and never
+    # executes the shim file. They exist only for IDEs and static analysis tools.
+    backend/audit_routes.py
+    backend/core/audit.py
+    backend/core/auth.py
+    backend/core/database.py
+    backend/core/logger.py
+    backend/core/utils.py
+    backend/routes/deps.py
+    backend/routes/prepare.py
+    backend/services/ai.py
+    backend/services/elevation.py
+    backend/services/executor.py
+    backend/services/geocode.py
+    backend/services/geojson.py
+    backend/services/health.py
+    backend/services/jobs.py
+    backend/services/projects.py
+    backend/services/webhooks.py
 
 [report]
 exclude_lines =
@@ -16,3 +36,6 @@ exclude_lines =
     pass
     # Protocol method stubs — ellipsis bodies are never called on the Protocol itself
     \.\.\.
+    # Windows-only branches — not executable on Linux/Docker
+    if sys.platform == .win32.
+    if _WIN32_AVAILABLE

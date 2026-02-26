@@ -8,8 +8,10 @@ SESSION_DURATION = 3600  # 1 hora
 AUTH_HEADER_NAME = "X-SisRua-Token"
 
 def _get_master_token() -> str:
-    """Lê o master token da configuração centralizada."""
-    return config.sisrua_auth_token
+    """Lê o master token diretamente de os.environ para suportar reconfiguração em testes.
+    Retorna string vazia se SISRUA_AUTH_TOKEN não estiver configurado."""
+    import os
+    return os.environ.get("SISRUA_AUTH_TOKEN", "")
 
 
 def is_valid_session(token: str) -> bool:

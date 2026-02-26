@@ -1,4 +1,5 @@
 from typing import Optional, Dict, Any
+import os
 from groq import Groq
 from backend.shared.config import config
 from backend.shared.logger import get_logger
@@ -9,7 +10,7 @@ class AiService:
     """Service to interact with Groq AI API."""
     
     def __init__(self):
-        self.api_key = config.groq_api_key
+        self.api_key = os.environ.get("GROQ_API_KEY") or config.groq_api_key
         if not self.api_key:
             # BIM-LITE: Use single-time logging to avoid spamming while in standalone mode.
             if not getattr(AiService, "_notified_missing_key", False):

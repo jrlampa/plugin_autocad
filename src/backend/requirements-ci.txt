@@ -12,4 +12,8 @@ structlog
 sentry-sdk[fastapi]
 ezdxf
 scikit-image
+fastkml
+pydantic-settings
+httpx
+anyio
 

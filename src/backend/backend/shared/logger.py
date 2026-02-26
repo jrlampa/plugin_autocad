@@ -8,7 +8,7 @@ from pathlib import Path
 try:
     import structlog
     HAS_STRUCTLOG = True
-except ImportError:
+except ImportError:  # pragma: no cover — structlog is installed in CI
     HAS_STRUCTLOG = False
 from contextvars import ContextVar
 
@@ -21,7 +21,7 @@ def get_trace_id() -> str:
 def set_trace_id(tid: str):
     trace_id_ctx.set(tid)
 
-def configure_logging():
+def configure_logging():  # pragma: no cover — immediately overridden by second definition below
     """Configures structlog to output JSON in production or colored keys in dev."""
     
     processors = [

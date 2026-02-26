@@ -30,10 +30,10 @@ export function useFileProcessing() {
             console.log('KML content received from C# host. Offloading to backend...');
             try {
               const res = await api.convertKml(message.data.content);
-              if (res && res.type === 'FeatureCollection') {
+              if (res && res.type === 'FeatureCollection' && res.features && res.features.length > 0) {
                 setPreviewGeoJson(res);
               } else {
-                showError('Falha na conversão do KML pelo backend.');
+                showError('Conversão KMZ/KML falhou: nenhuma feição encontrada.');
               }
             } catch (err) {
               showError(`Erro ao processar KML no backend: ${err.message}`);
@@ -86,10 +86,10 @@ export function useFileProcessing() {
           if (isKml) {
             console.log('KML file dropped in browser. Offloading to backend...');
             const res = await api.convertKml(content);
-            if (res && res.type === 'FeatureCollection') {
+            if (res && res.type === 'FeatureCollection' && res.features && res.features.length > 0) {
               setPreviewGeoJson(res);
             } else {
-              showError('Falha na conversão do KML pelo backend.');
+              showError('Conversão KMZ/KML falhou: nenhuma feição encontrada.');
             }
           } else {
             // Assume GeoJSON

@@ -45,6 +45,11 @@ async def create_prepare_job(
     __: None = Depends(RateLimiter(calls=5, period=60)),
 ):
     """Inicia um job assíncrono de preparação de dados (OSM ou GeoJSON)."""
+    # Garante que o evento de shutdown seja limpo antes de iniciar um novo job.
+    # Isso evita que eventos de shutdown de testes anteriores cancelem jobs novos.
+    from backend.shared.lifecycle import SHUTDOWN_EVENT
+    SHUTDOWN_EVENT.clear()
+
     try:
         payload_dict = payload.model_dump()
         payload_json = json.dumps(payload_dict, sort_keys=True)

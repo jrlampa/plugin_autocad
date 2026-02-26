@@ -201,4 +201,26 @@ export const api = {
       return response.data;
     });
   },
+
+  /**
+   * Blocos CAD: Lista os blocos de infraestrutura elétrica disponíveis.
+   * @param {{ tipo?: string, tensao?: string }} [filtros] - Filtros opcionais
+   * @returns {{ blocos: Array, total: number }}
+   */
+  listBlocks: async (filtros = {}) => {
+    const params = {};
+    if (filtros.tipo) params.tipo = filtros.tipo;
+    if (filtros.tensao) params.tensao = filtros.tensao;
+    const response = await axios.get(`${API_BASE}/blocks`, { params });
+    return response.data;
+  },
+
+  /**
+   * Blocos CAD: Retorna metadados de um bloco específico.
+   * @param {string} nome - Nome do bloco (ex.: POSTE_CONCRETO_BF)
+   */
+  getBlock: async (nome) => {
+    const response = await axios.get(`${API_BASE}/blocks/${encodeURIComponent(nome)}`);
+    return response.data;
+  },
 };

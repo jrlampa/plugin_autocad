@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lightbulb, TreePine, Spline, CheckCircle2, Zap, Loader2 } from 'lucide-react';
+import { Lightbulb, TreePine, Spline, CheckCircle2, Zap, Loader2, Gauge, Cpu } from 'lucide-react';
 
 export default function Sidebar({
   mapLogic,
@@ -30,6 +30,20 @@ export default function Sidebar({
         type="ARVORE"
         onDragStart={mapLogic.handleDragStart}
         description="Paisagismo"
+      />
+      <DraggableTool
+        icon={<Gauge size={24} className="text-sky-400 fill-sky-400/20" />}
+        label="Medidor"
+        type="MEDIDOR_CAIXA"
+        onDragStart={mapLogic.handleDragStart}
+        description="Medição BT"
+      />
+      <DraggableTool
+        icon={<Cpu size={24} className="text-violet-400 fill-violet-400/20" />}
+        label="Trafo"
+        type="TRAFO_AEREO_TF"
+        onDragStart={mapLogic.handleDragStart}
+        description="Transformador MT/BT"
       />
 
       <div className="w-10 border-t border-white/20 my-1"></div>

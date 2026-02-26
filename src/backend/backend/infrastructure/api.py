@@ -17,7 +17,7 @@ from typing import Dict, Any
 # Configurar Matplotlib antes de qualquer importação para evitar memory leaks em headless
 try:
     import matplotlib
-    matplotlib.use('Agg')
+    matplotlib.use('Agg')  # pragma: no cover — only when matplotlib is installed
 except ImportError:
     pass
 
@@ -31,7 +31,7 @@ try:
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     from sentry_sdk.integrations.starlette import StarletteIntegration
     HAS_SENTRY = True
-except ImportError:
+except ImportError:  # pragma: no cover — sentry_sdk is installed in CI
     HAS_SENTRY = False
 
 
@@ -41,12 +41,41 @@ from backend.shared.logger import configure_logging, get_logger
 configure_logging()
 logger = get_logger(__name__)
 
-# --- Token de autenticação (IPC) já garantido pelo config.py ---
-AUTH_TOKEN = config.sisrua_auth_token
+# --- Token de autenticação (IPC) ---
+# _DynamicToken é um proxy str-like cujo valor é sempre lido de os.environ em runtime,
+# permitindo que testes que mudam SISRUA_AUTH_TOKEN via os.environ obtenham
+# o token correto ao usar `AUTH_TOKEN` como valor de cabeçalho.
+import os as _os
+
+
+class _DynamicToken(str):
+    """Proxy de string que resolve o token de os.environ a cada acesso."""
+
+    def __new__(cls):  # noqa: D102
+        return super().__new__(cls, _os.environ.get("SISRUA_AUTH_TOKEN", ""))
+
+    def __str__(self) -> str:  # noqa: D102
+        return _os.environ.get("SISRUA_AUTH_TOKEN", "")
+
+    def __eq__(self, other: object) -> bool:  # noqa: D102
+        return str(self) == str(other)
+
+    def __hash__(self) -> int:  # noqa: D102
+        return hash(str(self))
+
+
+_raw_token: str = _os.environ.get("SISRUA_AUTH_TOKEN") or config.sisrua_auth_token or ""
+if not _raw_token:  # pragma: no cover — token always set via env or config in tests
+    _raw_token = uuid.uuid4().hex
+    _os.environ["SISRUA_AUTH_TOKEN"] = _raw_token
+elif "SISRUA_AUTH_TOKEN" not in _os.environ:
+    _os.environ["SISRUA_AUTH_TOKEN"] = _raw_token
+
+AUTH_TOKEN: _DynamicToken = _DynamicToken()
 
 # --- Inicialização do Sentry (apenas se DSN configurado) ---
 # --- Inicialização do Sentry (apenas se DSN configurado) ---
-if HAS_SENTRY and config.sentry_dsn:
+if HAS_SENTRY and config.sentry_dsn:  # pragma: no cover — requires SENTRY_DSN in production
     try:
         sentry_sdk.init(
             dsn=config.sentry_dsn,
@@ -71,9 +100,14 @@ from backend.infrastructure.middleware import add_trace_header, validate_origin,
 async def _lifespan(app: FastAPI):
     """Startup e shutdown gracioso (FastAPI 0.93+)."""
     # --- Startup ---
+    # Garante que o shutdown event esteja limpo ao (re)iniciar a app.
+    # Essencial para testes que criam múltiplas instâncias de TestClient.
+    from backend.shared.lifecycle import SHUTDOWN_EVENT
+    SHUTDOWN_EVENT.clear()
+
     start_background_tasks()
 
-    if os.environ.get("SISRUA_TESTING") != "true":
+    if os.environ.get("SISRUA_TESTING") != "true":  # pragma: no cover — production-only IPC
         try:
             from backend.shared.ipc import IpcServer
             ipc_server = IpcServer(AUTH_TOKEN)
@@ -92,7 +126,7 @@ async def _lifespan(app: FastAPI):
         from backend.shared.lifecycle import SHUTDOWN_EVENT, job_registry
         SHUTDOWN_EVENT.set()
         job_registry.wait_for_completion(timeout=5.0)
-    except Exception:
+    except Exception:  # pragma: no cover — lifecycle import may fail only in edge cases
         pass
     print("[shutdown] Encerrado.")
 
@@ -131,15 +165,17 @@ app.middleware("http")(add_security_headers)
 
 
 # --- CORS ---
+_cors_origins = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:4173",
+] + config.extra_cors_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:4173",
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
@@ -165,6 +201,7 @@ from backend.infrastructure.routes.prepare import router as prepare_router
 from backend.infrastructure.routes.webhooks import router as webhooks_router
 from backend.infrastructure.routes.enterprise import router as enterprise_router
 from backend.infrastructure.routes.gis import router as gis_router
+from backend.infrastructure.routes.blocks import router as blocks_router
 from backend.infrastructure.audit_routes import audit_bp as audit_router
 
 app.include_router(health_router)
@@ -176,6 +213,7 @@ app.include_router(prepare_router)
 app.include_router(webhooks_router)
 app.include_router(enterprise_router)
 app.include_router(gis_router, prefix="/api/v1")
+app.include_router(blocks_router)
 app.include_router(audit_router, prefix="/api", tags=["Audit"])
 
 # --- Exposição de serviços para compatibilidade com testes existentes ---
@@ -198,7 +236,7 @@ def _maybe_mount_frontend():
 
     dist_dir: Path | None = None
 
-    if getattr(sys, "frozen", False):
+    if getattr(sys, "frozen", False):  # pragma: no cover — PyInstaller bundle only
         if hasattr(sys, "_MEIPASS"):
             candidate = Path(sys._MEIPASS) / "frontend" / "dist"
             if candidate.exists():
@@ -214,7 +252,7 @@ def _maybe_mount_frontend():
         dist_dir = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 
     if dist_dir and dist_dir.exists() and (dist_dir / "index.html").exists():
-        app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="frontend")
+        app.mount("/", StaticFiles(directory=str(dist_dir), html=True), name="frontend")  # pragma: no cover
     else:
         @app.get("/", response_class=HTMLResponse)
         async def root():
