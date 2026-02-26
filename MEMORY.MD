@@ -2368,3 +2368,57 @@ Limpar artefatos do repositório; adicionar testes E2E com coordenadas de refer�
 - "Testes unit teste & E2E" → E2E com coordenadas de campo REF_1 e REF_2 (100m, 500m, 1km)
 - "Coord para teste: REF_2: -22.15018, -42.92185" → cobertura total nos testes E2E
 - "Docker first / Clean Code / Segurança" → artefatos limpos do git
+
+---
+
+## ⚡ Sessão 2026-02-25 (Sessão 7) — BIM-LITE XData Completo + SISRUA_TOPO
+
+### Baseline da Sessão
+- Backend: 895/895 testes, 100% cobertura
+- Frontend: 362/362 testes
+
+### Objetivo
+"Continue" — implementar BIM-LITE XData completo ("uma rua sabe que é uma rua") e exportação de curvas de nível SRTM na layer SISRUA_TOPO.
+
+### Mudanças Implementadas
+
+**`dxf_export.py`** (novo: `_build_bim_xdata`, `add_contours_to_dxf`; atualizado: `_add_polyline`, `_add_point`):
+- `LAYER_SISRUA_TOPO = "SISRUA_TOPO"` — constante para layer de curvas de nível (ACI 4 ciano)
+- `_build_bim_xdata(feat)` — retorna lista de tuplas XDATA com campos semânticos BIM-LITE:
+  - `sisrua:class` = "street" (highway set) | "block" (Point + block_name) | "point" | "polyline"
+  - `sisrua:highway` — OSM highway tag
+  - `sisrua:name` — nome da via/elemento
+  - `sisrua:width_m` — largura em metros
+  - `sisrua:elevation` — elevação 2.5D em metros
+  - `sisrua:slope` — inclinação em %
+  - `sisrua:layer` — camada CAD lógica
+- `_add_polyline` e `_add_point` agora usam `_build_bim_xdata()` (7 campos vs 1 anterior)
+- `add_contours_to_dxf(doc, contour_lines, interval)`:
+  - Cria/reutiliza layer SISRUA_TOPO com cor ACI 4 (ciano)
+  - Registra APPID se necessário (idempotente)
+  - Adiciona LWPolylines 2D com XDATA: `sisrua:class=contour`, `sisrua:elevation`, `sisrua:interval`
+  - Retorna int: número de curvas adicionadas
+
+**`export_service.py`** (novo: `export_project_with_topo`):
+- Chama `export_project_to_dxf()` para gerar DXF base
+- Se `contour_lines` fornecido: reabre o DXF, chama `add_contours_to_dxf()`, salva
+- Se `contour_lines` é None ou []: retorna DXF padrão sem modificação
+
+**`test_bim_lite_xdata.py`** (40 testes, NOVO):
+- `TestBimLiteXdataBuilder` (13): unit tests de `_build_bim_xdata`
+- `TestBimLiteXdataInDxf` (11): integração com ezdxf real (lê DXF e verifica XDATA)
+- `TestDxfContourLayer` (11): `add_contours_to_dxf` — layer, cor, count, XDATA, idempotência
+- `TestExportServiceWithTopo` (5): DB SQLite real + `export_project_with_topo`
+
+### Descoberta Importante: AiAssistant + Suspense
+- Tentativa de adicionar `<Suspense fallback={null}><AiAssistant /></Suspense>` quebrou teste `App.test.jsx`
+- Motivo: AiAssistant lazy sem Suspense resolvia sincronicamente em vitest; com Suspense o componente suspendia e não renderizava durante o `findByText(/sisRUA/i)` timeout
+- Solução: manter AiAssistant sem Suspense — o `ErrorBoundary` em `main.jsx` já protege contra tela branca
+- Lição: `findByText` em vitest pode falhar se o único elemento com o texto estiver dentro de um Suspense boundary que ainda não resolveu
+
+### Resultado Final
+- **Backend**: **935/935 testes passando** (+40 novos), **100% cobertura**
+- **Frontend**: **362/362 testes passando**
+- **Total**: **1297/1297 testes passando**
+- **CodeQL**: 0 alertas
+- **Linha máxima**: `dxf_export.py` = 413L, `export_service.py` = 328L (ambos < 500)

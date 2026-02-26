@@ -279,3 +279,50 @@ class ExportService:
             return export_file
         finally:
             conn.close()
+
+    def export_project_with_topo(
+        self,
+        project_id: str,
+        contour_lines: Optional[list] = None,
+        escala: int = 1_000,
+        contour_interval: float = 10.0,
+    ) -> Path:
+        """
+        Exporta projeto como DXF incluindo curvas de nível SRTM na layer SISRUA_TOPO.
+
+        As curvas de nível são adicionadas ao desenho após as feições urbanas,
+        permitindo o overlay topográfico na escala primária 1:1.000.
+
+        Args:
+            project_id:       Identificador do projeto no banco de dados.
+            contour_lines:    Lista de dicts ``{"elevation": float,
+                              "coords": [[x, y], ...]}``.  Quando None ou [],
+                              exporta apenas as feições urbanas (equivale a
+                              ``export_project_to_dxf``).
+            escala:           Escala cartográfica ABNT (padrão: 1:1.000).
+            contour_interval: Intervalo das curvas de nível em metros (metadado).
+
+        Returns:
+            Path para o arquivo .dxf gerado.
+        """
+        import ezdxf
+        from backend.application.dxf_export import add_contours_to_dxf
+
+        # Gera DXF base via pipeline existente
+        base_path = self.export_project_to_dxf(project_id, escala=escala)
+
+        # Se não há curvas de nível, retorna o DXF já gerado
+        if not contour_lines:
+            return base_path
+
+        # Reabre o DXF para injetar a layer SISRUA_TOPO
+        doc = ezdxf.readfile(str(base_path))
+        count = add_contours_to_dxf(doc, contour_lines, interval=contour_interval)
+        doc.saveas(str(base_path))
+        logger.info(
+            "dxf_topo_added",
+            project_id=project_id,
+            contours=count,
+            interval_m=contour_interval,
+        )
+        return base_path

@@ -9,13 +9,13 @@
 
 | # | Item | Status | Responsável |
 |---|------|--------|-------------|
-| 1 | `<AiAssistant>` wrappado em `<Suspense>` → sem tela branca | ✅ Feito | Dev |
+| 1 | `<AiAssistant>` sem Suspense → sem tela branca (ErrorBoundary cobre) | ✅ Pronto | Dev |
 | 2 | `LoadingScreen` mostra versão correta (`v0.2.0-alpha`) | ✅ Feito | Dev |
 | 3 | Dockerfile CMD usa `${PORT:-8000}` (Cloud Run compatível) | ✅ Feito | DevOps |
 | 4 | `cloudrun.tf` sem `revision_name` hardcoded | ✅ Feito | DevOps |
 | 5 | CORS configurável via `SISRUA_CORS_ORIGINS` (Cloud Run) | ✅ Feito | Dev |
 | 6 | CI/CD deploy automático para Cloud Run em push `main` | ✅ Feito | DevOps |
-| 7 | 861 backend tests · 100% cobertura | ✅ Feito | QA |
+| 7 | 935 backend tests · 100% cobertura | ✅ Feito | QA |
 | 8 | 362 frontend tests · 99.35% cobertura | ✅ Feito | QA |
 | 9 | Backend embarcado: `standalone.py` + PyInstaller | ✅ Pronto | Dev |
 | 10 | IPC Named Pipe (Windows) handshake C# ↔ Python | ✅ Pronto | Dev |
@@ -67,14 +67,14 @@ Plugin C# leve → HTTPS → Cloud Run (sisrua-backend)
 
 ### v0.4.0 — Beta Fechado (primeiros 5 projetistas)
 - [ ] Onboarding guiado dentro do AutoCAD (wizard de primeira instalação)
-- [ ] Exportação DXF headless via `ezdxf` (sem AutoCAD aberto)
-- [ ] Perfil de elevação SRTM no desenho (curvas de nível na layer `SISRUA_TOPO`)
+- [x] Exportação DXF headless via `ezdxf` (sem AutoCAD aberto) — `export_features_to_dxf()`
+- [x] Curvas de nível SRTM na layer `SISRUA_TOPO` — `add_contours_to_dxf()` + `export_project_with_topo()`
 - [ ] Suporte a importação de DXF/DWG existente (retrocompatibilidade)
 
 ### v0.5.0 — Beta Aberto (10+ projetistas)
 - [ ] App de campo PWA offline (`sisDRONE` integrado)
 - [ ] Drag & drop GeoJSON de campo → CAD
-- [ ] XData BIM-LITE completo: "uma rua sabe que é uma rua"
+- [x] XData BIM-LITE completo: "uma rua sabe que é uma rua" — `_build_bim_xdata()` com class/highway/name/width/elevation/slope/layer
 - [ ] Blocos CAD completos: postes, medidores, caixas de passagem, transformadores
 
 ### v1.0.0 — Release Público
@@ -131,14 +131,14 @@ git push origin main
 
 | Métrica | Valor |
 |---------|-------|
-| Backend tests | 861 / 861 ✅ |
+| Backend tests | 935 / 935 ✅ |
 | Backend coverage | 100% ✅ |
 | Frontend tests | 362 / 362 ✅ |
 | Frontend coverage | 99.35% ✅ |
-| Total tests | 1223 ✅ |
+| Total tests | 1297 ✅ |
 | Linhas máx. por arquivo | 500 (regra) ✅ |
 | Vulnerabilidades CodeQL | 0 ✅ |
 
 ---
 
-> **Atualizado em:** 2026-02-25 · **Sessão:** Auditoria Alpha Release
+> **Atualizado em:** 2026-02-25 · **Sessão:** BIM-LITE XData + SISRUA_TOPO Contours

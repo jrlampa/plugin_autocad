@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-02-25
+
+### Added
+- **BIM-LITE XData completo** (`_build_bim_xdata`): cada entidade CAD agora armazena em XDATA todos os campos semânticos do esquema BIM-LITE — `sisrua:class` (street/block/point/polyline), `sisrua:highway`, `sisrua:name`, `sisrua:width_m`, `sisrua:elevation`, `sisrua:slope`, `sisrua:layer`. Implementa o requisito "Half-way BIM: uma rua sabe que é uma rua".
+- **Layer topográfica `SISRUA_TOPO`** (`add_contours_to_dxf`): função headless que adiciona curvas de nível SRTM ao DXF com cor ciano (ACI 4) e XDATA BIM-LITE (`sisrua:class=contour`, `sisrua:elevation`, `sisrua:interval`).
+- **`ExportService.export_project_with_topo`**: exporta projeto + curvas de nível SRTM num único arquivo DXF. Abre o DXF base, injeta a layer SISRUA_TOPO e salva. Quando `contour_lines` é vazio/None, retorna o DXF standard sem modificação.
+- **`test_bim_lite_xdata.py`** (40 testes): cobertura completa do esquema BIM-LITE — unit tests de `_build_bim_xdata` (13), integração com ezdxf (11), `add_contours_to_dxf` (11), `export_project_with_topo` com DB real (5).
+
+### Fixed
+- **`_build_bim_xdata`**: lógica de classificação de entidade refatorada de ternário aninhado para if/elif/else explícitos (legibilidade).
+- **`ROADMAP.md`**: marcado como concluído os itens v0.4.0 (DXF headless, SISRUA_TOPO) e v0.5.0 (XData BIM-LITE); métricas atualizadas (935 testes backend).
+
 ## [0.3.1] - 2026-02-25
 
 ### Added

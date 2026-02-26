@@ -30,7 +30,14 @@ logger = get_logger(__name__)
 
 # Constantes de camadas sisRUA (conformes ao padrão CAD interno)
 APPID_SISRUA = "SISRUA"
-XDATA_ELEVATION_KEY = 1000  # Group code para string em XDATA
+XDATA_ELEVATION_KEY = 1000  # Group code para string em XDATA (ezdxf DXF group code)
+
+# ---------------------------------------------------------------------------
+# BIM-LITE XDATA schema — "uma rua sabe que é uma rua"
+# Todos os campos são strings (group code 1000) para máxima compatibilidade.
+# Prefixo: "sisrua:<chave>=<valor>"
+# ---------------------------------------------------------------------------
+LAYER_SISRUA_TOPO = "SISRUA_TOPO"  # Curvas de nível SRTM
 
 # Mapeamento camada → classe de tensão para geração automática de buffers PRODIST
 _LAYER_CLASSE_MAP: dict[str, TensaoClasse] = {
@@ -261,8 +268,44 @@ def _ensure_layers(doc, features: List[CadFeature]) -> None:
             existing.add(layer)
 
 
+def _build_bim_xdata(feat: CadFeature) -> list:
+    """
+    Constrói a lista de tuplas XDATA BIM-LITE para uma feature.
+
+    Esquema sisRUA (Half-way BIM):
+      sisrua:class    — classe da entidade (street, point, block)
+      sisrua:highway  — tag highway do OSM (primary, secondary, residential…)
+      sisrua:name     — nome da via ou elemento
+      sisrua:width_m  — largura estimada em metros
+      sisrua:elevation — elevação 2.5D em metros
+      sisrua:slope    — inclinação em percentual
+      sisrua:layer    — camada CAD lógica
+    """
+    xdata = []
+    if feat.feature_type == "Point" and feat.block_name:
+        entity_class = "block"
+    elif feat.highway:
+        entity_class = "street"
+    else:
+        entity_class = feat.feature_type.lower()
+    xdata.append((XDATA_ELEVATION_KEY, f"sisrua:class={entity_class}"))
+    if feat.highway:
+        xdata.append((XDATA_ELEVATION_KEY, f"sisrua:highway={feat.highway}"))
+    if feat.name:
+        xdata.append((XDATA_ELEVATION_KEY, f"sisrua:name={feat.name}"))
+    if feat.width_m is not None:
+        xdata.append((XDATA_ELEVATION_KEY, f"sisrua:width_m={feat.width_m:.2f}"))
+    if feat.elevation is not None:
+        xdata.append((XDATA_ELEVATION_KEY, f"sisrua:elevation={feat.elevation:.4f}m"))
+    if feat.slope is not None:
+        xdata.append((XDATA_ELEVATION_KEY, f"sisrua:slope={feat.slope:.2f}pct"))
+    if feat.layer:
+        xdata.append((XDATA_ELEVATION_KEY, f"sisrua:layer={feat.layer}"))
+    return xdata
+
+
 def _add_polyline(msp, feat: CadFeature) -> None:
-    """Adiciona uma polilinha 2D (Z=0) com elevação como XDATA (2.5D)."""
+    """Adiciona uma polilinha 2D (Z=0) com XDATA BIM-LITE completo (2.5D)."""
     coords = feat.coords_xy
     if not coords or len(coords) < 2:
         return
@@ -273,12 +316,10 @@ def _add_polyline(msp, feat: CadFeature) -> None:
 
     pline = msp.add_lwpolyline(points_2d, dxfattribs={"layer": layer})
 
-    # Elevação como XDATA (atributo não-gráfico — princípio 2.5D)
-    if feat.elevation is not None:
-        pline.set_xdata(
-            APPID_SISRUA,
-            [(XDATA_ELEVATION_KEY, f"sisrua:elevation={feat.elevation:.4f}m")],
-        )
+    # BIM-LITE: XDATA completo ("uma rua sabe que é uma rua")
+    xdata = _build_bim_xdata(feat)
+    if xdata:
+        pline.set_xdata(APPID_SISRUA, xdata)
 
     # Largura como propriedade constante da polilinha
     if feat.width_m is not None:
@@ -286,7 +327,7 @@ def _add_polyline(msp, feat: CadFeature) -> None:
 
 
 def _add_point(msp, feat: CadFeature) -> None:
-    """Adiciona um ponto de inserção (INSERT ou POINT) com elevação como XDATA."""
+    """Adiciona um ponto de inserção (INSERT ou POINT) com XDATA BIM-LITE completo."""
     ip = feat.insertion_point_xy
     if not ip or len(ip) < 2:
         return
@@ -307,16 +348,69 @@ def _add_point(msp, feat: CadFeature) -> None:
                 "zscale": feat.scale or 1.0,
             },
         )
-        if feat.elevation is not None:
-            insert.set_xdata(
-                APPID_SISRUA,
-                [(XDATA_ELEVATION_KEY, f"sisrua:elevation={feat.elevation:.4f}m")],
-            )
+        xdata = _build_bim_xdata(feat)
+        if xdata:
+            insert.set_xdata(APPID_SISRUA, xdata)
     else:
         # POINT simples quando não há bloco definido
         pt = msp.add_point((x, y, 0.0), dxfattribs={"layer": layer})
-        if feat.elevation is not None:
-            pt.set_xdata(
-                APPID_SISRUA,
-                [(XDATA_ELEVATION_KEY, f"sisrua:elevation={feat.elevation:.4f}m")],
+        xdata = _build_bim_xdata(feat)
+        if xdata:
+            pt.set_xdata(APPID_SISRUA, xdata)
+
+
+def add_contours_to_dxf(
+    doc,
+    contour_lines: list,
+    interval: float = 10.0,
+) -> int:
+    """
+    Adiciona curvas de nível SRTM ao documento DXF na layer SISRUA_TOPO.
+
+    Cria (ou reutiliza) a layer ``SISRUA_TOPO`` com cor ciano (ACI 4) e
+    desenha cada curva como uma LWPolyline 2D. A elevação de cada curva é
+    armazenada em XDATA BIM-LITE (``sisrua:class=contour``,
+    ``sisrua:elevation=<elev>m``).
+
+    Args:
+        doc:            Documento ezdxf já criado (R2010+).
+        contour_lines:  Lista de dicts ``{"elevation": float,
+                        "coords": [[x, y], ...]}``.
+                        ``coords`` devem estar em metros (CRS projetado).
+        interval:       Intervalo de curvas de nível em metros (apenas para
+                        metadados; não altera a geometria).
+
+    Returns:
+        Número de curvas de nível adicionadas ao desenho.
+    """
+    if not contour_lines:
+        return 0
+
+    # Registra APPID se ainda não existir (idempotente)
+    if APPID_SISRUA not in doc.appids:
+        doc.appids.new(APPID_SISRUA)  # pragma: no cover
+
+    # Cria layer SISRUA_TOPO com cor ciano (ACI 4) se ainda não existir
+    if LAYER_SISRUA_TOPO not in doc.layers:
+        doc.layers.new(LAYER_SISRUA_TOPO, dxfattribs={"color": 4})
+
+    msp = doc.modelspace()
+    count = 0
+    for line in contour_lines:
+        coords = line.get("coords") or []
+        elev = line.get("elevation")
+        if len(coords) < 2:
+            continue
+        points_2d = [(float(c[0]), float(c[1])) for c in coords]
+        pline = msp.add_lwpolyline(
+            points_2d, dxfattribs={"layer": LAYER_SISRUA_TOPO}
+        )
+        xdata = [(XDATA_ELEVATION_KEY, "sisrua:class=contour")]
+        if elev is not None:
+            xdata.append((XDATA_ELEVATION_KEY, f"sisrua:elevation={elev:.2f}m"))
+            xdata.append(
+                (XDATA_ELEVATION_KEY, f"sisrua:interval={interval:.1f}m")
             )
+        pline.set_xdata(APPID_SISRUA, xdata)
+        count += 1
+    return count
