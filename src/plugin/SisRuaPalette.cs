@@ -129,7 +129,7 @@ namespace sisRUA
                 string content = _controller.ProcessDroppedFile(file, out string action);
                 PostUiMessage(new { action = action, data = new { fileName = Path.GetFileName(file), content = content } });
             }
-            catch (Exception ex) { MessageBox.Show(ex.Message); }
+            catch (System.Exception ex) { MessageBox.Show(ex.Message); }
         }
 
         private async void InitializeWebViewAsync()
@@ -150,7 +150,7 @@ namespace sisRUA
 
                 _webView.Source = new Uri(SisRuaPlugin.BackendBaseUrl);
             }
-            catch (Exception ex) { MessageBox.Show(ex.Message); }
+            catch (System.Exception ex) { MessageBox.Show(ex.Message); }
         }
 
         [CommandMethod("SISRUAESCALA", CommandFlags.Session)]
@@ -160,7 +160,5 @@ namespace sisRUA
             var res = doc.Editor.GetDouble(new PromptDoubleOptions("\nEscala (1m -> X unidades):") { DefaultValue = SisRuaSettings.TryReadMetersToUnits() ?? 1.0 });
             if (res.Status == PromptStatus.OK) SisRuaSettings.TryWriteMetersToUnits(res.Value);
         }
-    }
-}
     }
 }
