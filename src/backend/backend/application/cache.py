@@ -16,7 +16,8 @@ class CacheService:
     def __init__(self):
         # Filesystem cache config
         base = Path(os.environ.get("LOCALAPPDATA") or Path.home())
-        self.file_cache_dir = base / "sisRUA" / "cache"
+        default_dir = base / "sisRUA" / "cache"
+        self.file_cache_dir = Path(os.environ.get("SISRUA_CACHE_DIR", default_dir))
         self.file_cache_dir.mkdir(parents=True, exist_ok=True)
 
         self.redis = None # Redis removed for local standalone plugin

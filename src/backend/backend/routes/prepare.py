@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from backend.core.auth import require_token
+from backend.shared.auth import require_token
 from backend.gis_core.osm import prepare_osm_compute
 from backend.gis_core.ibge import prepare_ibge_compute
 from backend.gis_core.inea import prepare_inea_compute

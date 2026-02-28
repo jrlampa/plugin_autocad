@@ -1,15 +1,16 @@
 services:
   backend:
     build:
-      context: .
-      dockerfile: src/backend/Dockerfile
+      context: ./src/backend
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:
-      - ./src/backend:/app/backend
+      - ./src/backend:/app
     environment:
       - PYTHONUNBUFFERED=1
       - SISRUA_AUTH_TOKEN=${SISRUA_AUTH_TOKEN:-test-token}
+      - SISRUA_CACHE_DIR=/app/cache
       - SENTRY_DSN=${SENTRY_DSN:-}
       - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
       - OPENTOPOGRAPHY_API_KEY=${OPENTOPOGRAPHY_API_KEY:-}

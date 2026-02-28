@@ -19,9 +19,9 @@ from typing import List, Optional, Callable, Any
 import requests
 from fastapi import HTTPException
 
-from backend.core.logger import get_logger
-from backend.core.utils import cache_key, sanitize_jsonable
-from backend.gis_core.crs import sirgas2000_utm_epsg
+from backend.shared.logger import get_logger
+from backend.shared.utils import cache_key, sanitize_jsonable
+from backend.domain.crs import sirgas2000_utm_epsg
 from backend.models import CadFeature
 
 logger = get_logger(__name__)

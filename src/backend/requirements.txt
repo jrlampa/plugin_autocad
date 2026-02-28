@@ -10,5 +10,6 @@ networkx
 sentry-sdk[fastapi]
 groq>=0.4.0
 structlog
-pywin32
 ezdxf
+pydantic-settings
+pydantic
