@@ -15,8 +15,18 @@ import backend.api
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setenv("SISRUA_AUTH_TOKEN", "robust-test-token")
-    # Reload api to pick up env var
+    monkeypatch.setenv("ENVIRONMENT", "test")
+    
+    # Reload modules to pick up env var in config
     import importlib
+    import backend.shared.config
+    import backend.shared.auth
+    import backend.infrastructure.api
+    import backend.api
+    
+    importlib.reload(backend.shared.config)
+    importlib.reload(backend.shared.auth)
+    importlib.reload(backend.infrastructure.api)
     importlib.reload(backend.api)
     
     app = backend.api.app
@@ -88,7 +98,7 @@ def test_elevation_endpoints(client, monkeypatch):
     mock_svc.get_elevation_profile.return_value = [10.0, 20.0, 15.0]
     
     # Patch the CLASS in the module where it is instantiated
-    monkeypatch.setattr("backend.services.elevation.ElevationService", lambda *a, **k: mock_svc)
+    monkeypatch.setattr("backend.application.elevation.ElevationService", lambda *a, **k: mock_svc)
     
     # Test Point
     r = client.post("/api/v1/tools/elevation/query", json={"latitude": -23.5, "longitude": -46.6})

@@ -300,7 +300,7 @@ class TestProdistApiEndpoints:
         from fastapi.testclient import TestClient
         import backend.api as _api
         # Reseta o dict de norma diretamente via import do módulo enterprise
-        from backend.routes import enterprise as ent
+        from backend.infrastructure.routes import enterprise as ent
         ent._norma_config.update({
             "ativa": "ABNT",
             "concessionaria": "",

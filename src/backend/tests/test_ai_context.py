@@ -9,7 +9,13 @@ class TestAiServiceContext:
     @pytest.fixture
     def mock_groq(self):
         with patch.dict(os.environ, {"GROQ_API_KEY": "mock-key"}):
-            with patch("backend.services.ai.Groq") as mock:
+            import importlib
+            import backend.shared.config
+            import backend.application.ai
+            importlib.reload(backend.shared.config)
+            importlib.reload(backend.application.ai)
+            
+            with patch("backend.application.ai.Groq") as mock:
                 client_instance = mock.return_value
                 client_instance.chat.completions.create.return_value.choices = [
                     MagicMock(message=MagicMock(content="Mock Response"))
@@ -19,7 +25,7 @@ class TestAiServiceContext:
     @pytest.fixture
     def mock_audit(self):
         # Patch the SOURCE because it is imported locally
-        with patch("backend.core.audit.get_audit_logger") as mock:
+        with patch("backend.shared.audit.get_audit_logger") as mock:
             logger_instance = mock.return_value
             logger_instance.list_logs.return_value = [
                 {

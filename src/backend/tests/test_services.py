@@ -7,7 +7,7 @@ from backend.application.elevation import ElevationService
 # --- Project Service Tests ---
 def test_project_service_get_not_found():
     # Mock DB connection
-    with patch('backend.services.projects.get_db_connection') as mock_db:
+    with patch('backend.application.projects.get_db_connection') as mock_db:
         mock_conn = MagicMock()
         mock_conn.execute.return_value.fetchone.return_value = None
         mock_db.return_value = mock_conn
@@ -16,7 +16,7 @@ def test_project_service_get_not_found():
         assert svc.get_project("p1") is None
 
 def test_project_service_get_success():
-    with patch('backend.services.projects.get_db_connection') as mock_db:
+    with patch('backend.application.projects.get_db_connection') as mock_db:
         mock_conn = MagicMock()
         mock_conn.execute.return_value.fetchone.return_value = ("p1", "Project 1", "EPSG:31983", 1, "2023-01-01")
         mock_db.return_value = mock_conn
@@ -27,7 +27,7 @@ def test_project_service_get_success():
         assert p["version"] == 1
 
 def test_project_service_update_conflict():
-    with patch('backend.services.projects.get_db_connection') as mock_db:
+    with patch('backend.application.projects.get_db_connection') as mock_db:
         mock_conn = MagicMock()
         # Mock cursor for UPDATE
         mock_cursor = MagicMock()
@@ -48,8 +48,8 @@ def test_project_service_update_conflict():
 
 # --- Health Service Tests ---
 def test_health_service_check():
-    with patch('backend.services.health.get_db_connection') as mock_db, \
-         patch('backend.services.health.cache_service') as mock_cache, \
+    with patch('backend.application.health.get_db_connection') as mock_db, \
+         patch('backend.application.health.cache_service') as mock_cache, \
          patch('pyproj.Proj', return_value=MagicMock()):
         
         mock_conn = MagicMock()
@@ -266,14 +266,14 @@ def test_export_service_dxf_creates_valid_file():
 
 def test_osm_way_row_module_level():
     """_OsmWayRow deve ser uma classe de módulo (não definida inline em loop)."""
-    from backend.domain.osm import _OsmWayRow
+    from backend.domain.osm_parser import OsmWayRow
 
     way = {"tags": {"highway": "residential", "name": "Rua Teste"}}
 
     class _FakeGeom:
         pass
 
-    row = _OsmWayRow(way, _FakeGeom())
+    row = OsmWayRow(way, _FakeGeom())
     assert row.highway == "residential"
     assert row.name == "Rua Teste"
     assert row._asdict() == {"highway": "residential", "name": "Rua Teste"}
@@ -281,10 +281,10 @@ def test_osm_way_row_module_level():
 
 def test_osm_node_row_module_level():
     """_OsmNodeRow deve ser uma classe de módulo com atributos corretos."""
-    from backend.domain.osm import _OsmNodeRow
+    from backend.domain.osm_parser import OsmNodeRow
 
     node = {"tags": {"power": "pole", "name": "Poste"}}
-    row = _OsmNodeRow(node, 714316.0, 7549084.0)
+    row = OsmNodeRow(node, 714316.0, 7549084.0)
 
     assert row.power == "pole"
     assert row.name == "Poste"
