@@ -13,4 +13,7 @@ sentry-sdk[fastapi]
 ezdxf
 scikit-image
 pydantic-settings
+fastkml
+pytest-asyncio
+pytest-mock
 

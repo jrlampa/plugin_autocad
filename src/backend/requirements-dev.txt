@@ -2,5 +2,7 @@ pytest
 pytest-cov
 pytest-timeout
 pytest-html
+pytest-asyncio
+pytest-mock
 httpx
 faker
