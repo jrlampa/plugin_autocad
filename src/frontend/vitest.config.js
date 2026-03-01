@@ -13,9 +13,15 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'jsdom',
+    environmentOptions: {
+      jsdom: {
+        url: 'http://localhost:8000',
+      },
+    },
     setupFiles: ['./src/setupTests.js'],
     css: true,
     globals: true,
+    include: ['src/**/*.integration.test.{js,jsx,ts,tsx}', 'src/api.test.js'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**'],
     reporters: ['default', 'junit'],
     outputFile: {

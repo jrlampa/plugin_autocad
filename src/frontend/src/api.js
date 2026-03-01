@@ -16,16 +16,19 @@ export const setAuthToken = (token) => {
 // expired session tokens, causing 401 errors.
 // ============================================================================
 
-/* DISABLED - WebView2 handles authentication
+// WebView2 handles authentication in production, but integration tests (jsdom)
+// need a real header injection to talk to the backend.
 axios.interceptors.request.use((config) => {
-  const token = _sessionToken || _masterToken;
-  if (token) {
-    config.headers['X-SisRua-Token'] = token;
+  const isWebView2 = !!(window.chrome && window.chrome.webview);
+  if (!isWebView2) {
+    const token = _sessionToken || _masterToken;
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers['X-SisRua-Token'] = token;
+    }
   }
   return config;
 });
-*/
-
 
 axios.interceptors.response.use(
   (response) => response,
@@ -180,7 +183,7 @@ export const api = {
         const response = await axios.post(
           `${API_BASE}/tools/elevation/contours`,
           { min_lat: minLat, min_lon: minLon, max_lat: maxLat, max_lon: maxLon, interval },
-          { headers: { 'X-Trace-ID': context.traceId } },
+          { headers: { 'X-Trace-ID': context.traceId } }
         );
         return response.data;
       });
