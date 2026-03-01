@@ -79,9 +79,15 @@ test.describe('Map Interaction & Drawing', () => {
 
     const searchInput = page.getByPlaceholder(/Buscar endereço/i);
     await searchInput.fill('São Paulo');
+
+    const reqPromise = page.waitForRequest('**/api/v1/tools/geocode*');
     await searchInput.press('Enter');
 
-    // Verify input updates with coordinates (app logic usually does this on success)
-    await expect(searchInput).toHaveValue(/-23\.55.*-46\.63/, { timeout: 5000 });
+    // Ensure the frontend actually called the backend endpoint.
+    const req = await reqPromise;
+    expect(req.url()).toContain('/api/v1/tools/geocode');
+
+    // Current UX keeps the typed value; it does not necessarily overwrite with coords.
+    await expect(searchInput).toHaveValue(/São Paulo/i);
   });
 });

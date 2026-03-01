@@ -82,7 +82,7 @@ describe('AiAssistant — envio de mensagem', () => {
 
     const input = screen.getByPlaceholderText('Pergunte algo...');
     fireEvent.change(input, { target: { value: 'Quais ruas estão no projeto?' } });
-    fireEvent.click(screen.getByText('Env'));
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
 
     // Mensagem do usuário aparece imediatamente
     await waitFor(() => {
@@ -112,7 +112,7 @@ describe('AiAssistant — envio de mensagem', () => {
 
     const input = screen.getByPlaceholderText('Pergunte algo...');
     fireEvent.change(input, { target: { value: 'Olá IA' } });
-    fireEvent.click(screen.getByText('Env'));
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Resposta da IA para o projeto.')).toBeInTheDocument();
@@ -125,7 +125,7 @@ describe('AiAssistant — envio de mensagem', () => {
 
     const input = screen.getByPlaceholderText('Pergunte algo...');
     fireEvent.change(input, { target: { value: 'Mensagem de teste' } });
-    fireEvent.click(screen.getByText('Env'));
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
 
     await waitFor(() => {
       expect(input.value).toBe('');
@@ -144,7 +144,7 @@ describe('AiAssistant — guards de envio', () => {
 
     const input = screen.getByPlaceholderText('Pergunte algo...');
     expect(input.value).toBe('');
-    fireEvent.click(screen.getByText('Env'));
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
 
     expect(aiService.sendMessage).not.toHaveBeenCalled();
   });
@@ -155,7 +155,7 @@ describe('AiAssistant — guards de envio', () => {
 
     const input = screen.getByPlaceholderText('Pergunte algo...');
     fireEvent.change(input, { target: { value: '   ' } });
-    fireEvent.click(screen.getByText('Env'));
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
 
     expect(aiService.sendMessage).not.toHaveBeenCalled();
   });
@@ -169,7 +169,7 @@ describe('AiAssistant — guards de envio', () => {
 
     const input = screen.getByPlaceholderText('Pergunte algo...');
     fireEvent.change(input, { target: { value: 'Pergunta longa' } });
-    fireEvent.click(screen.getByText('Env'));
+    fireEvent.click(screen.getByRole('button', { name: /enviar/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Digitando...')).toBeInTheDocument();

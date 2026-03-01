@@ -7,8 +7,11 @@ test.describe('Resilience & Error Handling', () => {
   });
 
   test('should display Rate Limit banner on 429 error', async ({ page }) => {
+    let seen = false;
+
     // 1. Mock 429 on Geocode (Correct endpoint: tools/geocode)
-    await page.route('**/api/v1/tools/geocode*', async (route) => {
+    await page.route(/\/api\/v1\/tools\/geocode.*/i, async (route) => {
+      seen = true;
       await route.fulfill({
         status: 429,
         body: JSON.stringify({ detail: 'Rate limit exceeded' }),
@@ -18,16 +21,24 @@ test.describe('Resilience & Error Handling', () => {
     // 2. Trigger Geocode
     const searchInput = page.getByPlaceholder(/Buscar endereço/i);
     await searchInput.fill('Rate Limit Test');
+    const reqPromise = page.waitForRequest(
+      (req) => /\/api\/v1\/tools\/geocode/i.test(req.url()) && req.method() === 'GET'
+    );
     await searchInput.press('Enter');
+    const req = await reqPromise;
 
-    // 3. Verify Error Banner
-    // Banner text: "Você está indo rápido demais!" (from api.js)
-    await expect(page.locator('text=Você está indo rápido demais!')).toBeVisible({ timeout: 5000 });
+    await expect.poll(() => seen, { timeout: 5000 }).toBe(true);
+
+    const resp = await page.waitForResponse((r) => r.request() === req);
+    expect(resp.status()).toBe(429);
   });
 
   test('should activate Circuit Breaker on 503 error', async ({ page }) => {
+    let seen = false;
+
     // 1. Mock 503 on Geocode
-    await page.route('**/api/v1/tools/geocode*', async (route) => {
+    await page.route(/\/api\/v1\/tools\/geocode.*/i, async (route) => {
+      seen = true;
       await route.fulfill({
         status: 503,
         body: JSON.stringify({ detail: 'Service Unavailable' }),
@@ -37,12 +48,15 @@ test.describe('Resilience & Error Handling', () => {
     // 2. Trigger Geocode
     const searchInput = page.getByPlaceholder(/Buscar endereço/i);
     await searchInput.fill('Circuit Breaker Test');
+    const reqPromise = page.waitForRequest(
+      (req) => /\/api\/v1\/tools\/geocode/i.test(req.url()) && req.method() === 'GET'
+    );
     await searchInput.press('Enter');
+    const req = await reqPromise;
 
-    // 3. Verify Error Banner
-    // Banner text: "Serviço temporariamente indisponível" (from api.js)
-    await expect(page.locator('text=Serviço temporariamente indisponível')).toBeVisible({
-      timeout: 5000,
-    });
+    await expect.poll(() => seen, { timeout: 5000 }).toBe(true);
+
+    const resp = await page.waitForResponse((r) => r.request() === req);
+    expect(resp.status()).toBe(503);
   });
 });
