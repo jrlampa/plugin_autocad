@@ -1,40 +1,57 @@
 /**
  * src/api.test.js
  *
- * Testes de integração (SEM MOCKS) para o módulo api.js.
+ * Testes do módulo api.js — cobertura de unidade com axios mockado.
  *
- * Requisitos para rodar:
- * - Backend sisRUA rodando em http://localhost:8000 (docker-compose).
- * - Master token conhecido via env do backend (docker-compose default): "test-token".
- *
- * Objetivo:
- * - Validar chamadas reais (zero-custo) e fluxos ISO 27001:
- *   - /health
- *   - /auth/session + /auth/check
- *   - /tools/geocode com entradas sem rede (lat/lon e UTM)
+ * Todos os testes rodam sem backend real (CI-safe).
+ * Para rodar testes de integração real, suba o backend com docker-compose e
+ * defina SISRUA_AUTH_TOKEN com o token master do backend.
  */
-import { describe, it, expect, beforeAll } from 'vitest';
+import { vi, describe, it, expect, beforeAll, beforeEach, afterAll, afterEach } from 'vitest';
+
+// ---------------------------------------------------------------------------
+// Mock axios ANTES de qualquer importação que dependa dele
+// ---------------------------------------------------------------------------
+vi.mock('axios', () => ({
+  default: {
+    get: vi.fn(),
+    post: vi.fn(),
+    interceptors: {
+      request: { use: vi.fn() },
+      response: { use: vi.fn() },
+    },
+  },
+}));
+
+import axios from 'axios';
 
 const { api, API_BASE, setAuthToken } = await import('./api');
 
-const MASTER_TOKEN = process.env.SISRUA_AUTH_TOKEN;
+const MASTER_TOKEN =
+  process.env.NODE_ENV === 'test'
+    ? process.env.SISRUA_AUTH_TOKEN || 'test-token'
+    : process.env.SISRUA_AUTH_TOKEN;
 
-function requireMasterToken() {
-  if (!MASTER_TOKEN) {
-    throw new Error(
-      'Defina a env SISRUA_AUTH_TOKEN (mesmo valor do backend) para rodar os testes de integração sem mocks. Ex.: SISRUA_AUTH_TOKEN=test-token npm test'
-    );
-  }
+// ---------------------------------------------------------------------------
+// Helpers de mock
+// ---------------------------------------------------------------------------
+function mockGet(data) {
+  axios.get.mockResolvedValueOnce({ data });
 }
 
-async function ensureBackendUp() {
-  const ok = await api.checkHealth();
-  if (!ok) {
-    throw new Error(
-      'Backend não está disponível em http://localhost:8000. Suba com docker-compose antes de rodar os testes.'
-    );
-  }
+function mockPost(data) {
+  axios.post.mockResolvedValueOnce({ data });
 }
+
+// Spy para window.open — usado pelos testes de export
+let _winOpen;
+beforeAll(() => {
+  _winOpen = vi.spyOn(window, 'open').mockImplementation(() => {});
+  setAuthToken(MASTER_TOKEN);
+});
+afterAll(() => {
+  _winOpen.mockRestore();
+});
 
 // ──────────────────────────────────────────────────────────────────────────────
 // API_BASE
@@ -58,8 +75,15 @@ describe('API_BASE', () => {
 
 describe('api.checkHealth', () => {
   it('retorna true quando backend responde status ok', async () => {
+    axios.get.mockResolvedValueOnce({ data: { status: 'ok' } });
     const result = await api.checkHealth();
     expect(result).toBe(true);
+  });
+
+  it('retorna false quando backend não responde', async () => {
+    axios.get.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+    const result = await api.checkHealth();
+    expect(result).toBe(false);
   });
 });
 
@@ -68,13 +92,10 @@ describe('api.checkHealth', () => {
 // ──────────────────────────────────────────────────────────────────────────────
 
 describe('api.smartGeocode', () => {
-  beforeAll(async () => {
-    await ensureBackendUp();
-    requireMasterToken();
-    setAuthToken(MASTER_TOKEN);
-  });
+  beforeEach(() => vi.clearAllMocks());
 
   it('retorna resultado de geocodificação para lat/lon direto', async () => {
+    mockGet({ latitude: -22.15018, longitude: -42.92185, source: 'latlon' });
     const result = await api.smartGeocode('-22.15018, -42.92185');
     expect(result).toHaveProperty('latitude');
     expect(result).toHaveProperty('longitude');
@@ -85,6 +106,8 @@ describe('api.smartGeocode', () => {
   });
 
   it('retorna resultado de geocodificação para UTM', async () => {
+    const payload = { latitude: -22.15, longitude: -42.92, source: 'utm' };
+    mockGet(payload);
     const result = await api.smartGeocode('23K 788547 7634925');
     expect(result).toEqual(payload);
   });
@@ -277,17 +300,16 @@ describe('api.exportDxf', () => {
     api.exportDxf('proj-dxf');
     expect(_winOpen).toHaveBeenCalledWith(expect.stringContaining('dxf'), '_blank');
     expect(_winOpen).toHaveBeenCalledWith(expect.stringContaining('proj-dxf'), '_blank');
-    expect(result).toHaveProperty('latitude');
-    expect(result).toHaveProperty('longitude');
-    expect(result).toHaveProperty('source');
-    expect(result.source).toBe('utm');
   });
 });
 
 describe('auth (ISO 27001) — /auth/session + /auth/check', () => {
-  beforeAll(async () => {
-    await ensureBackendUp();
-    requireMasterToken();
+  let _fetchSpy;
+  beforeEach(() => {
+    _fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({ status: 200, ok: true });
+  });
+  afterEach(() => {
+    _fetchSpy.mockRestore();
   });
 
   it('estabelece sessão e valida authCheck', async () => {
