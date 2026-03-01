@@ -2054,3 +2054,83 @@ Continuar cobrindo branches e statements não cobertos, eliminar arquivos de con
 2. **`vi.stubEnv('NODE_ENV', 'production')`** + `vi.useFakeTimers()` + `vi.runAllTimersAsync()` é a combinação correta para testar código que usa `process.env.NODE_ENV` em combinação com `setTimeout`. Sempre chamar `vi.unstubAllEnvs()` + `vi.useRealTimers()` no `finally`.
 3. **Bug HealthDashboard**: `latency_ms.toFixed(1)` sem optional chaining causa crash quando status é `unhealthy` (latency é null). Padrão correto: `latency_ms?.toFixed(1)` — deixa o span vazio quando null sem quebrar o render.
 4. **Separação de grupos no coverage**: após excluir todos os arquivos de configuração, o coverage report fica limpo com apenas os grupos: `src`, `src/components`, `src/hooks`, `src/sdk`, `src/services`. Isso facilita identificar arquivos problemáticos.
+
+---
+
+## ⚡ Sessão 2026-03-01 — Fix CI/CD + Verificação de Regras
+
+### Baseline
+673 testes backend (98.84%), 362 testes frontend (99.77%).
+
+### Erros de CI/CD Corrigidos
+
+#### Backend CI — `ModuleNotFoundError: No module named 'pydantic_settings'`
+- **Causa**: `backend/shared/config.py` importa `pydantic_settings.BaseSettings` e `SettingsConfigDict`,
+  mas `pydantic-settings` constava apenas em `requirements.txt`, não em `requirements-ci.txt`.
+- **Correção**: Adicionado `pydantic-settings` a `src/backend/requirements-ci.txt`.
+- **Impacto**: Todos os 21 arquivos de teste falhavam na coleta (ImportError em cadeia via `backend/__init__.py` → `audit_routes` → `shared/auth` → `shared/config`).
+
+#### Frontend CI — ESLint: 11 erros + Prettier: 21 arquivos
+
+**ESLint — Regra `no-unused-vars`**:
+- `eslint.config.js`: adicionados `argsIgnorePattern: '^_'` e `caughtErrorsIgnorePattern: '^_'`
+  para respeitar a convenção de prefixo `_`/`_e` em parâmetros de catch e funções.
+- Arquivos corrigidos:
+  - `App.coverage.test.jsx`: removido `waitFor` não usado
+  - `AiAssistant.test.jsx`: removido `act` não usado
+  - `MapView.test.jsx`: removido parâmetro `data` não usado em mock JSX
+  - `useFileProcessing.test.js`: removido `...args` não usado em factory kml
+  - `ResilienceService.test.js`: removida alias `rs` de import dinâmico não usada
+  - `SdkService.real.test.js`: removida função `mockFetchReject()` morta (definida, nunca chamada)
+
+**Prettier** — Ran `npx prettier --write .` em 21 arquivos com formatação incorreta.
+
+**Resultado**: `npm run lint` → 0 erros (145 warnings); `npx prettier --check .` → todos passando.
+
+### Verificação das Regras do Projeto
+
+| Regra | Status | Observação |
+|-------|--------|------------|
+| Branch `dev` | ✅ | CI/CD configurado para `dev`, `main`, `release/*` |
+| Sem dados mock | ✅ | `engine_mock.py` é simulador de teste; produção usa dados reais |
+| 2.5D (não 3D) | ✅ | `elevation` como atributo escalar, polilinhas em 2D |
+| Modularidade | ✅ | Nenhum arquivo fonte > 500 linhas; maior = 354 linhas (`App.jsx`) |
+| Responsabilidade única | ✅ | Camadas domain/application/infrastructure/routes separadas |
+| Segurança | ✅ | Auth token, rate limit, sanitização, origin validation |
+| Clean Code | ✅ | PEP8, type hints, docstrings, sem bare excepts |
+| Thin frontend / Smart backend | ✅ | React apenas visualização; GIS/CRS/negócio no Python |
+| Otimização | ✅ | Cache, circuit breaker, retry, streaming |
+| Testes unit & E2E | ✅ | pytest (673), vitest (362), playwright e2e |
+| Half-way BIM | ✅ | XData BIM-LITE via Extension Dicts no DXF |
+| Sanitização de dados | ✅ | `sanitize_jsonable()`, `_sanitize_query()`, Pydantic validators |
+| Docker first | ✅ | Dockerfile multi-stage + docker-compose + healthchecks |
+| Arquitetura DDD | ✅ | `domain/`, `application/`, `infrastructure/` separados |
+| Interface pt-BR | ✅ | Labels, placeholders, mensagens em português |
+| `.gitignore`/`.dockerignore` | ✅ | Atualizados; artefatos removidos do índice git |
+| APIs gratuitas | ✅ | Overpass, OpenTopography, Groq free tier, Nominatim |
+| Cobertura ≥ 80% | ✅ | Backend 98.84%, Frontend 99.77% |
+
+### Correções de `.gitignore` e Índice Git
+
+**Problema**: 22 arquivos de artefato estavam rastreados no git apesar de terem padrões de exclusão
+no `.gitignore` — porque foram adicionados antes dos padrões serem criados, ou os padrões
+só foram adicionados depois.
+
+**Arquivos removidos do índice** (`git rm --cached`):
+- `ci_output*.txt`, `group[1-4]_output.txt`, `specialized_tests_output*.txt` — snapshots de CI
+- `build_errors.txt` — log de build
+- `all_files.txt`, `test_out.txt`, `test_concurrency.db` — artefatos de teste
+- `AUDITORIA_RELEASE_0.1.0.md`, `TESTES_LOCAIS_RESULTADOS.md` — relatórios locais
+- `PRINT_ERROS/` — screenshots de erros locais
+
+**Padrões adicionados ao `.gitignore`**:
+- `build_errors.txt`
+- `AUDITORIA_RELEASE_*.md`
+- `TESTES_LOCAIS_RESULTADOS.md`
+
+### Resultado Final
+- **CI/CD**: Pipeline passando (0 erros ESLint, prettier OK, pydantic-settings no requirements-ci)
+- **Backend**: 673 testes, 98.84% cobertura (sem regressão)
+- **Frontend**: 362 testes, 99.77% cobertura (sem regressão)
+- **Repositório**: 22 arquivos de artefato removidos do índice git
+- **CodeQL**: 0 alertas
