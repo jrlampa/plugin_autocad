@@ -32,10 +32,6 @@ function mockFetch(body, ok = true) {
   });
 }
 
-function mockFetchReject(message = 'Network Error') {
-  global.fetch = vi.fn().mockRejectedValueOnce(new Error(message));
-}
-
 // ──────────────────────────────────────────────────────────────────────────────
 // Limpeza do chrome.webview entre testes
 // ──────────────────────────────────────────────────────────────────────────────
@@ -43,7 +39,11 @@ function mockFetchReject(message = 'Network Error') {
 beforeEach(() => {
   // Remove webview padrão para cada teste (evita vazamento de estado IPC)
   if (window.chrome) {
-    try { delete window.chrome; } catch (_) { window.chrome = undefined; }
+    try {
+      delete window.chrome;
+    } catch (_) {
+      window.chrome = undefined;
+    }
   }
 });
 
@@ -147,7 +147,10 @@ describe('SdkService.createPrepareJob (real)', () => {
   it('testa raio 100m (REF_2)', async () => {
     mockFetch({ job_id: 'j1', status: 'queued' });
     await SdkService.createPrepareJob({
-      kind: 'osm', latitude: -22.15018, longitude: -42.92185, radius: 100,
+      kind: 'osm',
+      latitude: -22.15018,
+      longitude: -42.92185,
+      radius: 100,
     });
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
@@ -155,7 +158,10 @@ describe('SdkService.createPrepareJob (real)', () => {
   it('testa raio 1000m (REF_2)', async () => {
     mockFetch({ job_id: 'j2', status: 'queued' });
     await SdkService.createPrepareJob({
-      kind: 'osm', latitude: -22.15018, longitude: -42.92185, radius: 1000,
+      kind: 'osm',
+      latitude: -22.15018,
+      longitude: -42.92185,
+      radius: 1000,
     });
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
@@ -301,7 +307,10 @@ describe('SdkService.emitEvent (real)', () => {
 describe('SdkService audit (real)', () => {
   it('createAuditLog retorna audit_id', async () => {
     mockFetch({ audit_id: 1, event_type: 'CREATE' });
-    const result = await SdkService.createAuditLog({ event_type: 'CREATE', entity_type: 'Project' });
+    const result = await SdkService.createAuditLog({
+      event_type: 'CREATE',
+      entity_type: 'Project',
+    });
     expect(result).toHaveProperty('audit_id');
   });
 

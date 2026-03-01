@@ -64,7 +64,10 @@ describe('MapCanvas', () => {
   });
 
   it('repassa isDrawing e drawingPoints para o MapView', async () => {
-    const points = [[0, 0], [1, 1]];
+    const points = [
+      [0, 0],
+      [1, 1],
+    ];
     render(<MapCanvas {...defaultProps} isDrawing={true} drawingPoints={points} />);
     const mapView = await screen.findByTestId('mock-map-view');
     expect(mapView).toBeInTheDocument();

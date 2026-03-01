@@ -224,7 +224,10 @@ describe('api.setNormaConfig', () => {
     const resposta = { norma_ativa: 'PRODIST', toast: 'PRODIST ativado' };
     mockPost(resposta);
     const payload = {
-      ativa: true, concessionaria: 'Light S.A.', classe_tensao: 'MT', numero_processo: '',
+      ativa: true,
+      concessionaria: 'Light S.A.',
+      classe_tensao: 'MT',
+      numero_processo: '',
     };
     const result = await api.setNormaConfig(payload);
     expect(result).toEqual(resposta);
@@ -234,10 +237,7 @@ describe('api.setNormaConfig', () => {
     mockPost({ norma_ativa: 'ABNT' });
     const payload = { ativa: false, concessionaria: '', classe_tensao: 'MT', numero_processo: '' };
     await api.setNormaConfig(payload);
-    expect(axios.post).toHaveBeenCalledWith(
-      expect.stringContaining('/normas/config'),
-      payload
-    );
+    expect(axios.post).toHaveBeenCalledWith(expect.stringContaining('/normas/config'), payload);
   });
 });
 
@@ -307,14 +307,8 @@ describe('api.exportGeoJSON', () => {
 
   it('abre window.open com URL contendo project_id', () => {
     api.exportGeoJSON('proj-abc');
-    expect(_winOpen).toHaveBeenCalledWith(
-      expect.stringContaining('proj-abc'),
-      '_blank'
-    );
-    expect(_winOpen).toHaveBeenCalledWith(
-      expect.stringContaining('geojson'),
-      '_blank'
-    );
+    expect(_winOpen).toHaveBeenCalledWith(expect.stringContaining('proj-abc'), '_blank');
+    expect(_winOpen).toHaveBeenCalledWith(expect.stringContaining('geojson'), '_blank');
   });
 });
 
@@ -323,10 +317,7 @@ describe('api.exportGeoPackage', () => {
 
   it('abre window.open com URL contendo project_id e geopackage', () => {
     api.exportGeoPackage('proj-xyz');
-    expect(_winOpen).toHaveBeenCalledWith(
-      expect.stringContaining('geopackage'),
-      '_blank'
-    );
+    expect(_winOpen).toHaveBeenCalledWith(expect.stringContaining('geopackage'), '_blank');
   });
 });
 
@@ -335,14 +326,8 @@ describe('api.exportDxf', () => {
 
   it('abre window.open com URL contendo project_id e dxf', () => {
     api.exportDxf('proj-dxf');
-    expect(_winOpen).toHaveBeenCalledWith(
-      expect.stringContaining('dxf'),
-      '_blank'
-    );
-    expect(_winOpen).toHaveBeenCalledWith(
-      expect.stringContaining('proj-dxf'),
-      '_blank'
-    );
+    expect(_winOpen).toHaveBeenCalledWith(expect.stringContaining('dxf'), '_blank');
+    expect(_winOpen).toHaveBeenCalledWith(expect.stringContaining('proj-dxf'), '_blank');
   });
 });
 

@@ -17,7 +17,7 @@
  * Interface em pt-BR conforme requisito do projeto sisRUA.
  */
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { AiAssistant } from './AiAssistant';
 

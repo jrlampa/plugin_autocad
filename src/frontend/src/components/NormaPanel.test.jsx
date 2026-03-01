@@ -64,7 +64,9 @@ describe('NormaPanel', () => {
     await waitFor(() => screen.getByText(/ABNT NBR 14166/i));
 
     // Usa getAllByRole para lidar com múltiplos elementos que contêm "ABNT"
-    const abntButtons = screen.getAllByRole('button').filter((b) => b.textContent.trim() === 'ABNT');
+    const abntButtons = screen
+      .getAllByRole('button')
+      .filter((b) => b.textContent.trim() === 'ABNT');
     expect(abntButtons.length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('button', { name: /ANEEL\/PRODIST/i })).toBeInTheDocument();
   });
@@ -84,9 +86,7 @@ describe('NormaPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /ANEEL\/PRODIST/i }));
 
     await waitFor(() => {
-      expect(mockSetNormaConfig).toHaveBeenCalledWith(
-        expect.objectContaining({ ativa: true })
-      );
+      expect(mockSetNormaConfig).toHaveBeenCalledWith(expect.objectContaining({ ativa: true }));
     });
   });
 
@@ -150,9 +150,7 @@ describe('NormaPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /^ABNT$/i }));
 
     await waitFor(() => {
-      expect(mockSetNormaConfig).toHaveBeenCalledWith(
-        expect.objectContaining({ ativa: false })
-      );
+      expect(mockSetNormaConfig).toHaveBeenCalledWith(expect.objectContaining({ ativa: false }));
     });
   });
 
@@ -191,10 +189,7 @@ describe('NormaPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /ANEEL\/PRODIST/i }));
 
     await waitFor(() => {
-      expect(onToast).toHaveBeenCalledWith(
-        expect.stringContaining('Erro'),
-        'error'
-      );
+      expect(onToast).toHaveBeenCalledWith(expect.stringContaining('Erro'), 'error');
     });
   });
 

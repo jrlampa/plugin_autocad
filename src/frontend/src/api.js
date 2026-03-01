@@ -26,7 +26,6 @@ axios.interceptors.request.use((config) => {
 });
 */
 
-
 axios.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -180,7 +179,7 @@ export const api = {
         const response = await axios.post(
           `${API_BASE}/tools/elevation/contours`,
           { min_lat: minLat, min_lon: minLon, max_lat: maxLat, max_lon: maxLon, interval },
-          { headers: { 'X-Trace-ID': context.traceId } },
+          { headers: { 'X-Trace-ID': context.traceId } }
         );
         return response.data;
       });

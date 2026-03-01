@@ -66,9 +66,7 @@ describe('JobOverlay — estado failed', () => {
 
   it('não exibe mensagem de status quando status é failed', () => {
     render(
-      <JobOverlay
-        uiJob={makeJob({ status: 'failed', progress: 0.0, message: 'Erro interno' })}
-      />
+      <JobOverlay uiJob={makeJob({ status: 'failed', progress: 0.0, message: 'Erro interno' })} />
     );
     // Mensagem só aparece quando status não é completed e não é failed
     expect(screen.queryByText('Erro interno')).not.toBeInTheDocument();
@@ -121,7 +119,9 @@ describe('JobOverlay — progress bar', () => {
   });
 
   it('garante que o progresso não ultrapassa 100% na barra visual', () => {
-    const { container } = render(<JobOverlay uiJob={makeJob({ status: 'completed', progress: 2.0 })} />);
+    const { container } = render(
+      <JobOverlay uiJob={makeJob({ status: 'completed', progress: 2.0 })} />
+    );
     // O texto mostra "200%" mas a largura da barra é limitada a 100%
     expect(screen.getByText('200%')).toBeInTheDocument();
     const bar = container.querySelector('.h-2.bg-blue-500');
@@ -132,7 +132,9 @@ describe('JobOverlay — progress bar', () => {
   });
 
   it('garante que o progresso não fica abaixo de 0% na barra visual', () => {
-    const { container } = render(<JobOverlay uiJob={makeJob({ status: 'processing', progress: -0.5 })} />);
+    const { container } = render(
+      <JobOverlay uiJob={makeJob({ status: 'processing', progress: -0.5 })} />
+    );
     expect(screen.getByText('-50%')).toBeInTheDocument();
     const bar = container.querySelector('.h-2.bg-blue-500');
     if (bar) {

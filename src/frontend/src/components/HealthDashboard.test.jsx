@@ -65,17 +65,15 @@ describe('HealthDashboard — estado de erro', () => {
 
   it('botão "Tentar novamente" chama checkHealthDetailed novamente', async () => {
     // Primeira chamada falha, segunda tem sucesso
-    SdkService.checkHealthDetailed
-      .mockRejectedValueOnce(new Error('Falha'))
-      .mockResolvedValueOnce({
-        status: 'healthy',
-        system_status: 'healthy',
-        components: {
-          database: { status: 'healthy', latency_ms: 10 },
-          cache: { status: 'healthy', latency_ms: 5 },
-          external_apis: { status: 'healthy', details: {} },
-        },
-      });
+    SdkService.checkHealthDetailed.mockRejectedValueOnce(new Error('Falha')).mockResolvedValueOnce({
+      status: 'healthy',
+      system_status: 'healthy',
+      components: {
+        database: { status: 'healthy', latency_ms: 10 },
+        cache: { status: 'healthy', latency_ms: 5 },
+        external_apis: { status: 'healthy', details: {} },
+      },
+    });
 
     render(<HealthDashboard />);
 
@@ -183,7 +181,7 @@ describe('HealthDashboard — estado degradado', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     SdkService.checkHealthDetailed.mockResolvedValue({
-      ...(_HEALTH_HEALTHY),
+      ..._HEALTH_HEALTHY,
       system_status: 'degraded',
       components: {
         database: { status: 'healthy', latency_ms: 10, details: null },

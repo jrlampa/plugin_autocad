@@ -25,7 +25,7 @@ let _kmlMockReturn = { type: 'FeatureCollection', features: [{ type: 'Feature' }
 let _kmlMockThrow = null;
 
 vi.mock('@mapbox/togeojson', () => ({
-  kml: (...args) => {
+  kml: () => {
     if (_kmlMockThrow) throw _kmlMockThrow;
     return _kmlMockReturn;
   },
@@ -125,7 +125,10 @@ describe('useFileProcessing', () => {
   it('handleDragOver ativa isDraggingFile quando há arquivos', () => {
     const { result } = renderHook(() => useFileProcessing());
     act(() => {
-      result.current.handleDragOver({ preventDefault: vi.fn(), dataTransfer: { types: ['Files'] } });
+      result.current.handleDragOver({
+        preventDefault: vi.fn(),
+        dataTransfer: { types: ['Files'] },
+      });
     });
     expect(result.current.isDraggingFile).toBe(true);
   });
@@ -133,7 +136,10 @@ describe('useFileProcessing', () => {
   it('handleDragLeave desativa isDraggingFile', () => {
     const { result } = renderHook(() => useFileProcessing());
     act(() => {
-      result.current.handleDragOver({ preventDefault: vi.fn(), dataTransfer: { types: ['Files'] } });
+      result.current.handleDragOver({
+        preventDefault: vi.fn(),
+        dataTransfer: { types: ['Files'] },
+      });
       result.current.handleDragLeave();
     });
     expect(result.current.isDraggingFile).toBe(false);

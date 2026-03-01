@@ -73,9 +73,7 @@ describe('SisRuaClient — request()', () => {
   it('lança erro quando resposta não é ok', async () => {
     global.fetch = makeFetchError(503, 'Service Unavailable');
     const client = new SisRuaClient('http://localhost:8000', 'token');
-    await expect(client.healthApiV1HealthGet()).rejects.toThrow(
-      'API Error: Service Unavailable'
-    );
+    await expect(client.healthApiV1HealthGet()).rejects.toThrow('API Error: Service Unavailable');
   });
 
   it('inclui Content-Type: application/json em todos os requests', async () => {
@@ -167,7 +165,11 @@ describe('SisRuaClient — métodos de API', () => {
   });
 
   it('prepareOsmApiV1PrepareOsmPost — POST /api/v1/prepare/osm', async () => {
-    await client.prepareOsmApiV1PrepareOsmPost({ latitude: -22.15018, longitude: -42.92185, radius: 500 });
+    await client.prepareOsmApiV1PrepareOsmPost({
+      latitude: -22.15018,
+      longitude: -42.92185,
+      radius: 500,
+    });
     const [url] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(url).toContain('/api/v1/prepare/osm');
   });
