@@ -23,8 +23,11 @@ class CacheService:
         self.redis = None # Redis removed for local standalone plugin
 
     def _sanitize_key(self, key: str) -> str:
-        # Replace non-filesystem safe chars
-        return key.replace(":", "_").replace("/", "_").replace("\\", "_")
+        # Replace non-filesystem safe chars (Windows-safe)
+        sanitized = key
+        for ch in (":", "/", "\\", "?", "*", "<", ">", "|", '"', "="):
+            sanitized = sanitized.replace(ch, "_")
+        return sanitized
 
     def get(self, key: str) -> Optional[Any]:
         # 1. Try Redis

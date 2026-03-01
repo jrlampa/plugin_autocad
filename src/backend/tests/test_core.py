@@ -387,7 +387,7 @@ def test_ipc_server_noop_on_non_windows():
 
     server = IpcServer("test-token")
     # Patch _WIN32_AVAILABLE to False (simulating Linux)
-    with patch("backend.core.ipc._WIN32_AVAILABLE", False):
+    with patch("backend.shared.ipc._WIN32_AVAILABLE", False):
         server.start()
 
     # Should NOT have started a thread

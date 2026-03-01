@@ -90,7 +90,7 @@ class TestActiveJobRegistry:
         t.start()
 
         # Timeout extremamente curto para forçar path de timeout
-        with patch("backend.core.lifecycle.logger") as mock_logger:
+        with patch("backend.shared.lifecycle.logger") as mock_logger:
             reg.wait_for_completion(timeout=0.01)
             # Pode não ter sido chamado se a thread finalizou antes do check;
             # mas o path da linha 36 (shutdown_waiting_threads) deve ter sido percorrido.
@@ -111,7 +111,7 @@ class TestActiveJobRegistry:
         reg.add(t)
         t.start()
 
-        with patch("backend.core.lifecycle.logger") as mock_logger:
+        with patch("backend.shared.lifecycle.logger") as mock_logger:
             reg.wait_for_completion(timeout=0.001)
             # Thread ainda viva: deve emitir warning ou info — ambos são aceitáveis
             assert mock_logger.info.called or mock_logger.warning.called
@@ -158,7 +158,7 @@ class TestIpcServer:
         """start() deve ser no-op em Linux (_WIN32_AVAILABLE=False)."""
         from backend.shared.ipc import IpcServer
         server = IpcServer("test-token-ipc")
-        with patch("backend.core.ipc._WIN32_AVAILABLE", False):
+        with patch("backend.shared.ipc._WIN32_AVAILABLE", False):
             server.start()
         assert server.thread is None
         assert server.running is False
@@ -191,7 +191,7 @@ class TestIpcServer:
         fake_win32file = MagicMock()
         fake_pywintypes = MagicMock()
 
-        with patch("backend.core.ipc._WIN32_AVAILABLE", True), \
+        with patch("backend.shared.ipc._WIN32_AVAILABLE", True), \
              patch.dict("sys.modules", {
                  "win32pipe": fake_win32pipe,
                  "win32file": fake_win32file,

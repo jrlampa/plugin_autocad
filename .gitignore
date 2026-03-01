@@ -43,11 +43,21 @@ qa/out/
 .pytest_cache/
 *.log
 .coverage
+coverage.json
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # ===== IDE / ferramentas =====
 .cursor/
 .vscode/
 .idea/
+
+# ===== Misc local tooling =====
+.python-version
+.envrc
+.direnv/
 
 # ===== Runtime artifacts (banco e segredos gerados em execução) =====
 *.db

@@ -8,7 +8,6 @@ import json
 import time
 import os
 from typing import Dict, Any, Optional
-from backend.shared.database import get_db_connection
 from backend.shared.logger import get_logger
 
 logger = get_logger(__name__)
@@ -107,7 +106,9 @@ class AuditLogger:
             user_id, timestamp, data
         )
         
-        conn = get_db_connection()
+        from backend.core import audit as _core_audit
+
+        conn = _core_audit.get_db_connection()
         try:
             cursor = conn.execute("""
                 INSERT INTO AuditLog 
@@ -147,7 +148,9 @@ class AuditLogger:
         Returns:
             True if signature is valid, False if tampered or not found
         """
-        conn = get_db_connection()
+        from backend.core import audit as _core_audit
+
+        conn = _core_audit.get_db_connection()
         try:
             row = conn.execute("""
                 SELECT event_type, entity_type, entity_id, user_id, 
@@ -188,7 +191,9 @@ class AuditLogger:
         Returns:
             Dictionary with verification statistics
         """
-        conn = get_db_connection()
+        from backend.core import audit as _core_audit
+
+        conn = _core_audit.get_db_connection()
         try:
             rows = conn.execute("""
                 SELECT audit_id FROM AuditLog 
@@ -246,7 +251,9 @@ class AuditLogger:
               AND (event_type  = ? OR ? IS NULL)
             ORDER BY audit_id DESC LIMIT ?
         """
-        conn = get_db_connection()
+        from backend.core import audit as _core_audit
+
+        conn = _core_audit.get_db_connection()
         try:
             rows = conn.execute(
                 _SQL,

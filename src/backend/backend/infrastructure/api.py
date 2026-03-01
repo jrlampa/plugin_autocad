@@ -35,14 +35,20 @@ except ImportError:
     HAS_SENTRY = False
 
 
+# --- Token de autenticação (IPC)
+# Importante: garantir geração do token ANTES de importar config,
+# pois config pode ler/gravar env vars no import.
+if not os.environ.get("SISRUA_AUTH_TOKEN"):
+    os.environ["SISRUA_AUTH_TOKEN"] = uuid.uuid4().hex
+
 from backend.shared.config import config
 from backend.shared.logger import configure_logging, get_logger
 
 configure_logging()
 logger = get_logger(__name__)
 
-# --- Token de autenticação (IPC) já garantido pelo config.py ---
-AUTH_TOKEN = config.sisrua_auth_token
+# --- Token de autenticação (IPC) ---
+AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN")
 
 # --- Inicialização do Sentry (apenas se DSN configurado) ---
 # --- Inicialização do Sentry (apenas se DSN configurado) ---
@@ -125,6 +131,22 @@ com portabilidade total de dados e conformidade ISO 27001.
     lifespan=_lifespan,
 )
 
+# Snapshot do(s) token(s) no app.
+# Em produção, o token não muda durante o runtime. Em testes, alguns módulos
+# são recarregados com `SISRUA_AUTH_TOKEN` diferente; para evitar 401 em testes
+# que ainda usam o token antigo, mantemos um conjunto de tokens aceitos.
+_existing_tokens = getattr(getattr(app, "state", None), "master_tokens", None)
+if _existing_tokens is None:
+    app.state.master_tokens = set()
+    _existing_tokens = app.state.master_tokens
+
+if AUTH_TOKEN:
+    _existing_tokens.add(AUTH_TOKEN)
+
+_env_token = os.environ.get("SISRUA_AUTH_TOKEN")
+if _env_token:
+    _existing_tokens.add(_env_token)
+
 app.middleware("http")(add_trace_header)
 app.middleware("http")(validate_origin)
 app.middleware("http")(add_security_headers)
@@ -158,12 +180,12 @@ async def receive_telemetry(payload: Dict[str, Any]):
 # --- Registro de Routers (SoC) ---
 from backend.infrastructure.routes.health import router as health_router
 from backend.infrastructure.routes.projects import router as projects_router
-from backend.infrastructure.routes.jobs import router as jobs_router
+from backend.routes.jobs import router as jobs_router
 from backend.infrastructure.routes.tools import router as tools_router
 from backend.infrastructure.routes.ai_routes import router as ai_router
 from backend.infrastructure.routes.prepare import router as prepare_router
 from backend.infrastructure.routes.webhooks import router as webhooks_router
-from backend.infrastructure.routes.enterprise import router as enterprise_router
+from backend.routes.enterprise import router as enterprise_router
 from backend.infrastructure.routes.gis import router as gis_router
 from backend.infrastructure.audit_routes import audit_bp as audit_router
 

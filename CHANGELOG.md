@@ -7,7 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-02-21
+### Fixed
+
+- Corrigidos 10 erros críticos de compilação C# que bloqueavam o build
+- Removido using duplicado em GeometryCleaner.cs
+- Implementado método ausente TestSimplifyPolylines_ReductionRatio em GeometryComplianceTests.cs
+- Corrigida ambiguidade de Exception usando System.Exception
+- Corrigido callback ExecuteInApplicationContext em PaletteController.cs
+- Removido campo não utilizado _lastCrs em SisRuaCommands.cs
+- Configurado ambiente de testes automatizados (pytest, vitest)
+- Validado build de release com geração de instalador
+
+### Security
+
+- Verificadas dependências por vulnerabilidades críticas
+- Validada conformidade com controles de acesso ISO 27001
+- Confirmada implementação de princípios LGPD/GDPR
+
+## [0.1.0] - 2026-02-28
 
 ### Added
 

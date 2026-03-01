@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 using sisRUA.Core.DTOs;
+using sisRUA.Engine;
 
 namespace sisRUA
 {
@@ -83,6 +84,30 @@ namespace sisRUA
                 throw new Exception($"Expected 3 vertices in merged polyline, got {merged[0].CoordsXy.Count}");
 
             return "Successfully merged contiguous polyline segments.";
+        }
+
+        private static string TestSimplifyPolylines_ReductionRatio()
+        {
+            var coords = new List<List<double>> { 
+                new List<double>{0,0}, 
+                new List<double>{5,0.1}, 
+                new List<double>{10,0}, 
+                new List<double>{15,0.2}, 
+                new List<double>{20,0} 
+            };
+            var feature = new CadFeatureDto 
+            { 
+                FeatureType = CadFeatureDtoType.Polyline, 
+                Layer = "Test", 
+                CoordsXy = coords 
+            };
+
+            var simplified = GeometryCleaner.SimplifyPolylines(new[] { feature }, 0.5).First();
+            
+            if (simplified.CoordsXy.Count >= coords.Count)
+                throw new Exception($"Simplification failed. Expected fewer points, got {simplified.CoordsXy.Count} vs original {coords.Count}");
+
+            return $"Successfully simplified polyline from {coords.Count} to {simplified.CoordsXy.Count} points.";
         }
 
         private static string TestGeometry25D_Compliance()

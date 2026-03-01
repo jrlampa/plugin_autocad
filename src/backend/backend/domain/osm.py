@@ -23,6 +23,26 @@ logger = get_logger(__name__)
 
 MAX_RADIUS_M = 5000.0
 
+# Legacy-private aliases expected by some older tests
+_OsmWayRow = OsmWayRow
+_OsmNodeRow = OsmNodeRow
+
+
+def _parse_overpass_to_features(data: Any, epsg_out: int):
+    """Compat helper for legacy tests.
+
+    The canonical parsing is handled by `OsmParser.parse_to_features`.
+    """
+    return OsmParser.parse_to_features(data, epsg_out)
+
+
+def _fetch_overpass_data(latitude: float, longitude: float, radius: float, check_cancel: Callable | None = None) -> Any:
+    """Compat wrapper for legacy tests/modules.
+
+    The canonical implementation is `OsmClient.fetch_overpass_data`.
+    """
+    return OsmClient.fetch_overpass_data(latitude, longitude, radius, check_cancel)
+
 def prepare_osm_compute(
     latitude: float, 
     longitude: float, 
@@ -57,7 +77,10 @@ def prepare_osm_compute(
     
     try:
         # 1. Fetch data from Overpass via Modular Client
-        raw_data = OsmClient.fetch_overpass_data(latitude, longitude, radius, check_cancel)
+        # Import via compat module so tests can patch `backend.gis_core.osm._fetch_overpass_data`.
+        from backend.gis_core import osm as _osm_compat
+
+        raw_data = _osm_compat._fetch_overpass_data(latitude, longitude, radius, check_cancel)
         
         # 2. Parse and Project via Modular Parser
         nodes_list, edges_list = OsmParser.parse_to_features(raw_data, epsg_out)

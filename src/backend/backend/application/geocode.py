@@ -90,7 +90,7 @@ def _try_parse_utm(text: str) -> Optional[dict]:
     epsg = 31960 + zone_num  # SIRGAS 2000 / UTM zone
 
     try:
-        from backend.domain.crs import utm_to_latlon
+        from backend.gis_core.crs import utm_to_latlon
 
         lat, lon = utm_to_latlon(easting, northing, epsg)
         if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
@@ -193,5 +193,7 @@ def geocode(query: str) -> Optional[dict]:
         return result
 
     # 3. Nominatim
-    result = _nominatim_geocode(clean)
+    from backend.services import geocode as _geocode_compat
+
+    result = _geocode_compat._nominatim_geocode(clean)
     return result

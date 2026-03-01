@@ -19,6 +19,11 @@ def _sanitize_tags(tags: dict) -> dict:
         if not isinstance(k, str) or not v:
             continue
 
+        if isinstance(v, list):
+            if not v:
+                continue
+            v = v[0]
+
         s_k = html_regex.sub("", k).strip()[:255]
         s_v = str(v)
         s_v = html_regex.sub("", s_v).strip()[:255]

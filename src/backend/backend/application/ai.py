@@ -1,5 +1,6 @@
 from typing import Optional, Dict, Any
-from groq import Groq
+
+from backend.services.ai import Groq
 from backend.shared.config import config
 from backend.shared.logger import get_logger
 

@@ -15,7 +15,6 @@ from fastapi.responses import StreamingResponse
 
 from backend.shared.audit import get_audit_logger
 from backend.shared.auth import require_token
-from backend.shared.database import get_db_connection
 from backend.shared.logger import get_logger
 from backend.shared.utils import sanitize_jsonable
 from typing import Optional
@@ -84,7 +83,9 @@ async def list_audit_logs(
 @audit_bp.get("/audit/stats")
 async def get_audit_stats(_: None = Depends(require_token)):
     """Retorna estatísticas agregadas do log de auditoria."""
-    conn = get_db_connection()
+    import backend.audit_routes as _audit_compat
+
+    conn = _audit_compat.get_db_connection()
     try:
         total = conn.execute("SELECT COUNT(*) FROM AuditLog").fetchone()[0]
 
@@ -117,7 +118,9 @@ async def get_valuation_summary(_: None = Depends(require_token)):
     Agrega métricas de mileagem (Km mapeados) a partir dos logs de auditoria.
     Essencial para comprovar o valor do ativo durante due diligence.
     """
-    conn = get_db_connection()
+    import backend.audit_routes as _audit_compat
+
+    conn = _audit_compat.get_db_connection()
     try:
         rows = conn.execute(
             """
@@ -160,7 +163,9 @@ async def export_audit_logs(_: None = Depends(require_token)):
     """
     Gera pacote de evidências para auditoria externa (Autodesk/ISO).
     """
-    conn = get_db_connection()
+    import backend.audit_routes as _audit_compat
+
+    conn = _audit_compat.get_db_connection()
     try:
         rows = conn.execute(
             """
@@ -209,7 +214,9 @@ async def verify_all_logs(request: Request, _: None = Depends(require_token)):
 @audit_bp.get("/audit/{audit_id}")
 async def get_audit_log(audit_id: int, _: None = Depends(require_token)):
     """Retorna uma entrada específica do log de auditoria."""
-    conn = get_db_connection()
+    import backend.audit_routes as _audit_compat
+
+    conn = _audit_compat.get_db_connection()
     try:
         row = conn.execute(
             """

@@ -104,7 +104,7 @@ namespace sisRUA
         {
             _ = Task.Run(() => {
                 Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.ExecuteInApplicationContext(
-                    new Action<object>(action), null
+                    (obj) => action(obj), null
                 );
             });
         }

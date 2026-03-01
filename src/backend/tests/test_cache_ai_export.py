@@ -104,7 +104,7 @@ def test_ai_no_api_key_returns_message():
 def test_ai_with_api_key_calls_groq():
     with patch.dict(os.environ, {"GROQ_API_KEY": "test-key"}):
         from backend.application.ai import AiService
-        with patch("backend.services.ai.Groq") as mock_groq:
+        with patch("backend.application.ai.Groq") as mock_groq:
             mock_client = MagicMock()
             mock_groq.return_value = mock_client
             mock_client.chat.completions.create.return_value = MagicMock(
@@ -120,7 +120,7 @@ def test_ai_with_api_key_calls_groq():
 def test_ai_groq_exception_returns_fallback():
     with patch.dict(os.environ, {"GROQ_API_KEY": "test-key"}):
         from backend.application.ai import AiService
-        with patch("backend.services.ai.Groq") as mock_groq:
+        with patch("backend.application.ai.Groq") as mock_groq:
             mock_client = MagicMock()
             mock_groq.return_value = mock_client
             mock_client.chat.completions.create.side_effect = RuntimeError("API down")
@@ -134,7 +134,7 @@ def test_ai_groq_exception_returns_fallback():
 def test_ai_rag_context_with_job_id():
     with patch.dict(os.environ, {"GROQ_API_KEY": "test-key"}):
         from backend.application.ai import AiService
-        with patch("backend.services.ai.Groq") as mock_groq, \
+        with patch("backend.application.ai.Groq") as mock_groq, \
              patch("backend.services.jobs.get_job") as mock_get_job:
             mock_client = MagicMock()
             mock_groq.return_value = mock_client
@@ -155,7 +155,7 @@ def test_ai_rag_context_with_job_id():
 def test_ai_audit_rag_context():
     with patch.dict(os.environ, {"GROQ_API_KEY": "test-key"}):
         from backend.application.ai import AiService
-        with patch("backend.services.ai.Groq") as mock_groq, \
+        with patch("backend.application.ai.Groq") as mock_groq, \
              patch("backend.core.audit.get_audit_logger") as mock_get_al:
             mock_client = MagicMock()
             mock_groq.return_value = mock_client

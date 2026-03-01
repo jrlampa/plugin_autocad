@@ -15,6 +15,11 @@ build
 .pytest_cache
 coverage
 .coverage
+coverage.json
+.coverage.*
+htmlcov
+.mypy_cache
+.ruff_cache
 .DS_Store
 Thumbs.db
 *.log
@@ -37,3 +42,7 @@ sdk_ts/
 sdk_python/
 legacy_v0_tests/
 all_files.txt
+*.db
+logs
+backend/logs
+backend/cache

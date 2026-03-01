@@ -304,7 +304,7 @@ class TestAuditRoutesCoverage:
     def test_verify_all_exception_returns_500(self, client_tok):
         """Linhas 202-204: exceção em verify_all → 500."""
         client, tok = client_tok
-        from backend import audit_routes
+        import backend.infrastructure.audit_routes as audit_routes
 
         with patch.object(audit_routes, "get_audit_logger", side_effect=RuntimeError("verify crash")):
             r = client.post(

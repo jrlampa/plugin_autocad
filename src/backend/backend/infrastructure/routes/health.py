@@ -7,15 +7,10 @@ from __future__ import annotations
 import time
 import uuid
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 
-from backend.shared.auth import (
-    AUTH_HEADER_NAME,
-    SESSION_TOKENS,
-    SESSION_DURATION,
-    _get_master_token,
-    require_token,
-)
+import backend.shared.auth as auth
+from backend.shared.auth import AUTH_HEADER_NAME, SESSION_DURATION, _get_master_token, require_token
 from backend.domain.dto import DeepHealthResponse, HealthResponse
 from backend.application.health import health_service
 
@@ -42,18 +37,28 @@ async def auth_check(_: None = Depends(require_token)):
 
 @router.post("/api/v1/auth/session", tags=["Health"])
 async def create_session(
+    request: Request,
     x_sisrua_token: str | None = Header(default=None, alias=AUTH_HEADER_NAME),
 ):
     """
     ISO 27001 – Handshake de sessão.
     Troca o Master Token por um Session Token de curta duração (30 min).
     """
-    master = _get_master_token()
-    if not master or x_sisrua_token != master:
+    state = getattr(getattr(request, "app", None), "state", None)
+    master_tokens = getattr(state, "master_tokens", None) or set()
+    env_master = _get_master_token()
+
+    if env_master and x_sisrua_token == env_master:
+        master_tokens = {env_master}
+    if env_master:
+        master_tokens = set(master_tokens)
+        master_tokens.add(env_master)
+
+    if not master_tokens or x_sisrua_token not in master_tokens:
         raise HTTPException(status_code=401, detail="Invalid Master Token")
 
     session_token = f"sess_{uuid.uuid4().hex}"
-    SESSION_TOKENS[session_token] = time.time() + SESSION_DURATION
+    auth.SESSION_TOKENS[session_token] = time.time() + SESSION_DURATION
 
     return {"session_token": session_token, "expires_in": SESSION_DURATION}
 

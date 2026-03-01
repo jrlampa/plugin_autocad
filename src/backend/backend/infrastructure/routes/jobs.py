@@ -17,7 +17,6 @@ from backend.shared.logger import bind_contextvars, get_logger, get_trace_id, se
 from backend.shared.rate_limit import RateLimiter
 from backend.domain.dto import HealthResponse, JobStatusResponse, PrepareJobRequest
 from backend.infrastructure.routes.deps import event_bus, job_executor
-from backend.application.jobs import cancel_job, get_job, init_job
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -53,7 +52,9 @@ async def create_prepare_job(
         current_trace_id = get_trace_id()
         from backend.shared.lifecycle import job_registry
 
-        job_id, is_new = init_job(payload.kind, idempotency_key=idempotency_key)
+        from backend.routes import jobs as _legacy_jobs
+
+        job_id, is_new = _legacy_jobs.init_job(payload.kind, idempotency_key=idempotency_key)
 
         if is_new:
             t = threading.Thread(
@@ -66,7 +67,7 @@ async def create_prepare_job(
         else:
             logger.info("job_creation_skipped_dedup", job_id=job_id)
 
-        return get_job(job_id)
+        return _legacy_jobs.get_job(job_id)
     except (ValueError, TypeError, json.JSONDecodeError) as e:
         logger.error("create_job_invalid_payload", error=str(e))
         raise HTTPException(status_code=422, detail="Payload de job inválido.")
@@ -81,7 +82,9 @@ async def get_job_endpoint(
     _: None = Depends(require_token),
 ):
     """Recupera o status atual de um job (progresso e resultado)."""
-    job = get_job(job_id)
+    from backend.routes import jobs as _legacy_jobs
+
+    job = _legacy_jobs.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job não encontrado.")
     return job
@@ -93,9 +96,11 @@ async def cancel_job_endpoint(
     _: None = Depends(require_token),
 ):
     """Solicita o cancelamento de um job em execução."""
-    cancelled = cancel_job(job_id)
+    from backend.routes import jobs as _legacy_jobs
+
+    cancelled = _legacy_jobs.cancel_job(job_id)
     if not cancelled:
-        job = get_job(job_id)
+        job = _legacy_jobs.get_job(job_id)
         if not job:
             raise HTTPException(status_code=404, detail="Job não encontrado.")
     return HealthResponse(status="ok")

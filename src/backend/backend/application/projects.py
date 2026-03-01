@@ -1,7 +1,10 @@
 from typing import Optional, Dict, Any, List
-from backend.shared.database import get_db_connection
+import backend.services.projects as _projects_compat
 from backend.shared.logger import get_logger
 from backend.shared.audit import get_audit_logger
+
+def get_db_connection():
+    return _projects_compat.get_db_connection()
 
 logger = get_logger(__name__)
 

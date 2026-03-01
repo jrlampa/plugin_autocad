@@ -2,7 +2,7 @@
 FROM node:20-alpine as build
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 COPY . .
 ARG VITE_API_URL
 RUN VITE_API_URL=${VITE_API_URL} npm run build

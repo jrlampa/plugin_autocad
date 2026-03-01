@@ -7,6 +7,15 @@ _ROOT = Path(__file__).resolve().parents[1]
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
+for _cov_file in _ROOT.glob(".coverage*"):
+    try:
+        _cov_file.unlink(missing_ok=True)
+    except Exception:
+        pass
+
 # Ativa modo de teste: desativa IPC e elimina esperas de retry (sem rede em CI)
-os.environ.setdefault("SISRUA_TESTING", "true")
+os.environ["SISRUA_TESTING"] = "true"
+
+# Define um token padrão para testes que importam a API antes de sobrescrever via monkeypatch
+os.environ.setdefault("SISRUA_AUTH_TOKEN", "test-token")
 

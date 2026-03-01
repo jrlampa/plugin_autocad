@@ -44,7 +44,6 @@ namespace sisRUA
 
         // BIM-LITE: Cache the last imported features to allow explicit saving
         private static List<CadFeatureDto> _lastImportedFeatures = new List<CadFeatureDto>();
-        private static string _lastCrs = "EPSG:31983"; // Default for development
 
         private static readonly HttpClient _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
         private static readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions

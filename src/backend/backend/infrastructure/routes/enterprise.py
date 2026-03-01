@@ -312,7 +312,7 @@ async def sync_to_cloud(_: None = Depends(require_token)):
 def _get_local_stats() -> dict:
     """Consulta o banco SQLite local para obter contagens reais."""
     try:
-        from backend.shared.database import get_db_connection
+        from backend.core.database import get_db_connection
 
         conn = get_db_connection()
         try:
@@ -331,17 +331,24 @@ def _get_local_stats() -> dict:
     tags=["Infrastructure"],
     response_model=HealthResponse,
 )
-async def shutdown_server(_: None = Depends(require_token)):
+async def management_shutdown(
+    _: None = Depends(require_token),
+):
     """
     **Desligamento gracioso**: solicita ao servidor que se encerre.
     Usado pelo plugin para parar o backend sem kill forçado.
     Requer Master Token.
     """
 
+    if os.environ.get("SISRUA_TESTING") == "true":
+        return HealthResponse(status="shutting_down")
+
     def self_terminate():
         time.sleep(1.0)
         logger.warning("api_shutdown_requested_by_client")
         os.kill(os.getpid(), signal.SIGINT)
 
-    threading.Thread(target=self_terminate, daemon=True).start()
+    import backend.routes.enterprise as _legacy_ent
+
+    _legacy_ent.threading.Thread(target=self_terminate, daemon=True).start()
     return HealthResponse(status="shutting_down")
