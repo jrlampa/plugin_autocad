@@ -84,7 +84,7 @@ test.describe('File Handling (Drag & Drop)', () => {
       );
     });
 
-    // Verify Error Toast mapping the actual string in useFileProcessing.js
-    await expect(page.locator('text=Erro ao ler arquivo')).toBeVisible({ timeout: 10000 });
+    // Verify Error Toast mapping current strings in useFileProcessing.js
+    await expect(page.getByText(/erro ao processar arquivo/i)).toBeVisible({ timeout: 10000 });
   });
 });

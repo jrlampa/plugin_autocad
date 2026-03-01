@@ -106,6 +106,10 @@ backend/cache/
 *_output.txt
 *_output_*.txt
 
+# Frontend E2E artifacts (Playwright)
+src/frontend/playwright-report/
+src/frontend/test-results/
+
 # ===== Docker =====
 .docker/
 docker-volumes/

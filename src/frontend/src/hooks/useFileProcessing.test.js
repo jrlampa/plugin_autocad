@@ -14,6 +14,7 @@
 import { renderHook, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { useFileProcessing } from './useFileProcessing';
+import { api } from '../api';
 
 // ─────────────────────────────────────────────────────
 // Mock de @mapbox/togeojson para controlar comportamento
@@ -25,7 +26,7 @@ let _kmlMockReturn = { type: 'FeatureCollection', features: [{ type: 'Feature' }
 let _kmlMockThrow = null;
 
 vi.mock('@mapbox/togeojson', () => ({
-  kml: (...args) => {
+  kml: () => {
     if (_kmlMockThrow) throw _kmlMockThrow;
     return _kmlMockReturn;
   },
@@ -105,6 +106,8 @@ describe('useFileProcessing', () => {
     // Reset KML mock state
     _kmlMockReturn = { type: 'FeatureCollection', features: [{ type: 'Feature' }] };
     _kmlMockThrow = null;
+
+    api.convertKml.mockReset();
   });
 
   afterEach(() => {
@@ -125,7 +128,10 @@ describe('useFileProcessing', () => {
   it('handleDragOver ativa isDraggingFile quando há arquivos', () => {
     const { result } = renderHook(() => useFileProcessing());
     act(() => {
-      result.current.handleDragOver({ preventDefault: vi.fn(), dataTransfer: { types: ['Files'] } });
+      result.current.handleDragOver({
+        preventDefault: vi.fn(),
+        dataTransfer: { types: ['Files'] },
+      });
     });
     expect(result.current.isDraggingFile).toBe(true);
   });
@@ -133,7 +139,10 @@ describe('useFileProcessing', () => {
   it('handleDragLeave desativa isDraggingFile', () => {
     const { result } = renderHook(() => useFileProcessing());
     act(() => {
-      result.current.handleDragOver({ preventDefault: vi.fn(), dataTransfer: { types: ['Files'] } });
+      result.current.handleDragOver({
+        preventDefault: vi.fn(),
+        dataTransfer: { types: ['Files'] },
+      });
       result.current.handleDragLeave();
     });
     expect(result.current.isDraggingFile).toBe(false);
@@ -347,8 +356,8 @@ describe('useFileProcessing', () => {
   // ── KML com conversão inválida (kml() retorna estrutura sem features) ──
 
   it('KML com conversão inválida (sem features/geometry) cria toast de erro (linha 39)', async () => {
-    // kml() retorna objeto sem features e sem geometry → linha 39: showError(...)
-    _kmlMockReturn = { type: 'FeatureCollection' }; // sem 'features'
+    // Força backend retornar payload inválido → ramo else: showError('Falha na conversão...')
+    api.convertKml.mockResolvedValue({});
 
     const kmlContent = `<?xml version="1.0"?><kml><Placemark><Point>
       <coordinates>-42.92185,-22.15018,0</coordinates></Point></Placemark></kml>`;
@@ -369,8 +378,8 @@ describe('useFileProcessing', () => {
   });
 
   it('KML onde kml() lança exceção cria toast de erro (linha 42)', async () => {
-    // kml() lança TypeError → catch(err) → linha 42: showError(...)
-    _kmlMockThrow = new Error('DOMParser falhou catastroficamente');
+    // Força backend lançar exceção → catch(err): showError(`Erro ao processar KML...`)
+    api.convertKml.mockRejectedValue(new Error('DOMParser falhou catastroficamente'));
 
     const kmlContent = `<?xml version="1.0"?><kml><Placemark></Placemark></kml>`;
     const { result } = renderHook(() => useFileProcessing());
