@@ -105,7 +105,11 @@ vi.mock('./services/SdkService', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   if (window.chrome) {
-    try { delete window.chrome; } catch (_) { window.chrome = undefined; }
+    try {
+      delete window.chrome;
+    } catch (_) {
+      window.chrome = undefined;
+    }
   }
   // Reset modal state
   _mockMapLogic = {

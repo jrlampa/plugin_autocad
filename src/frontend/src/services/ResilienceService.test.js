@@ -32,9 +32,9 @@ describe('ResilienceService', () => {
 
     it('propaga erro da ação em caso de falha', async () => {
       const action = vi.fn().mockRejectedValue(new Error('backend offline'));
-      await expect(
-        ResilienceService.executeWithTracing('OP_FALHA', action)
-      ).rejects.toThrow('backend offline');
+      await expect(ResilienceService.executeWithTracing('OP_FALHA', action)).rejects.toThrow(
+        'backend offline'
+      );
     });
 
     it('passa contexto de traceId para a ação', async () => {
@@ -106,7 +106,7 @@ describe('ResilienceService', () => {
       }
 
       // Simula passagem do tempo (nextAttempt no passado)
-      const { ResilienceService: rs } = await import('./ResilienceService');
+      await import('./ResilienceService');
       // Manipula nextAttempt via acesso interno ao registry
       // Como o registry é módulo-local, manipulamos pelo comportamento:
       // Mockamos Date.now para retornar um tempo futuro

@@ -20,9 +20,7 @@ describe('LoadingScreen', () => {
 
   it('exibe mensagem de inicialização em pt-BR', () => {
     render(<LoadingScreen />);
-    expect(
-      screen.getByText(/Inicializando motor de renderização/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Inicializando motor de renderização/i)).toBeInTheDocument();
   });
 
   it('exibe a versão do sistema', () => {

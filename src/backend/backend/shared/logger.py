@@ -21,18 +21,6 @@ def get_trace_id() -> str:
 def set_trace_id(tid: str):
     trace_id_ctx.set(tid)
 
-def configure_logging():
-    """Configures structlog to output JSON in production or colored keys in dev."""
-    
-    processors = [
-        structlog.contextvars.merge_contextvars,
-        structlog.processors.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-    ]
-
 # Privacy by Design: PII Sanitizer
 def sanitize_log_data(logger, method_name, event_dict):
     """

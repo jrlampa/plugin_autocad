@@ -56,7 +56,7 @@ class ElevationService:
                         if (src.bounds.left <= w and src.bounds.right >= e and
                             src.bounds.bottom <= s and src.bounds.top >= n):
                             return tif
-                except:
+                except Exception:
                     continue
         return None
 

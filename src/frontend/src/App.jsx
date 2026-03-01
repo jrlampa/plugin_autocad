@@ -243,7 +243,8 @@ export default function App() {
           onClose={() => setNormaToast(null)}
           duration={6000}
         />
-      )}{/* Note: fileToast has priority over normaToast to avoid stacking.
+      )}
+      {/* Note: fileToast has priority over normaToast to avoid stacking.
          normaToast is shown only when no file processing toast is active. */}
 
       {/* OVERLAY DE UPLOAD */}

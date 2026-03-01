@@ -132,9 +132,7 @@ describe('SettingsPanel — painel de configurações (showSettings=true)', () =
     const setEngConfig = vi.fn();
     render(<SettingsPanel {...makeProps({ showSettings: true, setEngConfig })} />);
     fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'EPSG:4326' } });
-    expect(setEngConfig).toHaveBeenCalledWith(
-      expect.objectContaining({ crs_out: 'EPSG:4326' })
-    );
+    expect(setEngConfig).toHaveBeenCalledWith(expect.objectContaining({ crs_out: 'EPSG:4326' }));
   });
 
   it('chama setShowSettings(false) ao clicar em Voltar', () => {
@@ -186,7 +184,13 @@ describe('SettingsPanel — geocoding', () => {
 describe('SettingsPanel — preview GeoJSON', () => {
   const previewGeoJson = {
     type: 'FeatureCollection',
-    features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [-42.92185, -22.15018] }, properties: {} }],
+    features: [
+      {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [-42.92185, -22.15018] },
+        properties: {},
+      },
+    ],
   };
 
   it('exibe banner preview quando previewGeoJson definido', () => {

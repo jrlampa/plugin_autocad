@@ -44,7 +44,7 @@ class IpcServer:
         try:
             with open(self.PIPE_NAME, 'r+b') as f:
                 pass
-        except:
+        except Exception:
             pass
 
     def _server_loop(self):

@@ -29,7 +29,11 @@ describe('SdkService (interface e contrato)', () => {
 
   afterEach(() => {
     if (window.chrome) {
-      try { delete window.chrome; } catch (_) { window.chrome = undefined; }
+      try {
+        delete window.chrome;
+      } catch (_) {
+        window.chrome = undefined;
+      }
     }
   });
 
@@ -37,12 +41,26 @@ describe('SdkService (interface e contrato)', () => {
 
   describe('interface', () => {
     const METODOS_ESPERADOS = [
-      'checkHealth', 'checkHealthDetailed', 'authCheck',
-      'updateProject', 'createPrepareJob', 'getJob', 'cancelJob',
-      'queryElevation', 'queryElevationProfile', 'chatWithAI',
-      'prepareOSM', 'prepareGeoJSON', 'registerWebhook', 'emitEvent',
-      'createAuditLog', 'listAuditLogs', 'getAuditLog',
-      'verifyAuditLog', 'verifyAllAuditLogs', 'getAuditStats',
+      'checkHealth',
+      'checkHealthDetailed',
+      'authCheck',
+      'updateProject',
+      'createPrepareJob',
+      'getJob',
+      'cancelJob',
+      'queryElevation',
+      'queryElevationProfile',
+      'chatWithAI',
+      'prepareOSM',
+      'prepareGeoJSON',
+      'registerWebhook',
+      'emitEvent',
+      'createAuditLog',
+      'listAuditLogs',
+      'getAuditLog',
+      'verifyAuditLog',
+      'verifyAllAuditLogs',
+      'getAuditStats',
     ];
 
     for (const metodo of METODOS_ESPERADOS) {
@@ -102,7 +120,10 @@ describe('SdkService (interface e contrato)', () => {
   describe('createPrepareJob', () => {
     it('retorna job_id e status', async () => {
       const result = await SdkService.createPrepareJob({
-        kind: 'osm', latitude: -22.15018, longitude: -42.92185, radius: 500,
+        kind: 'osm',
+        latitude: -22.15018,
+        longitude: -42.92185,
+        radius: 500,
       });
       expect(result).toHaveProperty('job_id');
       expect(result).toHaveProperty('status');
@@ -163,15 +184,9 @@ describe('SdkService (interface e contrato)', () => {
     });
 
     it('aceita os três parâmetros (lat, lon, radius)', async () => {
-      await expect(
-        SdkService.prepareOSM(-22.15018, -42.92185, 100)
-      ).resolves.not.toThrow();
-      await expect(
-        SdkService.prepareOSM(-22.15018, -42.92185, 500)
-      ).resolves.not.toThrow();
-      await expect(
-        SdkService.prepareOSM(-22.15018, -42.92185, 1000)
-      ).resolves.not.toThrow();
+      await expect(SdkService.prepareOSM(-22.15018, -42.92185, 100)).resolves.not.toThrow();
+      await expect(SdkService.prepareOSM(-22.15018, -42.92185, 500)).resolves.not.toThrow();
+      await expect(SdkService.prepareOSM(-22.15018, -42.92185, 1000)).resolves.not.toThrow();
     });
   });
 
@@ -202,7 +217,10 @@ describe('SdkService (interface e contrato)', () => {
 
   describe('createAuditLog', () => {
     it('retorna audit_id', async () => {
-      const result = await SdkService.createAuditLog({ event_type: 'CREATE', entity_type: 'Project' });
+      const result = await SdkService.createAuditLog({
+        event_type: 'CREATE',
+        entity_type: 'Project',
+      });
       expect(result).toHaveProperty('audit_id');
     });
   });

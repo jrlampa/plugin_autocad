@@ -9,7 +9,7 @@
  * Interface em pt-BR conforme requisito do projeto sisRUA.
  */
 import React from 'react';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import App from './App';
 
@@ -126,7 +126,11 @@ beforeEach(() => {
   _mockAddPoint = vi.fn();
 
   // Limpa window.chrome — pode lançar em ambientes onde a propriedade não é configurável
-  try { delete window.chrome; } catch (_e) { window.chrome = undefined; }
+  try {
+    delete window.chrome;
+  } catch (_e) {
+    window.chrome = undefined;
+  }
 
   // Reset mapLogic
   _mockMapLogic = {
@@ -311,7 +315,11 @@ describe('App — WebView message handler (linhas 140-141, 143-144)', () => {
 
   afterEach(() => {
     // Limpa window.chrome — pode lançar em ambientes onde a propriedade não é configurável
-    try { delete window.chrome; } catch (_e) { window.chrome = undefined; }
+    try {
+      delete window.chrome;
+    } catch (_e) {
+      window.chrome = undefined;
+    }
   });
 
   function emitWebView(data) {
@@ -407,9 +415,7 @@ describe('App — checkBackend setTimeout branches (linhas 85-86, 88-89)', () =>
   it('chama setTimeout(checkBackend) quando checkHealth retorna false (linhas 88-89)', async () => {
     const { api } = await import('./api');
     // Primeira chamada retorna false, segunda retorna true (para sair do loop)
-    api.checkHealth
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true);
+    api.checkHealth.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
 
     vi.useFakeTimers();
 

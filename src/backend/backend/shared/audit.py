@@ -7,6 +7,7 @@ import hashlib
 import json
 import time
 import os
+import threading
 from typing import Dict, Any, Optional
 from backend.shared.logger import get_logger
 
@@ -289,10 +290,13 @@ class AuditLogger:
 
 # Global singleton instance
 _audit_logger = None
+_audit_logger_lock = threading.Lock()
 
 def get_audit_logger() -> AuditLogger:
-    """Get global AuditLogger instance (singleton pattern)."""
+    """Get global AuditLogger instance (thread-safe singleton)."""
     global _audit_logger
     if _audit_logger is None:
-        _audit_logger = AuditLogger()
+        with _audit_logger_lock:
+            if _audit_logger is None:
+                _audit_logger = AuditLogger()
     return _audit_logger

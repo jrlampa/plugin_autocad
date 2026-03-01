@@ -69,7 +69,7 @@ vi.mock('react-leaflet', () => {
     ),
     Popup: ({ children }) => <div data-testid="popup">{children}</div>,
     useMap: () => mapMock,
-    GeoJSON: ({ data }) => <div data-testid="geojson-layer" />,
+    GeoJSON: () => <div data-testid="geojson-layer" />,
     Polyline: ({ positions }) => <div data-testid="polyline" data-len={positions.length} />,
   };
 });
@@ -141,7 +141,10 @@ describe('MapView — renderização básica', () => {
       <MapView
         {...makeProps({
           isDrawing: true,
-          drawingPoints: [[-42.92185, -22.15018], [-42.91185, -22.14018]],
+          drawingPoints: [
+            [-42.92185, -22.15018],
+            [-42.91185, -22.14018],
+          ],
         })}
       />
     );
@@ -306,10 +309,7 @@ describe('MapView — MapDropHandler (linhas 21-27, 29-30)', () => {
 
     // onSymbolDrop deve ser chamado com a latlng e o tipo de símbolo
     expect(fakeDropEvent.preventDefault).toHaveBeenCalled();
-    expect(onSymbolDrop).toHaveBeenCalledWith(
-      { lat: -22.15018, lng: -42.92185 },
-      'POSTE'
-    );
+    expect(onSymbolDrop).toHaveBeenCalledWith({ lat: -22.15018, lng: -42.92185 }, 'POSTE');
   });
 
   it('não chama onSymbolDrop quando drop não tem symbolType', () => {

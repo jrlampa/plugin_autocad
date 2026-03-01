@@ -11,12 +11,7 @@
  */
 
 const CACHE_VERSION = 'sisrua-v1';
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/vite.svg',
-];
+const STATIC_ASSETS = ['/', '/index.html', '/manifest.json', '/vite.svg'];
 
 const TILE_CACHE = 'sisrua-tiles-v1';
 const API_CACHE = 'sisrua-api-v1';
@@ -40,13 +35,15 @@ self.addEventListener('install', (event) => {
 // ─────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((k) => k !== CACHE_VERSION && k !== TILE_CACHE && k !== API_CACHE)
-          .map((k) => caches.delete(k))
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((k) => k !== CACHE_VERSION && k !== TILE_CACHE && k !== API_CACHE)
+            .map((k) => caches.delete(k))
+        )
       )
-    )
   );
   self.clients.claim();
 });
@@ -64,7 +61,12 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Tiles OSM → Stale-While-Revalidate
-  const OSM_TILE_HOSTS = ['tile.openstreetmap.org', 'a.tile.openstreetmap.org', 'b.tile.openstreetmap.org', 'c.tile.openstreetmap.org'];
+  const OSM_TILE_HOSTS = [
+    'tile.openstreetmap.org',
+    'a.tile.openstreetmap.org',
+    'b.tile.openstreetmap.org',
+    'c.tile.openstreetmap.org',
+  ];
   if (OSM_TILE_HOSTS.includes(url.hostname)) {
     event.respondWith(staleWhileRevalidate(request, TILE_CACHE));
     return;
