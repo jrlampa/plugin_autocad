@@ -1,10 +1,12 @@
 import time
 import os
+import threading
 from fastapi import Header, HTTPException, Request
 from backend.shared.config import config
 
 # Configurações de Sessão
 SESSION_TOKENS: dict[str, float] = {}
+_session_lock = threading.Lock()
 SESSION_DURATION = 3600  # 1 hora
 AUTH_HEADER_NAME = "X-SisRua-Token"
 
@@ -17,13 +19,14 @@ def _get_master_token() -> str:
 
 def is_valid_session(token: str) -> bool:
     """Verifica se um session token existe e não expirou (sliding window)."""
-    if token not in SESSION_TOKENS:
-        return False
-    if time.time() > SESSION_TOKENS[token]:
-        del SESSION_TOKENS[token]
-        return False
-    SESSION_TOKENS[token] = time.time() + SESSION_DURATION
-    return True
+    with _session_lock:
+        if token not in SESSION_TOKENS:
+            return False
+        if time.time() > SESSION_TOKENS[token]:
+            del SESSION_TOKENS[token]
+            return False
+        SESSION_TOKENS[token] = time.time() + SESSION_DURATION
+        return True
 
 
 def require_token(
