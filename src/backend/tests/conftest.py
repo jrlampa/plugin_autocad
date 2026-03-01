@@ -8,6 +8,9 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 for _cov_file in _ROOT.glob(".coverage*"):
+    # Skip .coveragerc — that is configuration, not a stale data file
+    if _cov_file.name == ".coveragerc":
+        continue
     try:
         _cov_file.unlink(missing_ok=True)
     except Exception:

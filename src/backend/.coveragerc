@@ -1,0 +1,21 @@
+[run]
+branch = false
+source = backend
+
+[report]
+omit =
+    # Windows-only IPC code — not executable on Linux/Docker/CI
+    */shared/ipc.py
+    # Legacy compatibility shims — re-exports; canonical implementations are tested
+    */core/ipc.py
+    */routes/prepare_v2.py
+    */services/geocode.py
+    # CompatLogger unreachable when structlog is installed (all environments)
+    */shared/logger.py
+
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:
+    \.\.\.
+    raise NotImplementedError
+    if __name__ == .__main__.:
