@@ -51,7 +51,6 @@ logger = get_logger(__name__)
 AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN")
 
 # --- Inicialização do Sentry (apenas se DSN configurado) ---
-# --- Inicialização do Sentry (apenas se DSN configurado) ---
 if HAS_SENTRY and config.sentry_dsn:
     try:
         sentry_sdk.init(
@@ -71,7 +70,12 @@ else:
     logger.info("sentry_not_available", reason="Library not found")
 
 from backend.infrastructure.lifecycle import start_background_tasks
-from backend.infrastructure.middleware import add_trace_header, validate_origin, add_security_headers
+from backend.infrastructure.middleware import (
+    ALLOWED_ORIGINS,
+    add_trace_header,
+    validate_origin,
+    add_security_headers,
+)
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
@@ -155,13 +159,7 @@ app.middleware("http")(add_security_headers)
 # --- CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:4173",
-    ],
+    allow_origins=sorted(ALLOWED_ORIGINS),
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
