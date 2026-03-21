@@ -1,3 +1,4 @@
+import json
 from typing import Optional, Dict, Any
 
 from backend.services.ai import Groq
@@ -44,10 +45,7 @@ class AiService:
                 from backend.application.jobs import get_job
                 job = get_job(job_id)
                 if job and job.get("result"):
-                    import json
-                    # Limit result size to avoid token overflow? For now, assume reasonable size project summary
-                    # In a real heavy RAG, we would summarize it first.
-                    res_str = json.dumps(job["result"], default=str)[:10000] 
+                    res_str = json.dumps(job["result"], default=str)[:10000]
                     system_prompt += f"\n\n--- REPORT (Ground Truth) ---\nJob ID: {job_id}\nKind: {job['kind']}\nData: {res_str}\n--- END REPORT ---\n"
                     system_prompt += "User Check: Verify the report data before answering questions about quantities or stress/traction."
             except Exception as e:
@@ -84,5 +82,5 @@ class AiService:
             )
             return chat_completion.choices[0].message.content
         except Exception as e:
-            logger.error(f"Groq API Error: {e}")
+            logger.error("groq_api_error", error=str(e))
             return "I'm having trouble connecting to my brain right now. Please try again later."
