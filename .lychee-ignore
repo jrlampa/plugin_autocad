@@ -1,0 +1,5 @@
+# Ignora o servidor de timestamp da DigiCert, pois não é uma página web padrão.
+http://timestamp.digicert.com
+
+# Ignora o link de download direto do Inno Setup, que pode ser instável para verificadores automáticos.
+https://jrsoftware.org/download.php/is.exe

@@ -1,0 +1,54 @@
+# Arquivo de configuração do git-cliff (https://git-cliff.org/docs/configuration)
+
+[changelog]
+# Cabeçalho do arquivo de changelog
+header = """
+# Changelog\n
+Todas as mudanças notáveis no projeto sisRUA serão documentadas neste arquivo.\n
+"""
+
+# Template do corpo do changelog (usando o motor de templates Tera)
+body = """
+{% if version %}\
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+    ## [Não Lançado (Unreleased)]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | upper_first }}
+    {% for commit in commits %}
+        - {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | upper_first }}\
+    {% endfor %}
+{% endfor %}\n
+"""
+
+# Rodapé do arquivo
+footer = """
+<!-- Changelog gerado automaticamente pelo git-cliff -->
+"""
+# Remover espaços em branco iniciais e finais do template
+trim = true
+
+[git]
+# Analisa as mensagens de commit de acordo com a especificação Conventional Commits
+conventional_commits = true
+# Filtra commits que não seguem o formato convencional
+filter_unconventional = true
+# Agrupa e processa os tipos de commits convencionais
+commit_parsers = [
+    { message = "^feat", group = "✨ Funcionalidades (Features)" },
+    { message = "^fix", group = "🐛 Correções de Bugs (Bug Fixes)" },
+    { message = "^doc", group = "📚 Documentação" },
+    { message = "^perf", group = "⚡ Desempenho" },
+    { message = "^refactor", group = "♻️ Refatoração" },
+    { message = "^style", group = "💄 Estilo e Formatação" },
+    { message = "^test", group = "✅ Testes" },
+    # Ignora commits do tipo chore e ci, bem como o commit de bump da versão
+    { message = "^chore\\(release\\):", skip = true },
+    { message = "^chore", skip = true },
+    { message = "^ci", skip = true },
+]
+# Protege o changelog ao processar comandos git (aplica os "skips" definidos acima)
+filter_commits = true
+# Ordena os commits dos mais recentes para os mais antigos
+sort_commits = "newest"

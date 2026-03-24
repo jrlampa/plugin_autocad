@@ -252,11 +252,17 @@ namespace sisRUA
         /// <summary>
         /// Gera ruas do OSM para a coordenada e raio indicados.
         /// </summary>
+<<<<<<< Updated upstream
         public static async Task GerarProjetoOsm(double latitude, double longitude, double radius)
+=======
+        [CommandMethod("SISRUA_SYNC", CommandFlags.Session)]
+        public static async void SisRuaSyncCommand()
+>>>>>>> Stashed changes
         {
             await SisRuaTransactionalShield.ExecuteAsync(async (doc, db, tr) =>
             {
                 var ed = doc.Editor;
+<<<<<<< Updated upstream
                 Log($"INFO: GerarProjetoOsm Lat={latitude}, Lon={longitude}, Radius={radius}.");
                 ed.WriteMessage("\n[sisRUA] Gerando ruas do OSM...");
 
@@ -302,5 +308,95 @@ namespace sisRUA
                 }
             });
         }
+=======
+                ed.WriteMessage("\n[sisRUA] Iniciando Sincronização Nuvem-Local...");
+
+                string baseUrl = GetBackendBaseUrlOrAlert(ed);
+                if (baseUrl == null) return;
+
+                // 1. Pede ao usuário o ID do projeto (numa UI real, isso poderia ser uma lista)
+                PromptStringOptions pso = new PromptStringOptions("\n[sisRUA] ID do projeto para sincronizar:") { AllowSpaces = false };
+                string projectId = ed.GetString(pso).StringResult.Trim();
+                if (string.IsNullOrEmpty(projectId)) return;
+
+                // 2. Carrega infos básicas do projeto para o payload
+                var (projectName, crsOut, _) = _projectRepository.LoadProject(projectId);
+                if (string.IsNullOrEmpty(projectName))
+                {
+                    ed.WriteMessage($"\n[ERRO] Projeto '{projectId}' não encontrado localmente.");
+                    return;
+                }
+
+                // 3. Extrai apenas os deltas (pendentes)
+                var unsyncedFeatures = _projectRepository.GetUnsyncedFeatures(projectId);
+                if (!unsyncedFeatures.Any())
+                {
+                    ed.WriteMessage($"\n[sisRUA] O projeto '{projectName}' já está 100% sincronizado com a nuvem.");
+                    return;
+                }
+
+                ed.WriteMessage($"\n[sisRUA] Encontradas {unsyncedFeatures.Count} feições pendentes. Sincronizando...");
+
+                // 4. Monta o Payload e Envia
+                var payload = new
+                {
+                    project_id = projectId,
+                    project_name = projectName,
+                    crs_out = crsOut,
+                    features = unsyncedFeatures
+                };
+
+                string jsonPayload = JsonSerializer.Serialize(payload, _jsonOptions);
+                var req = CreateAuthedJsonRequest(HttpMethod.Post, $"{baseUrl}/api/v1/sync", jsonPayload);
+
+                var response = await _httpClient.SendAsync(req);
+                if (response.IsSuccessStatusCode)
+                {
+                    // 5. Marca como sincronizado localmente se a nuvem aceitar
+                    _projectRepository.MarkAsSynced(projectId);
+                    ed.WriteMessage($"\n[sisRUA] Sucesso! {unsyncedFeatures.Count} feições enviadas para a nuvem.");
+                }
+                else if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                {
+                    ed.WriteMessage($"\n[AVISO] Conflito de versão detectado. Iniciando PULL automático (Bifurcação Espacial)...");
+                    
+                    var pullReq = CreateAuthedJsonRequest(HttpMethod.Get, $"{baseUrl}/api/v1/sync/{projectId}", null);
+                    var pullResp = await _httpClient.SendAsync(pullReq);
+                    
+                    if (pullResp.IsSuccessStatusCode)
+                    {
+                        var pullJson = await pullResp.Content.ReadAsStringAsync();
+                        var syncPayload = JsonSerializer.Deserialize<ProjectSyncPayloadDto>(pullJson, _jsonOptions);
+                        
+                        if (syncPayload?.Features != null && syncPayload.Features.Any())
+                        {
+                            using (var dlg = new ProcessingDialog())
+                            {
+                                Application.ShowModelessDialog(dlg);
+                                await Engine.DrawFeaturesAsync(syncPayload.Features, syncPayload.CrsOut ?? crsOut, dlg);
+                            }
+                            ed.WriteMessage($"\n[sisRUA] PULL concluído! {syncPayload.Features.Count} feição(ões) em conflito desenhada(s) para análise (Layer: SISRUA_CONFLITO_REVISAO).");
+                        }
+                    }
+                    else
+                    {
+                        string pullError = await pullResp.Content.ReadAsStringAsync();
+                        ed.WriteMessage($"\n[ERRO] Falha ao realizar PULL após conflito: {pullResp.StatusCode} - {pullError}");
+                    }
+                }
+                else
+                {
+                    string error = await response.Content.ReadAsStringAsync();
+                    ed.WriteMessage($"\n[ERRO] Falha ao sincronizar: {response.StatusCode} - {error}");
+                }
+            });
+        }
+
+        // --- DTOs for Backend Communication ---
+        private sealed class PrepareJobRequest { public string Kind { get; set; } public double? Latitude { get; set; } public double? Longitude { get; set; } public double? Radius { get; set; } public string GeoJson { get; set; } }
+        private sealed class JobStatusResponse { public string JobId { get; set; } public string Status { get; set; } public double Progress { get; set; } public string Message { get; set; } public JsonElement Result { get; set; } public string Error { get; set; } }
+        private sealed class PrepareResponse { public string CrsOut { get; set; } public List<CadFeatureDto> Features { get; set; } }
+        private sealed class ProjectSyncPayloadDto { [JsonPropertyName("project_id")] public string ProjectId { get; set; } [JsonPropertyName("project_name")] public string ProjectName { get; set; } [JsonPropertyName("crs_out")] public string CrsOut { get; set; } [JsonPropertyName("features")] public List<CadFeatureDto> Features { get; set; } }
+>>>>>>> Stashed changes
     }
 }

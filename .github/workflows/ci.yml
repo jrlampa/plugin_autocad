@@ -27,7 +27,23 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r src/backend/requirements-ci.txt
+<<<<<<< Updated upstream
           pip install pytest pytest-cov
+=======
+          pip install pytest pytest-cov bandit flake8 black
+          
+      - name: Check Python Code Formatting (Black)
+        run: |
+          black --check src/backend
+
+      - name: Run Python Linting (Flake8)
+        run: |
+          flake8 src/backend --max-line-length=120 --extend-ignore=E203,W503
+
+      - name: Run Bandit SAST
+        run: |
+          bandit -r src/backend -ll -ii
+>>>>>>> Stashed changes
 
       - name: Run Backend Tests
         env:

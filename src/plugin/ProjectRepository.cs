@@ -112,6 +112,9 @@ namespace sisRUA
                             elevation REAL,
                             slope REAL,
                             original_geojson_properties_json TEXT,
+                            sync_status INTEGER DEFAULT 0,
+                            last_modified TEXT,
+                            revision_version INTEGER DEFAULT 1,
                             FOREIGN KEY (project_id) REFERENCES Projects (project_id)
                         );";
                     command.ExecuteNonQuery();
@@ -196,11 +199,13 @@ namespace sisRUA
                                     INSERT INTO CadFeatureDtos (
                                         feature_id, project_id, feature_type, layer, name, highway, width_m,
                                         coords_xy_json, insertion_point_xy_json, block_name, block_filepath,
-                                        rotation, scale, color, elevation, slope, original_geojson_properties_json
+                                        rotation, scale, color, elevation, slope, original_geojson_properties_json,
+                                        sync_status, last_modified, revision_version
                                     ) VALUES (
                                         @featureId, @projectId, @featureType, @layer, @name, @highway, @widthM,
                                         @coordsXyJson, @insertionPointXyJson, @blockName, @blockFilepath,
-                                        @rotation, @scale, @color, @elevation, @slope, @originalGeoJsonPropertiesJson
+                                        @rotation, @scale, @color, @elevation, @slope, @originalGeoJsonPropertiesJson,
+                                        0, @lastModified, @revisionVersion
                                     );";
                                 command.Parameters.AddWithValue("@featureId", Guid.NewGuid().ToString());
                                 command.Parameters.AddWithValue("@projectId", projectId);
@@ -219,6 +224,8 @@ namespace sisRUA
                                 command.Parameters.AddWithValue("@elevation", feature.Elevation ?? (object)DBNull.Value);
                                 command.Parameters.AddWithValue("@slope", feature.Slope ?? (object)DBNull.Value);
                                 command.Parameters.AddWithValue("@originalGeoJsonPropertiesJson", feature.OriginalGeoJsonProperties != null ? JsonSerializer.Serialize(feature.OriginalGeoJsonProperties, _jsonOptions) : (object)DBNull.Value);
+                                command.Parameters.AddWithValue("@lastModified", DateTime.UtcNow.ToString("o"));
+                                command.Parameters.AddWithValue("@revisionVersion", 1); // Baseline para controle otimista
 
                                 command.ExecuteNonQuery();
                             }
@@ -296,7 +303,18 @@ namespace sisRUA
                         while (reader.Read())
                         {
                             CadFeatureDto feature = new CadFeatureDto();
-                            feature.FeatureType = (CadFeatureDtoType)Enum.Parse(typeof(CadFeatureDtoType), reader.GetString(reader.GetOrdinal("feature_type")));
+                            
+                            int featureTypeOrdinal = reader.GetOrdinal("feature_type");
+                            string featureTypeStr = reader.IsDBNull(featureTypeOrdinal) ? null : reader.GetString(featureTypeOrdinal);
+
+                            if (string.IsNullOrWhiteSpace(featureTypeStr) || 
+                                !Enum.TryParse<CadFeatureDtoType>(featureTypeStr, out var parsedFeatureType))
+                            {
+                                SisRuaLog.Warn($"WARN: feature_type inválido ou nulo '{featureTypeStr}' na feature do projeto '{projectId}'. Ignorando feature.");
+                                continue;
+                            }
+                            feature.FeatureType = parsedFeatureType;
+
                             feature.Layer = reader.IsDBNull(reader.GetOrdinal("layer")) ? null : reader.GetString(reader.GetOrdinal("layer"));
                             feature.Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name"));
                             feature.Highway = reader.IsDBNull(reader.GetOrdinal("highway")) ? null : reader.GetString(reader.GetOrdinal("highway"));
@@ -318,6 +336,13 @@ namespace sisRUA
 
                             string propertiesJson = reader.IsDBNull(reader.GetOrdinal("original_geojson_properties_json")) ? null : reader.GetString(reader.GetOrdinal("original_geojson_properties_json"));
                             if (propertiesJson != null) feature.OriginalGeoJsonProperties = JsonSerializer.Deserialize<Dictionary<string, object>>(propertiesJson);
+
+                            // Lendo as propriedades de sincronização
+                            int revOrdinal = reader.GetOrdinal("revision_version");
+                            if (!reader.IsDBNull(revOrdinal)) feature.RevisionVersion = reader.GetInt32(revOrdinal);
+                            
+                            int syncOrdinal = reader.GetOrdinal("sync_status");
+                            if (!reader.IsDBNull(syncOrdinal)) feature.SyncStatus = reader.GetInt32(syncOrdinal);
 
                             features.Add(feature);
                         }
@@ -366,6 +391,72 @@ namespace sisRUA
             }
             SisRuaLog.Info($"INFO: Found {projects.Count} projects.");
             return projects;
+        }
+
+        // Retorna apenas as feições que foram criadas/modificadas localmente e ainda não subiram para o backend
+        public List<CadFeatureDto> GetUnsyncedFeatures(string projectId)
+        {
+            SisRuaLog.Info($"INFO: Buscando feições não sincronizadas para o projeto '{projectId}'.");
+            List<CadFeatureDto> unsyncedFeatures = new List<CadFeatureDto>();
+
+            using (var connection = GetConnection())
+            {
+                using (var command = connection.CreateCommand())
+                {
+                    // sync_status = 0 significa "Pendente de sincronização"
+                    command.CommandText = "SELECT * FROM CadFeatureDtos WHERE project_id = @projectId AND sync_status = 0;";
+                    command.Parameters.AddWithValue("@projectId", projectId);
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            CadFeatureDto feature = new CadFeatureDto();
+                            
+                            int featureTypeOrdinal = reader.GetOrdinal("feature_type");
+                            string featureTypeStr = reader.IsDBNull(featureTypeOrdinal) ? null : reader.GetString(featureTypeOrdinal);
+                            if (string.IsNullOrWhiteSpace(featureTypeStr) || !Enum.TryParse<CadFeatureDtoType>(featureTypeStr, out var parsedFeatureType)) continue;
+                            feature.FeatureType = parsedFeatureType;
+
+                            feature.Layer = reader.IsDBNull(reader.GetOrdinal("layer")) ? null : reader.GetString(reader.GetOrdinal("layer"));
+                            feature.Name = reader.IsDBNull(reader.GetOrdinal("name")) ? null : reader.GetString(reader.GetOrdinal("name"));
+                            feature.Highway = reader.IsDBNull(reader.GetOrdinal("highway")) ? null : reader.GetString(reader.GetOrdinal("highway"));
+                            feature.WidthMeters = reader.IsDBNull(reader.GetOrdinal("width_m")) ? null : (double?)reader.GetDouble(reader.GetOrdinal("width_m"));
+                            feature.BlockName = reader.IsDBNull(reader.GetOrdinal("block_name")) ? null : reader.GetString(reader.GetOrdinal("block_name"));
+                            
+                            string coordsXyJson = reader.IsDBNull(reader.GetOrdinal("coords_xy_json")) ? null : reader.GetString(reader.GetOrdinal("coords_xy_json"));
+                            if (coordsXyJson != null) feature.CoordsXy = JsonSerializer.Deserialize<List<List<double>>>(coordsXyJson);
+
+                            // Lendo as propriedades de sincronização
+                            int revOrdinal = reader.GetOrdinal("revision_version");
+                            if (!reader.IsDBNull(revOrdinal)) feature.RevisionVersion = reader.GetInt32(revOrdinal);
+                            
+                            int syncOrdinal = reader.GetOrdinal("sync_status");
+                            if (!reader.IsDBNull(syncOrdinal)) feature.SyncStatus = reader.GetInt32(syncOrdinal);
+
+                            unsyncedFeatures.Add(feature);
+                        }
+                    }
+                }
+            }
+            return unsyncedFeatures;
+        }
+
+        // Chamado após a API FastAPI retornar 200 OK
+        public void MarkAsSynced(string projectId)
+        {
+            using (var connection = GetConnection())
+            {
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = @"
+                        UPDATE CadFeatureDtos 
+                        SET sync_status = 1 
+                        WHERE project_id = @projectId AND sync_status = 0;";
+                    command.Parameters.AddWithValue("@projectId", projectId);
+                    int updatedRows = command.ExecuteNonQuery();
+                    SisRuaLog.Info($"SYNC: {updatedRows} feições marcadas como sincronizadas no projeto '{projectId}'.");
+                }
+            }
         }
 
         private async Task NotifyBackend(string eventType, object payload)

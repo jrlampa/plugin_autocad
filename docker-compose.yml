@@ -1,6 +1,10 @@
+# docker-compose.yml
+version: '3.8'
+
 services:
   backend:
     build:
+<<<<<<< Updated upstream
       context: ./src/backend
       dockerfile: Dockerfile
     ports:
@@ -40,9 +44,26 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./src/frontend
+=======
+      context: .
       dockerfile: Dockerfile
+    container_name: sisrua_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount the source code for live-reloading during development
+      - ./src/backend:/app/src/backend
+    environment:
+      - SISRUA_AUTH_TOKEN=dev-token
+      - LOCALAPPDATA=/app/data # Map local app data inside the container
+    command: uvicorn backend.api:app --host 0.0.0.0 --port 8000 --reload
+
+  tests:
+>>>>>>> Stashed changes
+    build:
+      context: .
+      dockerfile: Dockerfile
+<<<<<<< Updated upstream
     ports:
       - "8080:8080"
     depends_on:
@@ -52,3 +73,7 @@ services:
       - VITE_API_URL=/api
       - VITE_SENTRY_DSN=${VITE_SENTRY_DSN:-}
     restart: unless-stopped
+=======
+    container_name: sisrua_tests
+    command: pytest --cov=backend --cov-report=term-missing
+>>>>>>> Stashed changes
