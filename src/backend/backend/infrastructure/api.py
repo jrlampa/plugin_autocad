@@ -47,7 +47,6 @@ from backend.shared.logger import configure_logging, get_logger
 configure_logging()
 logger = get_logger(__name__)
 
-# --- Token de autenticação (IPC) ---
 AUTH_TOKEN = os.environ.get("SISRUA_AUTH_TOKEN")
 
 # --- Inicialização do Sentry (apenas se DSN configurado) ---
@@ -67,7 +66,8 @@ if HAS_SENTRY and config.sentry_dsn:
     except Exception as e:
         logger.warning("sentry_init_failed", error=str(e))
 else:
-    logger.info("sentry_not_available", reason="Library not found")
+    reason = "DSN not configured" if HAS_SENTRY else "Library not found"
+    logger.info("sentry_not_available", reason=reason)
 
 from backend.infrastructure.lifecycle import start_background_tasks
 from backend.infrastructure.middleware import (
