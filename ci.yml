@@ -1,0 +1,227 @@
+# .github/workflows/ci.yml
+
+name: CI - Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    # O projeto tem dependências Windows (AutoCAD, InnoSetup),
+    # então rodamos os testes no ambiente mais próximo da produção.
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          # O projeto é multi-target, incluindo .NET 8
+          dotnet-version: '8.0.x'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # Habilita o cache para acelerar builds futuros
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          # Habilita o cache para acelerar builds futuros
+          cache: 'pip'
+          cache-dependency-path: src/backend/requirements-ci.txt
+
+      - name: Lint PowerShell Scripts
+        run: |
+          Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser
+          # Analisa todos os scripts .ps1 usando as configurações customizadas e falha se encontrar erros.
+          Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error -Settings PSScriptAnalyzerSettings.psd1
+        shell: pwsh
+
+      - name: Run Test Suite
+        run: pwsh -File ./run_tests.ps1
+        shell: pwsh
+
+      - name: Install Inno Setup
+        # O script build_all.ps1 precisa do Inno Setup para gerar o instalador.
+        # Este passo é executado apenas em pushes para a branch 'main' para gerar o release.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          $inno_url = "https://jrsoftware.org/download.php/is.exe"
+          $inno_installer = "is-setup.exe"
+          Invoke-WebRequest -Uri $inno_url -OutFile $inno_installer
+          Start-Process -FilePath $inno_installer -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait
+        shell: pwsh
+
+      - name: Run Full Build
+        # Este passo é executado apenas em pushes para a branch 'main' para gerar o release.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: pwsh -File ./build_all.ps1
+        shell: pwsh
+
+      - name: Upload Installer Artifact
+        # Este passo é executado apenas em pushes para a branch 'main' para gerar o release.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sisrua-installer
+          path: installer/out/sisRUA-Setup-*.exe
+
+  check-version-bump:
+    name: Check for Version Bump on PR
+    runs-on: ubuntu-latest
+    # Este job é executado em Pull Requests, a menos que o label 'skip-version-check' esteja presente.
+    if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'skip-version-check')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch all history for all branches and tags for the changed-files action
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        with:
+          files: VERSION.txt
+
+      - name: Fail if VERSION.txt was not changed
+        if: steps.changed-files.outputs.any_changed != 'true'
+        run: |
+          echo "❌ ERRO: O arquivo VERSION.txt não foi modificado neste Pull Request."
+          echo "Por favor, atualize a versão do projeto usando o script 'tools/new_version.ps1' ou manualmente."
+          exit 1
+
+  markdown-link-check:
+    name: Check Markdown Links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lychee Link Checker
+        uses: lychee-link-checker/lychee-action@v2.0.0
+        with:
+          # Analisa todos os arquivos .md e falha se encontrar links quebrados.
+          args: "--verbose --no-progress '**/*.md'"
+
+  compatibility-test:
+    name: Compatibility Test on Windows ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Não cancele outros jobs na matriz se um falhar
+      fail-fast: false
+      matrix:
+        os: [windows-2019, windows-2022]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install GDAL on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdal-dev gdal-bin
+        shell: bash
+
+      - name: Run Test Suite
+        run: pwsh -File ./run_tests.ps1
+        shell: pwsh
+
+  codeql-analysis:
+    name: CodeQL Analysis (${{ matrix.language }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Adiciona C# e JavaScript à matriz de análise do CodeQL
+        language: [ 'csharp', 'javascript' ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # Utiliza as queries de segurança estendidas
+          queries: security-extended,security-and-quality
+
+      - name: Autobuild
+        # O Autobuild tenta compilar o C# automaticamente. Para JS não faz nada.
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+  deploy-pages:
+    name: Deploy Landing Page to GitHub Pages
+    # Este job só é executado em pushes para a branch 'main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    # Permissões necessárias para o deploy no GitHub Pages
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+
+    # Configura o ambiente de deploy para o GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: landing/package-lock.json
+
+      - name: Build Landing Page
+        working-directory: ./landing
+        run: |
+          npm ci
+          npm run build
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./landing/dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

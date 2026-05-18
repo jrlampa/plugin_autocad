@@ -1,0 +1,78 @@
+# .github/workflows/release.yml
+
+name: Create and Publish Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*' # Acionado ao empurrar tags como v1.0.0, v1.2.3, etc.
+
+permissions:
+  contents: write # Permissão necessária para criar um release e fazer upload de artefatos
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Necessário para o git-cliff ler o histórico de commits
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: src/backend/requirements-ci.txt
+
+      - name: Install Inno Setup
+        run: |
+          $inno_url = "https://jrsoftware.org/download.php/is.exe"
+          $inno_installer = "is-setup.exe"
+          Invoke-WebRequest -Uri $inno_url -OutFile $inno_installer
+          Start-Process -FilePath $inno_installer -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-" -Wait
+        shell: pwsh
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install git-cliff
+        run: cargo install git-cliff
+
+      - name: Run Full Build
+        run: pwsh -File ./build_all.ps1
+        shell: pwsh
+
+      - name: Verify Digital Signatures
+        id: verify_signatures
+        run: pwsh -File ./tools/verify_signatures.ps1
+        shell: pwsh
+
+      - name: Get Project Version from File
+        id: get_version
+        run: echo "APP_VERSION=$(Get-Content -Path VERSION.txt -Raw)" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Create GitHub Release and Upload Installer
+        uses: softprops/action-gh-release@v2
+        with:
+          name: sisRUA v${{ steps.get_version.outputs.APP_VERSION }}
+          body_path: CHANGELOG.md # Usa o changelog gerado pelo git-cliff como corpo da release
+          files: installer/out/sisRUA-Setup-*.exe

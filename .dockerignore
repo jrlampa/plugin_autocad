@@ -1,9 +1,13 @@
+<<<<<<< Updated upstream
 node_modules
 __pycache__
 **/__pycache__
+=======
+>>>>>>> Stashed changes
 .git
 .gitignore
 .env
+<<<<<<< Updated upstream
 .env.*
 !.env.example
 dist
@@ -46,3 +50,29 @@ all_files.txt
 logs
 backend/logs
 backend/cache
+=======
+
+# Build artifacts
+dist/
+build/
+release/
+installer/out/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv*
+venv/
+
+# Node
+node_modules/
+
+# Test & IDE artifacts
+.pytest_cache/
+coverage.xml
+.vscode/
+.idea/
+.cursor/
+>>>>>>> Stashed changes

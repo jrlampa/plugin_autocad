@@ -28,6 +28,7 @@ cache/
 **/dist-ssr/
 **/coverage/
 bundle-stats.html
+CHANGELOG.md
 
 # ===== Bundles gerados (artefatos) =====
 dist/
