@@ -42,10 +42,7 @@ async def validate_origin(request: Request, call_next):
     referer = request.headers.get("Referer")
 
     if origin:
-        is_localhost_origin = (
-            origin.startswith("http://localhost:")
-            or origin.startswith("http://127.0.0.1:")
-        )
+        is_localhost_origin = origin.startswith(("http://localhost:", "http://127.0.0.1:"))
         if not is_localhost_origin and origin not in ALLOWED_ORIGINS:
             logger.warning("security_violation_invalid_origin", origin=origin, client=client_host)
             return Response("Forbidden: Invalid Origin", status_code=403)
