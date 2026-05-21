@@ -128,8 +128,8 @@ class TestUtilsEdgeCases:
         )
         original_coords = [[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [3.0, 3.0]]
 
-        # Patch shapely.geometry.LineString (importado localmente na função)
-        with patch("shapely.geometry.LineString") as mock_ls_class:
+        # Patch LineString no módulo utils (importado a nível de módulo)
+        with patch("backend.shared.utils.LineString") as mock_ls_class:
             mock_ls_class.side_effect = RuntimeError("LineString failed")
             result = clean_geometry([f])
 

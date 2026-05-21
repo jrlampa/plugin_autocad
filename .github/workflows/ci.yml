@@ -17,33 +17,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
           cache: "pip"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r src/backend/requirements-ci.txt
-<<<<<<< Updated upstream
           pip install pytest pytest-cov
-=======
-          pip install pytest pytest-cov bandit flake8 black
-          
-      - name: Check Python Code Formatting (Black)
-        run: |
-          black --check src/backend
-
-      - name: Run Python Linting (Flake8)
-        run: |
-          flake8 src/backend --max-line-length=120 --extend-ignore=E203,W503
-
-      - name: Run Bandit SAST
-        run: |
-          bandit -r src/backend -ll -ii
->>>>>>> Stashed changes
 
       - name: Run Backend Tests
         env:

@@ -6,6 +6,13 @@ from pathlib import Path
 from typing import Optional, Any, List, Dict
 from pydantic import BaseModel
 
+try:
+    from shapely.geometry import LineString, MultiLineString  # type: ignore
+    from shapely.ops import transform as shapely_transform  # type: ignore
+    _HAS_SHAPELY = True
+except ImportError:
+    _HAS_SHAPELY = False
+
 def cache_dir() -> Path:
     base = Path(os.environ.get("LOCALAPPDATA") or Path.home())
     d = base / "sisRUA" / "cache"
@@ -72,9 +79,9 @@ def get_color_from_elevation(z: float, z_min: float, z_max: float) -> str:
     return "1" # Red
 
 def to_linestrings(geom) -> List[Any]:
-    from shapely.geometry import LineString, MultiLineString  # type: ignore
-
     if geom is None:
+        return []
+    if not _HAS_SHAPELY:
         return []
     if isinstance(geom, LineString):
         return [geom]
@@ -83,8 +90,6 @@ def to_linestrings(geom) -> List[Any]:
     return []
 
 def project_lines_to_xy(lines: List[Any], transformer: Any) -> List[List[List[float]]]:
-    from shapely.ops import transform as shapely_transform  # type: ignore
-
     out = []
     for line in lines:
         projected = shapely_transform(transformer.transform, line)
@@ -182,8 +187,6 @@ def clean_geometry(features: List[Any], tolerance: float = 0.1) -> List[Any]:
     """
     Realiza limpeza geométrica (deduplicação e simplificação) no backend.
     """
-    from shapely.geometry import LineString # type: ignore
-    
     seen_hashes = set()
     cleaned = []
     
@@ -203,10 +206,9 @@ def clean_geometry(features: List[Any], tolerance: float = 0.1) -> List[Any]:
             try:
                 ls = LineString(f.coords_xy)
                 simplified = ls.simplify(tolerance, preserve_topology=True)
-                # Convert back to list of lists
                 f.coords_xy = [[float(x), float(y)] for x, y in simplified.coords]
             except Exception:
-                pass # Mantém original se falhar
+                pass
         
         cleaned.append(f)
         

@@ -348,7 +348,5 @@ async def management_shutdown(
         logger.warning("api_shutdown_requested_by_client")
         os.kill(os.getpid(), signal.SIGINT)
 
-    import backend.routes.enterprise as _legacy_ent
-
-    _legacy_ent.threading.Thread(target=self_terminate, daemon=True).start()
+    threading.Thread(target=self_terminate, daemon=True).start()
     return HealthResponse(status="shutting_down")

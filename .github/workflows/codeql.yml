@@ -2,10 +2,9 @@ name: "CodeQL"
 
 on:
     push:
-        branches: ["DEV", "main"]
+        branches: ["dev", "main"]
     pull_request:
-        # The branches below must be a subset of the branches above
-        branches: ["DEV"]
+        branches: ["dev", "main"]
     schedule:
         - cron: "30 1 * * 6"
 
@@ -25,20 +24,17 @@ jobs:
 
         steps:
             - name: Checkout repository
-              uses: actions/checkout@v3
+              uses: actions/checkout@v4
 
             - name: Initialize CodeQL
-              uses: github/codeql-action/init@v2
+              uses: github/codeql-action/init@v3
               with:
                   languages: ${{ matrix.language }}
-                  # If you wish to specify custom queries, you can do so here or in a config file.
-                  # By default, queries listed here will run in addition to the default queries
-                  # queries: security-extended,security-and-quality
 
             - name: Autobuild
-              uses: github/codeql-action/autobuild@v2
+              uses: github/codeql-action/autobuild@v3
 
             - name: Perform CodeQL Analysis
-              uses: github/codeql-action/analyze@v2
+              uses: github/codeql-action/analyze@v3
               with:
                   category: "/language:${{ matrix.language }}"

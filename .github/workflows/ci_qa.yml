@@ -32,6 +32,7 @@ jobs:
       - name: Run pytest (JUnit + Coverage)
         env:
           LOCALAPPDATA: /tmp/localappdata
+          SISRUA_AUTH_TOKEN: test-token
         run: |
           mkdir -p qa/out/test-reports
           mkdir -p qa/out/coverage
